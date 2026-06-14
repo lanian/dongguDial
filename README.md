@@ -21,7 +21,29 @@ python3 -m http.server 8000
 # → http://localhost:8000
 ```
 
-배포는 GitHub Pages / Cloudflare Pages / Netlify 등 정적 호스팅에 폴더째 올리면 된다.
+## 배포
+
+### GitHub Pages (자동)
+
+`.github/workflows/deploy.yml` 가 포함되어 있어 기본 브랜치에 push 하면 자동 배포된다.
+
+1. 저장소 **Settings → Pages → Build and deployment → Source** 를 **GitHub Actions** 로 설정
+2. 기본 브랜치(`main`)에 머지/푸시하면 워크플로가 실행되어 배포
+   (현재 작업 브랜치 `claude/donggudial-pwa-contacts-vda1jn` 도 트리거에 포함되어 있어, 머지 전에도 테스트 배포 가능)
+3. 배포 주소: `https://<계정>.github.io/dongguDial/`
+
+> 모든 경로가 상대 경로(`./`, `js/`, `data/`)라 `/dongguDial/` 같은 서브경로에서도 그대로 동작한다.
+
+### Cloudflare Pages / Netlify (대안)
+
+빌드 단계가 없으므로 설정이 거의 없다.
+
+| 항목 | 값 |
+|------|-----|
+| Build command | (비움) |
+| Build output / Publish directory | `/` (저장소 루트) |
+
+폴더째 올리거나 저장소를 연결하면 바로 서빙된다.
 
 ## 데이터
 

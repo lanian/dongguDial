@@ -1,0 +1,108 @@
+{
+  "version": 1,
+  "generatedAt": "2026-06-14",
+  "departments": [
+    { "id": 1, "name": "경영지원본부", "sortOrder": 10 },
+    { "id": 2, "name": "영업본부", "sortOrder": 20 },
+    { "id": 3, "name": "기술연구소", "sortOrder": 30 },
+    { "id": 4, "name": "생산본부", "sortOrder": 40 }
+  ],
+  "contacts": [
+    {
+      "id": 1, "name": "김도현", "deptId": 1, "dept": "경영지원본부", "team": "인사팀",
+      "position": "본부장", "work": "총괄", "phone": "010-1234-5601", "tel": "02-555-0101",
+      "birth": "1972-03-14", "status": "재직", "image": "",
+      "memberSortOrder": 1
+    },
+    {
+      "id": 2, "name": "이서연", "deptId": 1, "dept": "경영지원본부", "team": "인사팀",
+      "position": "팀장", "work": "채용·교육", "phone": "010-1234-5602", "tel": "02-555-0102",
+      "birth": "1985-07-22", "status": "재직", "image": "",
+      "memberSortOrder": 2
+    },
+    {
+      "id": 3, "name": "박지훈", "deptId": 1, "dept": "경영지원본부", "team": "총무팀",
+      "position": "과장", "work": "자산·계약", "phone": "010-1234-5603", "tel": "02-555-0103",
+      "birth": "1988-11-02", "status": "재직", "image": "",
+      "memberSortOrder": 3
+    },
+    {
+      "id": 4, "name": "최유진", "deptId": 1, "dept": "경영지원본부", "team": "재무팀",
+      "position": "대리", "work": "회계", "phone": "010-1234-5604", "tel": "02-555-0104",
+      "birth": "1992-05-19", "status": "휴직", "image": "",
+      "memberSortOrder": 4
+    },
+    {
+      "id": 5, "name": "정민석", "deptId": 2, "dept": "영업본부", "team": "국내영업1팀",
+      "position": "본부장", "work": "총괄", "phone": "010-1234-5605", "tel": "02-555-0201",
+      "birth": "1975-09-30", "status": "재직", "image": "",
+      "memberSortOrder": 1
+    },
+    {
+      "id": 6, "name": "강하늘", "deptId": 2, "dept": "영업본부", "team": "국내영업1팀",
+      "position": "팀장", "work": "수도권", "phone": "010-1234-5606", "tel": "02-555-0202",
+      "birth": "1986-01-08", "status": "재직", "image": "",
+      "memberSortOrder": 2
+    },
+    {
+      "id": 7, "name": "윤서준", "deptId": 2, "dept": "영업본부", "team": "국내영업2팀",
+      "position": "과장", "work": "영남권", "phone": "010-1234-5607", "tel": "051-555-0203",
+      "birth": "1990-04-25", "status": "파견", "image": "",
+      "memberSortOrder": 3
+    },
+    {
+      "id": 8, "name": "임채원", "deptId": 2, "dept": "영업본부", "team": "해외영업팀",
+      "position": "대리", "work": "동남아", "phone": "010-1234-5608", "tel": "02-555-0204",
+      "birth": "1993-12-11", "status": "재직", "image": "",
+      "memberSortOrder": 4
+    },
+    {
+      "id": 9, "name": "오세훈", "deptId": 3, "dept": "기술연구소", "team": "연구개발팀",
+      "position": "소장", "work": "R&D 총괄", "phone": "010-1234-5609", "tel": "031-555-0301",
+      "birth": "1978-06-17", "status": "재직", "image": "",
+      "memberSortOrder": 1
+    },
+    {
+      "id": 10, "name": "한지민", "deptId": 3, "dept": "기술연구소", "team": "연구개발팀",
+      "position": "수석연구원", "work": "플랫폼", "phone": "010-1234-5610", "tel": "031-555-0302",
+      "birth": "1984-02-28", "status": "재직", "image": "",
+      "memberSortOrder": 2
+    },
+    {
+      "id": 11, "name": "신동욱", "deptId": 3, "dept": "기술연구소", "team": "품질팀",
+      "position": "책임연구원", "work": "QA", "phone": "010-1234-5611", "tel": "031-555-0303",
+      "birth": "1989-08-09", "status": "교육", "image": "",
+      "memberSortOrder": 3
+    },
+    {
+      "id": 12, "name": "조아라", "deptId": 3, "dept": "기술연구소", "team": "선행기술팀",
+      "position": "연구원", "work": "AI", "phone": "010-1234-5612", "tel": "031-555-0304",
+      "birth": "1995-10-03", "status": "재직", "image": "",
+      "memberSortOrder": 4
+    },
+    {
+      "id": 13, "name": "배준호", "deptId": 4, "dept": "생산본부", "team": "생산1팀",
+      "position": "본부장", "work": "총괄", "phone": "010-1234-5613", "tel": "041-555-0401",
+      "birth": "1970-12-01", "status": "재직", "image": "",
+      "memberSortOrder": 1
+    },
+    {
+      "id": 14, "name": "송미래", "deptId": 4, "dept": "생산본부", "team": "생산1팀",
+      "position": "팀장", "work": "조립", "phone": "010-1234-5614", "tel": "041-555-0402",
+      "birth": "1987-03-21", "status": "재직", "image": "",
+      "memberSortOrder": 2
+    },
+    {
+      "id": 15, "name": "권태양", "deptId": 4, "dept": "생산본부", "team": "설비팀",
+      "position": "기장", "work": "설비보전", "phone": "010-1234-5615", "tel": "041-555-0403",
+      "birth": "1982-07-14", "status": "재직", "image": "",
+      "memberSortOrder": 3
+    },
+    {
+      "id": 16, "name": "남궁민", "deptId": 4, "dept": "생산본부", "team": "안전관리팀",
+      "position": "과장", "work": "안전·환경", "phone": "010-1234-5616", "tel": "041-555-0404",
+      "birth": "1991-09-27", "status": "재직", "image": "",
+      "memberSortOrder": 4
+    }
+  ]
+}

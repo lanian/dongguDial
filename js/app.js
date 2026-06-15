@@ -570,9 +570,6 @@
   var importContactsFile = document.getElementById("import-contacts-file");
   var FIELD_ALIASES = {
     name: ["이름", "성명", "직원명", "name"],
-    dept: ["부서", "소속", "부서명", "department"],
-    parent: ["상위부서", "상위", "상위조직", "국"],
-    team: ["팀", "팀명"],
     position: ["직책", "직위", "직급", "position"],
     work: ["담당업무", "업무", "담당", "work"],
     phone: ["휴대전화", "휴대폰", "핸드폰", "휴대", "개인전화", "연락처", "hp", "mobile", "phone"],
@@ -580,6 +577,12 @@
     birth: ["생년월일", "생일", "출생", "birth"],
     status: ["재직상태", "상태", "재직", "status"],
   };
+  // 조직 위계 열(상위 → 하위). 존재하는 열만 경로로 사용, 사람은 가장 말단(팀)에 배치
+  var HIER_ALIASES = [
+    ["상위부서", "상위조직", "상위", "국", "실", "본부"],   // 최상위(국/실/관)
+    ["부서", "부서명", "소속", "과", "department"],          // 과
+    ["팀", "팀명", "담당팀"],                                // 팀
+  ];
   function norm(s) { return (s || "").toString().trim().toLowerCase().replace(/\s+/g, ""); }
   function buildFieldMap(headers) {
     var map = {};
@@ -600,38 +603,47 @@
     var headers = Object.keys(rows[0] || {});
     var fmap = buildFieldMap(headers);
     if (!fmap.name) throw new Error("‘이름’ 열을 찾을 수 없습니다. 양식을 확인하세요.");
-    var deptCache = {}, sortCounter = 0, newDepts = 0;
+    // 위계 열(상위부서/부서/팀) 헤더 탐지
+    var hierHeaders = HIER_ALIASES.map(function (aliases) {
+      var a = aliases.map(norm);
+      return headers.find(function (hd) { return a.indexOf(norm(hd)) !== -1; }) || null;
+    });
+
+    var pathCache = {}, sortCounter = 0, newDepts = 0;
     Data.getDepartments().forEach(function (d) {
-      deptCache[d.name] = { id: d.id, level: d.level || 0 };
+      pathCache[(d.parentId || 0) + " " + d.name] = { id: d.id, level: d.level || 0 };
       if ((d.sortOrder || 0) > sortCounter) sortCounter = d.sortOrder || 0;
     });
-    function resolveDept(name, parent) {
-      name = (name || "").trim();
-      if (!name) return 0;
-      if (deptCache[name]) return deptCache[name].id;
-      var parentId = 0, level = 0;
-      parent = (parent || "").trim();
-      if (parent) {
-        if (!deptCache[parent]) resolveDept(parent, "");
-        var pinfo = deptCache[parent];
-        parentId = pinfo.id; level = (pinfo.level || 0) + 1;
-      }
-      sortCounter += 10;
-      var id = Storage.addDept({ name: name, parentId: parentId, level: level, sortOrder: sortCounter });
-      deptCache[name] = { id: id, level: level };
-      newDepts++;
-      return id;
+    // 이름 경로(top→leaf)를 부서 체인으로 생성하고 말단 부서 반환
+    function resolveDeptPath(names) {
+      var parentId = 0, level = 0, leaf = { id: 0, name: "" };
+      names.forEach(function (nm) {
+        nm = (nm || "").trim();
+        if (!nm) return;
+        var key = parentId + " " + nm;
+        var info = pathCache[key];
+        if (!info) {
+          sortCounter += 10;
+          var id = Storage.addDept({ name: nm, parentId: parentId, level: level, sortOrder: sortCounter });
+          info = { id: id, level: level };
+          pathCache[key] = info;
+          newDepts++;
+        }
+        parentId = info.id; level = info.level + 1;
+        leaf = { id: info.id, name: nm };
+      });
+      return leaf;
     }
     function v(r, f) { return fmap[f] ? (r[fmap[f]] || "").trim() : ""; }
     var added = 0, skipped = 0;
     rows.forEach(function (r) {
       var name = v(r, "name");
       if (!name) { skipped++; return; }
-      var deptName = v(r, "dept");
-      var deptId = resolveDept(deptName, v(r, "parent"));
+      var pathNames = hierHeaders.map(function (h) { return h ? (r[h] || "").trim() : ""; });
+      var leaf = resolveDeptPath(pathNames);
       Storage.addContact({
-        name: name, deptId: deptId, dept: deptName,
-        team: v(r, "team"), position: v(r, "position"), work: v(r, "work"),
+        name: name, deptId: leaf.id, dept: leaf.name, team: "",
+        position: v(r, "position"), work: v(r, "work"),
         phone: v(r, "phone"), tel: v(r, "tel"), birth: v(r, "birth"),
         status: normStatus(v(r, "status")),
       });
@@ -670,8 +682,9 @@
     reader.readAsArrayBuffer(file); // CSV/XLSX 모두 ArrayBuffer로 읽어 인코딩 자동 판별
   });
   document.getElementById("import-template-btn").addEventListener("click", function () {
-    var csv = "이름,부서,상위부서,직책,담당업무,휴대전화,사내번호,생년월일,재직상태\n" +
-      "홍길동,자치행정과,행정복지국,과장,자치행정,010-1234-5678,062-608-0000,1980-01-01,재직\n";
+    var csv = "이름,상위부서,부서,팀,직책,담당업무,휴대전화,사내번호,생년월일,재직상태\n" +
+      "홍길동,행정복지국,자치행정과,총무팀,팀장,총무,010-1234-5678,062-608-0000,1980-01-01,재직\n" +
+      "김영희,행정복지국,자치행정과,,과장,자치행정,010-2222-3333,062-608-0001,1978-05-05,재직\n";
     var blob = new Blob(["﻿" + csv], { type: "text/csv;charset=utf-8" });
     var url = URL.createObjectURL(blob);
     var a = document.createElement("a");

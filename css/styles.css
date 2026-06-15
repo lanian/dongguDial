@@ -48,7 +48,19 @@ html, body {
   color: #fff;
   padding: calc(12px + var(--safe-top)) 16px 12px;
 }
-.app-title { margin: 0 0 10px; font-size: 20px; font-weight: 700; }
+.app-bar-top {
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+  margin-bottom: 10px;
+}
+.app-title { margin: 0; font-size: 20px; font-weight: 700; }
+.icon-btn--bar {
+  width: 36px;
+  height: 36px;
+  font-size: 20px;
+  margin: -4px -6px -4px 0;
+}
 
 .search-wrap { position: relative; }
 .search-input {
@@ -286,6 +298,37 @@ html, body {
 .info-label { font-size: 12px; color: var(--on-surface-muted); }
 .info-value { font-size: 16px; word-break: break-all; }
 a.info-row .info-value { color: var(--brand); }
+
+/* ---------- Settings / Backup ---------- */
+.settings-section-title {
+  color: var(--on-surface-muted);
+  font-size: 13px;
+  font-weight: 700;
+  padding: 18px 20px 4px;
+}
+.settings-action {
+  display: flex;
+  align-items: center;
+  gap: 14px;
+  width: 100%;
+  text-align: left;
+  border: none;
+  background: var(--surface);
+  color: inherit;
+  padding: 14px 16px;
+  border-bottom: 1px solid var(--divider);
+  cursor: pointer;
+  font: inherit;
+}
+.settings-action:last-child { border-bottom: none; }
+.settings-action:active { background: var(--divider); }
+.settings-note {
+  color: var(--on-surface-muted);
+  font-size: 12px;
+  line-height: 1.5;
+  padding: 4px 20px 0;
+}
+.settings-note b { color: var(--on-surface); font-weight: 600; }
 
 /* ---------- Toast ---------- */
 .toast {

@@ -16,7 +16,10 @@
 </head>
 <body>
   <header class="app-bar">
-    <h1 class="app-title">비상연락망</h1>
+    <div class="app-bar-top">
+      <h1 class="app-title">비상연락망</h1>
+      <button id="settings-btn" class="icon-btn icon-btn--bar" aria-label="설정 및 백업">⚙</button>
+    </div>
     <div class="search-wrap">
       <input id="search-input" class="search-input" type="search"
              placeholder="이름·부서·전화번호 검색" autocomplete="off" enterkeyhint="search" />
@@ -40,6 +43,48 @@
       <button id="detail-fav" class="icon-btn" aria-label="즐겨찾기 토글">☆</button>
     </header>
     <div id="detail-body" class="detail-body"></div>
+  </section>
+
+  <!-- 설정 / 백업·복구 (오버레이) -->
+  <section id="settings" class="detail" hidden>
+    <header class="detail-bar">
+      <button id="settings-back" class="icon-btn" aria-label="뒤로">←</button>
+      <span class="detail-bar-title">설정</span>
+    </header>
+    <div class="detail-body">
+      <div class="info-card">
+        <div class="info-row">
+          <span class="info-ico">⭐</span>
+          <div class="info-text">
+            <div class="info-label">저장된 데이터</div>
+            <div class="info-value" id="settings-counts">즐겨찾기 0 · 최근 0</div>
+          </div>
+        </div>
+      </div>
+
+      <div class="settings-section-title">데이터 백업 / 복구</div>
+      <div class="info-card">
+        <button class="settings-action" id="export-btn">
+          <span class="info-ico">⬇️</span>
+          <div class="info-text">
+            <div class="info-value">백업 내보내기</div>
+            <div class="info-label">즐겨찾기·최근을 JSON 파일로 저장</div>
+          </div>
+        </button>
+        <button class="settings-action" id="import-btn">
+          <span class="info-ico">⬆️</span>
+          <div class="info-text">
+            <div class="info-value">백업 가져오기</div>
+            <div class="info-label">JSON 백업 파일에서 복구(병합)</div>
+          </div>
+        </button>
+      </div>
+      <p class="settings-note">
+        가져오기는 기존 데이터에 <b>병합</b>됩니다. 연락처 정보 자체는 앱에 포함되어 있어
+        백업 대상이 아니며, 개인 설정(즐겨찾기·최근)만 백업됩니다.
+      </p>
+    </div>
+    <input id="import-file" type="file" accept="application/json,.json" hidden />
   </section>
 
   <!-- 설치 안내 토스트 -->

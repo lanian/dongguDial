@@ -99,7 +99,9 @@
 
   // ---------- 히스토리(뒤로가기로 상세 닫기) ----------
   window.addEventListener("popstate", function (e) {
-    if (!detailEl.hidden) {
+    if (!document.getElementById("settings").hidden) {
+      closeSettings(true);
+    } else if (!detailEl.hidden) {
       closeDetail(true);
     } else if (e.state && e.state.detail) {
       var c = Data.getById(e.state.detail);
@@ -114,6 +116,77 @@
       if (c) openDetail(c);
     }
   }
+
+  // ---------- 설정 / 백업·복구 (전부 로컬 처리, 네트워크 없음) ----------
+  var settingsEl = document.getElementById("settings");
+  var settingsCounts = document.getElementById("settings-counts");
+  var importFile = document.getElementById("import-file");
+
+  function refreshCounts() {
+    var c = Storage.counts();
+    settingsCounts.textContent = "즐겨찾기 " + c.favorites + " · 최근 " + c.recent;
+  }
+
+  function openSettings() {
+    refreshCounts();
+    settingsEl.hidden = false;
+    history.pushState({ settings: true }, "", "#settings");
+  }
+  function closeSettings(fromPop) {
+    settingsEl.hidden = true;
+    if (!fromPop && location.hash === "#settings") history.back();
+  }
+
+  document.getElementById("settings-btn").addEventListener("click", openSettings);
+  document.getElementById("settings-back").addEventListener("click", function () {
+    closeSettings(false);
+  });
+
+  // 내보내기: 백업 객체를 로컬 파일로 다운로드
+  document.getElementById("export-btn").addEventListener("click", function () {
+    var data = Storage.exportData();
+    var blob = new Blob([JSON.stringify(data, null, 2)], { type: "application/json" });
+    var url = URL.createObjectURL(blob);
+    var d = new Date();
+    var stamp = d.getFullYear() +
+      String(d.getMonth() + 1).padStart(2, "0") +
+      String(d.getDate()).padStart(2, "0");
+    var a = document.createElement("a");
+    a.href = url;
+    a.download = "비상연락망-백업-" + stamp + ".json";
+    document.body.appendChild(a);
+    a.click();
+    document.body.removeChild(a);
+    setTimeout(function () {
+      URL.revokeObjectURL(url);
+    }, 1000);
+  });
+
+  // 가져오기: 로컬 파일 선택 → 파싱 → 병합 복구
+  document.getElementById("import-btn").addEventListener("click", function () {
+    importFile.value = "";
+    importFile.click();
+  });
+  importFile.addEventListener("change", function () {
+    var file = importFile.files && importFile.files[0];
+    if (!file) return;
+    var reader = new FileReader();
+    reader.onload = function () {
+      try {
+        var data = JSON.parse(String(reader.result));
+        var result = Storage.importData(data, "merge");
+        refreshCounts();
+        render();
+        window.alert("복구 완료: 즐겨찾기 " + result.favorites + ", 최근 " + result.recent);
+      } catch (e) {
+        window.alert("가져오기 실패: " + e.message);
+      }
+    };
+    reader.onerror = function () {
+      window.alert("파일을 읽지 못했습니다.");
+    };
+    reader.readAsText(file);
+  });
 
   // ---------- 부팅 ----------
   Data.load()

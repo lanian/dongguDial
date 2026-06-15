@@ -4,7 +4,7 @@
 (function () {
   "use strict";
 
-  var APP_VERSION = "28"; // SW 캐시(donggu-dial-vNN)와 함께 갱신
+  var APP_VERSION = "29"; // SW 캐시(donggu-dial-vNN)와 함께 갱신
   var listEl = document.getElementById("list");
   var resultStatus = document.getElementById("result-status");
   var searchInput = document.getElementById("search-input");
@@ -33,6 +33,8 @@
   var themeBtns = Array.prototype.slice.call(document.querySelectorAll(".theme-seg .seg-btn"));
 
   var photoViewerEl = document.getElementById("photo-viewer");
+  var deptPickerEl = document.getElementById("dept-picker");
+  var deptPickerOpts = null;
   var current = { tab: "all", query: "", detailId: null, sort: "dept", collapsed: {}, orgCollapsed: {} };
   var editId = null;
   var pendingPhoto; // undefined=변경없음, null=제거, string=새 dataURL
@@ -48,6 +50,7 @@
   // 오버레이(중첩 가능) — topmost 우선 순서. close 함수는 hoisting됨.
   function overlayList() {
     return [
+      { el: deptPickerEl, close: closeDeptPicker },
       { el: photoViewerEl, close: closePhotoViewer },
       { el: deptEditorEl, close: closeDeptEditor },
       { el: deptMgrEl, close: closeDeptMgr },
@@ -297,6 +300,63 @@
   }
   document.getElementById("photo-viewer-close").addEventListener("click", function () { closePhotoViewer(false); });
 
+  // ---------- 부서 선택 (검색 가능 오버레이) ----------
+  function deptPathLabel(id) {
+    if (!id || id === "0") return "";
+    var p = Data.deptPath(id);
+    return p.length ? p.map(function (x) { return x.name; }).join(" › ") : String(id);
+  }
+  function setPickerBtn(btnId, label) {
+    var b = document.getElementById(btnId);
+    if (!b) return;
+    var v = b.querySelector(".ef-picker-val");
+    if (v) v.textContent = label;
+  }
+  function deptDescendants(id) {
+    var set = {};
+    if (id == null) return set;
+    var byParent = {};
+    Data.getDepartments().forEach(function (d) { (byParent[d.parentId || 0] = byParent[d.parentId || 0] || []).push(d.id); });
+    (function rec(pid) { (byParent[pid] || []).forEach(function (cid) { if (!set[cid]) { set[cid] = true; rec(cid); } }); })(id);
+    return set;
+  }
+  function renderDeptPickerList(q) {
+    UI.renderDeptPicker(document.getElementById("dept-picker-list"), {
+      departments: Data.getDepartments(),
+      query: q,
+      currentId: deptPickerOpts.currentId,
+      exclude: deptPickerOpts.exclude,
+      allowNone: deptPickerOpts.allowNone,
+      noneLabel: deptPickerOpts.noneLabel,
+      onPick: function (id, path) { deptPickerOpts.onPick(id, path); closeDeptPicker(false); },
+    });
+  }
+  function openDeptPicker(opts) {
+    deptPickerOpts = opts;
+    document.getElementById("dept-picker-title").textContent = opts.title || "부서 선택";
+    var s = document.getElementById("dept-picker-search");
+    s.value = "";
+    renderDeptPickerList("");
+    pushFocus();
+    deptPickerEl.hidden = false;
+    syncInert(); updateFab();
+    document.getElementById("dept-picker-list").scrollTop = 0;
+    s.focus();
+    history.pushState({ deptpick: true }, "", "#dept-pick");
+  }
+  function closeDeptPicker(fromPop) {
+    deptPickerEl.hidden = true;
+    syncInert(); updateFab(); popFocus();
+    if (!fromPop && location.hash === "#dept-pick") history.back();
+  }
+  document.getElementById("dept-picker-back").addEventListener("click", function () { closeDeptPicker(false); });
+  var deptPickSearchTimer;
+  document.getElementById("dept-picker-search").addEventListener("input", function () {
+    var v = this.value;
+    clearTimeout(deptPickSearchTimer);
+    deptPickSearchTimer = setTimeout(function () { renderDeptPickerList(v); }, 120);
+  });
+
   // 파일 → 256px 정사각 JPEG dataURL(중앙 크롭, 압축)
   function fileToAvatar(file) {
     return new Promise(function (res, rej) {
@@ -539,6 +599,16 @@
     UI.renderEditForm(editorBody, contact || { deptId: depts[0] && depts[0].id }, depts);
     pendingPhoto = undefined;
     setupPhotoControls(contact || {});
+    document.getElementById("ef-dept-btn").addEventListener("click", function () {
+      openDeptPicker({
+        title: "부서 선택", allowNone: true, noneLabel: "(미지정)",
+        currentId: val("ef-dept") || "0",
+        onPick: function (id) {
+          document.getElementById("ef-dept").value = id ? String(id) : "0";
+          setPickerBtn("ef-dept-btn", id ? deptPathLabel(id) : "(미지정)");
+        },
+      });
+    });
     document.getElementById("editor-delete").style.display = contact ? "" : "none";
     pushFocus();
     editorEl.hidden = false;
@@ -654,6 +724,18 @@
     document.getElementById("dept-editor-bar-title").textContent = dept ? "부서 편집" : "부서 추가";
     var formDept = dept || (presetParentId != null ? { parentId: presetParentId } : {});
     UI.renderDeptForm(deptEditorBody, formDept, Data.getDepartments());
+    document.getElementById("df-parent-btn").addEventListener("click", function () {
+      var excl = deptEditId != null ? deptDescendants(deptEditId) : {};
+      if (deptEditId != null) excl[deptEditId] = true;
+      openDeptPicker({
+        title: "상위 부서 선택", allowNone: true, noneLabel: "최상위 (국·실·관)",
+        currentId: val("df-parent") || "0", exclude: excl,
+        onPick: function (id) {
+          document.getElementById("df-parent").value = id ? String(id) : "0";
+          setPickerBtn("df-parent-btn", id ? deptPathLabel(id) : "최상위 (국·실·관)");
+        },
+      });
+    });
     document.getElementById("dept-editor-delete").style.display = dept ? "" : "none";
     pushFocus(); deptEditorEl.hidden = false; syncInert(); updateFab();
     deptEditorBody.scrollTop = 0;

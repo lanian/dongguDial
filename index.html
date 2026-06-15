@@ -156,6 +156,23 @@
     </div>
   </section>
 
+  <!-- 부서 선택 (검색 가능, 오버레이) -->
+  <section id="dept-picker" class="detail" role="dialog" aria-modal="true"
+           aria-labelledby="dept-picker-title" hidden>
+    <header class="detail-bar">
+      <button id="dept-picker-back" class="icon-btn" aria-label="뒤로">
+        <svg class="ic" aria-hidden="true"><use href="#ic-back"/></svg>
+      </button>
+      <span class="detail-bar-title" id="dept-picker-title">부서 선택</span>
+    </header>
+    <div class="dept-picker-search-wrap">
+      <svg class="ic dept-picker-search-ico" aria-hidden="true"><use href="#ic-search"/></svg>
+      <input id="dept-picker-search" type="search" class="dept-picker-search"
+             placeholder="부서 검색" aria-label="부서 검색" autocomplete="off" />
+    </div>
+    <div id="dept-picker-list" class="detail-body"></div>
+  </section>
+
   <!-- 사진 크게 보기 (오버레이) -->
   <section id="photo-viewer" class="photo-viewer" role="dialog" aria-modal="true" aria-label="사진 보기" hidden>
     <button id="photo-viewer-close" class="icon-btn photo-viewer-close" aria-label="닫기">

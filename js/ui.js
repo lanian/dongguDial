@@ -367,15 +367,9 @@
 
       form.appendChild(field("이름", textInput("ef-name", contact.name, "홍길동")));
 
-      var deptSel = el("select", "ef-input");
-      deptSel.id = "ef-dept";
-      departments.forEach(function (d) {
-        var o = el("option", null, d.name);
-        o.value = String(d.id);
-        if (contact.deptId === d.id) o.selected = true;
-        deptSel.appendChild(o);
-      });
-      form.appendChild(field("부서", deptSel));
+      form.appendChild(pickerField("부서", "ef-dept-btn", "ef-dept",
+        (contact.deptId != null ? String(contact.deptId) : "0"),
+        deptLabel(contact.deptId, "(미지정)")));
 
       form.appendChild(field("직책", textInput("ef-position", contact.position, "팀장")));
       form.appendChild(field("담당업무", textInput("ef-work", contact.work, "채용")));
@@ -450,25 +444,31 @@
       var form = el("div", "edit-form");
       form.appendChild(field("부서명", textInput("df-name", dept.name, "예: 행정복지국 / 자치행정과 / 총무팀")));
 
-      var sel = el("select", "ef-input");
-      sel.id = "df-parent";
-      var top = el("option", null, "최상위 (국·실·관)");
-      top.value = "0";
-      if (!dept.parentId) top.selected = true;
-      sel.appendChild(top);
-      var blocked = descendantsOf(dept.id, departments);
-      if (dept.id) blocked[dept.id] = true; // 자기 자신은 상위로 선택 불가
-      departments.forEach(function (d) {
-        if (blocked[d.id]) return;
-        var o = el("option", null, "　".repeat(Data.depthOf(d.id)) + d.name);
-        o.value = String(d.id);
-        if (String(dept.parentId || 0) === String(d.id)) o.selected = true;
-        sel.appendChild(o);
-      });
-      form.appendChild(field("상위 부서", sel));
+      form.appendChild(pickerField("상위 부서", "df-parent-btn", "df-parent",
+        String(dept.parentId || 0),
+        dept.parentId ? deptLabel(dept.parentId) : "최상위 (국·실·관)"));
       container.appendChild(form);
       var note = el("p", "settings-note", "순서(직제)는 부서 관리 목록에서 ▲▼ 버튼으로 조정합니다.");
       container.appendChild(note);
+    },
+
+    /** 부서 선택 목록(검색·트리). opts: departments,query,currentId,exclude,allowNone,noneLabel,onPick */
+    renderDeptPicker: function (container, opts) {
+      container.textContent = "";
+      var q = (opts.query || "").trim().toLowerCase();
+      var card = el("div", "info-card");
+      if (opts.allowNone && !q) {
+        card.appendChild(pickRow(opts.noneLabel || "(미지정)", null, opts, 0));
+      }
+      (opts.departments || []).forEach(function (d) {
+        if (opts.exclude && opts.exclude[d.id]) return;
+        var path = (window.Data && Data.deptPath) ? Data.deptPath(d.id) : [{ name: d.name }];
+        var hay = path.map(function (x) { return x.name; }).join(" ").toLowerCase();
+        if (q && hay.indexOf(q) === -1) return;
+        card.appendChild(pickRow(d.name, path, opts, d.id));
+      });
+      if (!card.childNodes.length) container.appendChild(UI.emptyState("일치하는 부서가 없습니다."));
+      else container.appendChild(card);
     },
 
     renderSkeleton: function (container, n) {
@@ -650,6 +650,25 @@
     card.appendChild(row);
   }
 
+  function pickRow(name, path, opts, id) {
+    var row = el("button", "picker-row");
+    row.type = "button";
+    var depth = (path && path.length > 1 && window.Data && Data.depthOf) ? Data.depthOf(id) : 0;
+    row.style.paddingLeft = (16 + depth * 16) + "px";
+    var main = el("div", "info-text");
+    if (path && path.length > 1) {
+      main.appendChild(el("div", "info-label",
+        path.slice(0, -1).map(function (x) { return x.name; }).join(" › ")));
+    }
+    main.appendChild(el("div", "info-value", name));
+    row.appendChild(main);
+    if (String(opts.currentId == null ? 0 : opts.currentId) === String(id)) {
+      row.appendChild(el("span", "picker-check", "✓"));
+    }
+    row.addEventListener("click", function () { opts.onPick(id, path); });
+    return row;
+  }
+
   function moveBtn(dir, disabled, fn) {
     var b = el("button", "mini-btn mini-btn--ghost deptmgr-move");
     b.type = "button";
@@ -678,6 +697,28 @@
     var wrap = el("label", "ef-field");
     wrap.appendChild(el("span", "ef-label", label));
     wrap.appendChild(input);
+    return wrap;
+  }
+  /** 부서 경로 라벨 (국 › 과 › 팀) */
+  function deptLabel(id, fallback) {
+    if (id == null || id === 0 || id === "0" || id === "") return fallback || "(미지정)";
+    if (window.Data && Data.deptPath) {
+      var p = Data.deptPath(id);
+      if (p.length) return p.map(function (x) { return x.name; }).join(" › ");
+    }
+    return String(id);
+  }
+  /** select 대체: 값 표시 버튼 + hidden input (app이 picker로 채움) */
+  function pickerField(labelText, btnId, hiddenId, hiddenVal, btnText) {
+    var wrap = el("div", "ef-field");
+    wrap.appendChild(el("span", "ef-label", labelText));
+    var btn = el("button", "ef-picker-btn");
+    btn.id = btnId; btn.type = "button";
+    btn.appendChild(el("span", "ef-picker-val", btnText));
+    btn.appendChild(icon("chevron", "ef-picker-chev"));
+    wrap.appendChild(btn);
+    var h = el("input"); h.type = "hidden"; h.id = hiddenId; h.value = hiddenVal;
+    wrap.appendChild(h);
     return wrap;
   }
   function textInput(id, value, ph, type) {

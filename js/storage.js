@@ -34,6 +34,45 @@
     try { localStorage.setItem(key, JSON.stringify(value)); } catch (e) {}
   }
 
+  /** 연락처/부서 공통 오버레이 스토어(편집=edits 오버레이, 추가=custom 배열) */
+  function overlayStore(editsKey, customKey, idPrefix) {
+    return {
+      getEdits: function () { return read(editsKey, {}); },
+      getCustom: function () { return read(customKey, []); },
+      isCustom: function (id) { return read(customKey, []).some(function (x) { return x.id === id; }); },
+      save: function (id, fields) {
+        var customs = read(customKey, []);
+        var i = customs.findIndex(function (x) { return x.id === id; });
+        if (i !== -1) {
+          customs[i] = Object.assign({}, customs[i], fields, { id: id });
+          write(customKey, customs);
+        } else {
+          var e = read(editsKey, {});
+          e[id] = Object.assign({}, e[id], fields);
+          write(editsKey, e);
+        }
+      },
+      add: function (fields) {
+        var customs = read(customKey, []);
+        var id = uid(idPrefix);
+        customs.push(Object.assign({ id: id }, fields));
+        write(customKey, customs);
+        return id;
+      },
+      remove: function (id) {
+        var customs = read(customKey, []);
+        var n = customs.filter(function (x) { return x.id !== id; });
+        if (n.length !== customs.length) { write(customKey, n); return; }
+        var e = read(editsKey, {});
+        e[id] = { __deleted: true };
+        write(editsKey, e);
+      },
+      clear: function () { write(editsKey, {}); write(customKey, []); },
+    };
+  }
+  var contactStore = overlayStore(EDITS_KEY, CUSTOM_KEY, "u");
+  var deptStore = overlayStore(DEPT_EDITS_KEY, DEPT_CUSTOM_KEY, "d");
+
   var Storage = {
     // ---------- 즐겨찾기 ----------
     getFavorites: function () { return read(FAV_KEY, []); },
@@ -59,94 +98,29 @@
     getTheme: function () { return read(THEME_KEY, "system"); },
     setTheme: function (t) { write(THEME_KEY, t); },
 
-    // ---------- 편집 / 추가 (로컬) ----------
-    getEdits: function () { return read(EDITS_KEY, {}); },
-    getCustom: function () { return read(CUSTOM_KEY, []); },
-
-    isCustom: function (id) {
-      return read(CUSTOM_KEY, []).some(function (c) { return c.id === id; });
-    },
-
-    /** 연락처 저장: 커스텀이면 객체 갱신, 기본이면 오버레이 저장 */
-    saveContact: function (id, fields) {
-      var customs = read(CUSTOM_KEY, []);
-      var i = customs.findIndex(function (c) { return c.id === id; });
-      if (i !== -1) {
-        customs[i] = Object.assign({}, customs[i], fields, { id: id });
-        write(CUSTOM_KEY, customs);
-      } else {
-        var edits = read(EDITS_KEY, {});
-        edits[id] = Object.assign({}, edits[id], fields);
-        write(EDITS_KEY, edits);
-      }
-    },
-
-    /** 새 연락처 추가 → 부여된 id 반환 */
-    addContact: function (fields) {
-      var customs = read(CUSTOM_KEY, []);
-      var id = uid("u");
-      customs.push(Object.assign({ id: id }, fields));
-      write(CUSTOM_KEY, customs);
-      return id;
-    },
-
-    /** 삭제: 커스텀은 제거, 기본은 __deleted 표시 */
+    // ---------- 연락처 편집 / 추가 (공통 스토어 위임) ----------
+    getEdits: function () { return contactStore.getEdits(); },
+    getCustom: function () { return contactStore.getCustom(); },
+    isCustom: function (id) { return contactStore.isCustom(id); },
+    saveContact: function (id, fields) { contactStore.save(id, fields); },
+    addContact: function (fields) { return contactStore.add(fields); },
     deleteContact: function (id) {
-      var customs = read(CUSTOM_KEY, []);
-      var n = customs.filter(function (c) { return c.id !== id; });
-      if (n.length !== customs.length) {
-        write(CUSTOM_KEY, n);
-      } else {
-        var edits = read(EDITS_KEY, {});
-        edits[id] = { __deleted: true };
-        write(EDITS_KEY, edits);
-      }
-      var favs = read(FAV_KEY, []).filter(function (x) { return x !== id; });
-      write(FAV_KEY, favs);
+      contactStore.remove(id);
+      write(FAV_KEY, read(FAV_KEY, []).filter(function (x) { return x !== id; }));
     },
-
-    /** 한 연락처의 편집 되돌리기(기본 연락처만) */
     resetContact: function (id) {
       var edits = read(EDITS_KEY, {});
       if (edits[id]) { delete edits[id]; write(EDITS_KEY, edits); }
     },
+    isEdited: function (id) { return !!read(EDITS_KEY, {})[id]; },
 
-    // ---------- 부서 편집 / 추가 (로컬) ----------
-    getDeptEdits: function () { return read(DEPT_EDITS_KEY, {}); },
-    getDeptCustom: function () { return read(DEPT_CUSTOM_KEY, []); },
-    isCustomDept: function (id) {
-      return read(DEPT_CUSTOM_KEY, []).some(function (d) { return d.id === id; });
-    },
-    saveDept: function (id, fields) {
-      var customs = read(DEPT_CUSTOM_KEY, []);
-      var i = customs.findIndex(function (d) { return d.id === id; });
-      if (i !== -1) {
-        customs[i] = Object.assign({}, customs[i], fields, { id: id });
-        write(DEPT_CUSTOM_KEY, customs);
-      } else {
-        var edits = read(DEPT_EDITS_KEY, {});
-        edits[id] = Object.assign({}, edits[id], fields);
-        write(DEPT_EDITS_KEY, edits);
-      }
-    },
-    addDept: function (fields) {
-      var customs = read(DEPT_CUSTOM_KEY, []);
-      var id = uid("d");
-      customs.push(Object.assign({ id: id }, fields));
-      write(DEPT_CUSTOM_KEY, customs);
-      return id;
-    },
-    deleteDept: function (id) {
-      var customs = read(DEPT_CUSTOM_KEY, []);
-      var n = customs.filter(function (d) { return d.id !== id; });
-      if (n.length !== customs.length) {
-        write(DEPT_CUSTOM_KEY, n);
-      } else {
-        var edits = read(DEPT_EDITS_KEY, {});
-        edits[id] = { __deleted: true };
-        write(DEPT_EDITS_KEY, edits);
-      }
-    },
+    // ---------- 부서 편집 / 추가 (공통 스토어 위임) ----------
+    getDeptEdits: function () { return deptStore.getEdits(); },
+    getDeptCustom: function () { return deptStore.getCustom(); },
+    isCustomDept: function (id) { return deptStore.isCustom(id); },
+    saveDept: function (id, fields) { deptStore.save(id, fields); },
+    addDept: function (fields) { return deptStore.add(fields); },
+    deleteDept: function (id) { deptStore.remove(id); },
 
     /** 번들 기본(샘플) 데이터 숨김 여부 — 전체 명부를 가져온 파일로 대체할 때 사용 */
     getBaseHidden: function () { return read(BASE_HIDDEN_KEY, false) === true; },
@@ -154,16 +128,9 @@
 
     /** 모든 편집/추가 초기화 (연락처 + 부서, 기본 데이터 다시 표시) */
     resetAllEdits: function () {
-      write(EDITS_KEY, {});
-      write(CUSTOM_KEY, []);
-      write(DEPT_EDITS_KEY, {});
-      write(DEPT_CUSTOM_KEY, []);
+      contactStore.clear();
+      deptStore.clear();
       write(BASE_HIDDEN_KEY, false);
-    },
-
-    isEdited: function (id) {
-      var edits = read(EDITS_KEY, {});
-      return !!edits[id];
     },
 
     // ---------- 백업 / 복구 ----------

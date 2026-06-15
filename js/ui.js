@@ -218,6 +218,31 @@
     return r;
   }
 
+  /** 조직 트리 노드 1개를 재귀 렌더 (depth 0 = 부서, 1+ = 과/팀…) */
+  function orgNode(node, depth, opts) {
+    var collapsed = !!(opts.collapsed && opts.collapsed[node.dept.id]);
+    var top = depth === 0;
+    var wrap = el("div", "org-node" + (top ? "" : " org-sub"));
+    var header = el("button", top ? "section-header section-toggle org-dept" : "org-team-header");
+    header.type = "button";
+    header.id = "org-" + node.dept.id;
+    header.setAttribute("aria-expanded", collapsed ? "false" : "true");
+    header.appendChild(icon("chevron", "section-chevron"));
+    header.appendChild(el("span", "org-dept-name", node.dept.name));
+    var lead = node.members.filter(isLead)[0];
+    if (lead) header.appendChild(el("span", "org-lead", lead.name + " " + lead.position));
+    header.appendChild(el("span", "org-badge" + (top ? "" : " org-badge--sm"), String(node.count)));
+    header.addEventListener("click", function () { if (opts.onToggle) opts.onToggle(node.dept.id); });
+    wrap.appendChild(header);
+    if (!collapsed) {
+      var body = el("div", "org-body");
+      node.members.forEach(function (c) { body.appendChild(orgRow(c, opts)); });
+      node.children.forEach(function (ch) { body.appendChild(orgNode(ch, depth + 1, opts)); });
+      wrap.appendChild(body);
+    }
+    return wrap;
+  }
+
   var UI = {
     avatarColor: avatarColor,
     icon: icon,
@@ -283,7 +308,7 @@
       container.appendChild(frag);
     },
 
-    /** 조직도(트리): 부서(국/실/관) → 팀(과) → 인원. 2단 접기 + 리더 강조.
+    /** 조직도(재귀 트리): 부서 → 과 → 팀 … 임의 깊이. 각 레벨 접기 + 리더 강조.
      *  opts: onOpen,onFav,collapsed,onToggle */
     renderOrgView: function (container, tree, opts) {
       container.textContent = "";
@@ -297,50 +322,7 @@
       container.appendChild(summary);
 
       var frag = document.createDocumentFragment();
-      tree.forEach(function (node) {
-        var collapsed = !!(opts.collapsed && opts.collapsed[node.dept.id]);
-        var wrap = el("div", "org-node");
-
-        var header = el("button", "section-header section-toggle org-dept");
-        header.type = "button";
-        header.id = "org-" + node.dept.id;
-        header.setAttribute("aria-expanded", collapsed ? "false" : "true");
-        header.appendChild(icon("chevron", "section-chevron"));
-        header.appendChild(el("span", "org-dept-name", node.dept.name));
-        var lead = node.directMembers.filter(isLead)[0];
-        if (lead) header.appendChild(el("span", "org-lead", lead.name + " " + lead.position));
-        header.appendChild(el("span", "org-badge", String(node.count)));
-        header.addEventListener("click", function () { if (opts.onToggle) opts.onToggle(node.dept.id); });
-        wrap.appendChild(header);
-
-        if (!collapsed) {
-          var body = el("div", "org-dept-body");
-          node.directMembers.forEach(function (c) { body.appendChild(orgRow(c, opts)); });
-          node.children.forEach(function (ch) {
-            var tCollapsed = !!(opts.collapsed && opts.collapsed[ch.dept.id]);
-            var block = el("div", "org-team-block");
-            var th = el("button", "org-team-header");
-            th.type = "button";
-            th.id = "org-" + ch.dept.id;
-            th.setAttribute("aria-expanded", tCollapsed ? "false" : "true");
-            th.appendChild(icon("chevron", "section-chevron"));
-            th.appendChild(el("span", "org-team-name", ch.dept.name));
-            var tLead = ch.members.filter(isLead)[0];
-            if (tLead) th.appendChild(el("span", "org-lead", tLead.name + " " + tLead.position));
-            th.appendChild(el("span", "org-badge org-badge--sm", String(ch.members.length)));
-            th.addEventListener("click", function () { if (opts.onToggle) opts.onToggle(ch.dept.id); });
-            block.appendChild(th);
-            if (!tCollapsed) {
-              var tbody = el("div", "org-team-body");
-              ch.members.forEach(function (c) { tbody.appendChild(orgRow(c, opts)); });
-              block.appendChild(tbody);
-            }
-            body.appendChild(block);
-          });
-          wrap.appendChild(body);
-        }
-        frag.appendChild(wrap);
-      });
+      tree.forEach(function (n) { frag.appendChild(orgNode(n, 0, opts)); });
       container.appendChild(frag);
     },
 

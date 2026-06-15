@@ -127,7 +127,7 @@
       return groups;
     },
 
-    /** 조직도: 직제순 국(상위) → 과(하위) → 인원 트리 */
+    /** 조직도: parentId 기반 재귀 트리(국→과→팀, 실/관→팀 등 임의 깊이) */
     groupedByOrg: function () {
       function membersOf(id) {
         return state.contacts
@@ -135,22 +135,24 @@
           .sort(function (a, b) { return (a.memberSortOrder || 0) - (b.memberSortOrder || 0); });
       }
       var depts = state.departments; // sortOrder(직제) 정렬됨
-      var tops = depts.filter(function (d) { return !d.parentId; });
-      var out = [];
-      tops.forEach(function (top) {
-        var direct = membersOf(top.id);
+      function buildNode(dept) {
+        var members = membersOf(dept.id);
         var children = depts
-          .filter(function (d) { return d.parentId === top.id; })
-          .map(function (ch) { return { dept: ch, members: membersOf(ch.id) }; })
-          .filter(function (c) { return c.members.length; });
-        var count = direct.length + children.reduce(function (a, c) { return a + c.members.length; }, 0);
-        if (count) out.push({ dept: top, directMembers: direct, children: children, count: count });
-      });
+          .filter(function (d) { return d.parentId === dept.id; })
+          .map(buildNode)
+          .filter(function (n) { return n.count > 0; });
+        var count = members.length + children.reduce(function (a, n) { return a + n.count; }, 0);
+        return { dept: dept, members: members, children: children, count: count };
+      }
+      var roots = depts
+        .filter(function (d) { return !d.parentId; })
+        .map(buildNode)
+        .filter(function (n) { return n.count > 0; });
       var orphan = state.contacts.filter(function (c) { return !state.deptById[c.deptId]; });
       if (orphan.length) {
-        out.push({ dept: { id: 0, name: "기타" }, directMembers: orphan, children: [], count: orphan.length });
+        roots.push({ dept: { id: 0, name: "기타" }, members: orphan, children: [], count: orphan.length });
       }
-      return out;
+      return roots;
     },
 
     /** 가나다(초성) 인덱스 순서 */

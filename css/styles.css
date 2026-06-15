@@ -646,9 +646,12 @@ a.info-row .info-value { color: var(--brand-link); }
 }
 .org-badge--sm { background: var(--divider); color: var(--on-surface-muted); }
 
-.org-dept-body { background: var(--surface); }
-.org-team-block {
-  margin-left: var(--sp-5);
+.org-dept .org-dept-name { font-weight: var(--fw-bold); }
+.org-body { background: var(--surface); }
+
+/* 하위(과/팀…) 노드: 좌측 트리 라인 + 들여쓰기 (깊이마다 중첩되어 누적) */
+.org-sub {
+  margin-left: var(--sp-4);
   border-left: 2px solid var(--divider);
 }
 .org-team-header {
@@ -666,10 +669,11 @@ a.info-row .info-value { color: var(--brand-link); }
   cursor: pointer;
   border-bottom: 1px solid var(--divider);
 }
+.org-team-header .org-dept-name { font-weight: var(--fw-med); }
 .org-team-header:active { background: var(--divider); }
 .org-team-header .section-chevron { width: 0.9em; height: 0.9em; }
-.org-team-block .row { padding-left: 14px; }
-.org-team-block .row:last-child { border-bottom: none; }
+.org-sub .row { padding-left: 14px; }
+.org-sub .row:last-child { border-bottom: none; }
 .row--lead { box-shadow: inset 3px 0 0 var(--brand); }
 .row--lead .row-name { font-weight: var(--fw-bold); }
 

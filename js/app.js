@@ -651,7 +651,14 @@
     });
     return { added: added, skipped: skipped, newDepts: newDepts };
   }
+  var importMode = "append"; // "append" | "replace"
   document.getElementById("import-contacts-btn").addEventListener("click", function () {
+    importMode = "append";
+    importContactsFile.value = "";
+    importContactsFile.click();
+  });
+  document.getElementById("import-replace-btn").addEventListener("click", function () {
+    importMode = "replace";
     importContactsFile.value = "";
     importContactsFile.click();
   });
@@ -669,12 +676,17 @@
       } catch (e) { window.alert("가져오기 실패: " + e.message); return; }
       parse.then(function (rows) {
         if (!rows || !rows.length) { window.alert("가져올 행이 없습니다."); return; }
-        if (!window.confirm(rows.length + "건을 가져옵니다. 기존 데이터에 추가됩니다. 계속할까요?")) return;
+        var msg = importMode === "replace"
+          ? "초기화 후 가져오기: 편집·추가·가져온 연락처와 부서를 모두 삭제하고 " + rows.length + "건으로 대체합니다. 계속할까요?"
+          : rows.length + "건을 가져옵니다. 기존 데이터에 추가됩니다. 계속할까요?";
+        if (!window.confirm(msg)) return;
+        if (importMode === "replace") { Storage.resetAllEdits(); Data.rebuild(); }
         var res;
         try { res = applyContactImport(rows); }
         catch (e) { window.alert("가져오기 실패: " + e.message); return; }
         Data.rebuild(); render(); refreshCounts();
-        showSnack("가져오기 완료: " + res.added + "명" + (res.newDepts ? " · 신규 부서 " + res.newDepts + "개" : ""));
+        showSnack((importMode === "replace" ? "대체 완료: " : "가져오기 완료: ") +
+          res.added + "명" + (res.newDepts ? " · 신규 부서 " + res.newDepts + "개" : ""));
         if (res.skipped) window.alert("이름이 없어 건너뛴 행: " + res.skipped + "건");
       }).catch(function (e) { window.alert("가져오기 실패: " + e.message); });
     };

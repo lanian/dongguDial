@@ -4,6 +4,7 @@
 (function () {
   "use strict";
 
+  var APP_VERSION = "22"; // SW 캐시(donggu-dial-vNN)와 함께 갱신
   var listEl = document.getElementById("list");
   var resultStatus = document.getElementById("result-status");
   var searchInput = document.getElementById("search-input");
@@ -368,6 +369,7 @@
   }
   function openSettings() {
     refreshCounts();
+    document.getElementById("settings-version").textContent = "v" + APP_VERSION;
     pushFocus();
     settingsEl.hidden = false;
     syncInert();
@@ -384,6 +386,17 @@
   }
 
   document.getElementById("settings-btn").addEventListener("click", openSettings);
+  document.getElementById("update-check-btn").addEventListener("click", function () {
+    if (!("serviceWorker" in navigator)) { showSnack("이 브라우저는 업데이트 확인을 지원하지 않습니다"); return; }
+    showSnack("업데이트 확인 중…");
+    navigator.serviceWorker.getRegistration().then(function (reg) {
+      if (!reg) { showSnack("최신 버전입니다 (v" + APP_VERSION + ")"); return; }
+      return reg.update().then(function () {
+        if (reg.waiting) { showUpdateToast(reg); showSnack("새 버전이 있습니다 — 새로고침하세요"); }
+        else showSnack("최신 버전입니다 (v" + APP_VERSION + ")");
+      });
+    }).catch(function () { showSnack("업데이트 확인 실패"); });
+  });
   document.getElementById("settings-back").addEventListener("click", function () {
     closeSettings(false);
   });

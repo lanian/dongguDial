@@ -35,6 +35,26 @@
     return out;
   }
 
+  // 부서를 트리(DFS) 순서로 — 부모 바로 뒤에 그 자손들. 부모 이동 시 자손이 따라옴.
+  function deptTreeOrder(depts, byId) {
+    var byParent = {};
+    depts.forEach(function (d) { (byParent[d.parentId || 0] = byParent[d.parentId || 0] || []).push(d); });
+    var out = [], seen = {};
+    function walk(pid) {
+      (byParent[pid] || []).forEach(function (d) {
+        if (seen[d.id]) return;
+        seen[d.id] = true; out.push(d); walk(d.id);
+      });
+    }
+    // 최상위(부모 없음 또는 부모가 사라진 고아)부터 sortOrder 순으로, 각자 자손 DFS
+    depts.forEach(function (d) {
+      if ((!d.parentId || !byId[d.parentId]) && !seen[d.id]) { seen[d.id] = true; out.push(d); walk(d.id); }
+    });
+    // 순환 등으로 남은 항목 보강
+    depts.forEach(function (d) { if (!seen[d.id]) { seen[d.id] = true; out.push(d); } });
+    return out;
+  }
+
   var INDEX_BASE = { "ㄲ": "ㄱ", "ㄸ": "ㄷ", "ㅃ": "ㅂ", "ㅆ": "ㅅ", "ㅉ": "ㅈ" };
   function nameInitial(name) {
     if (!name) return "#";
@@ -91,6 +111,7 @@
       state.departments = depts;
       state.deptById = {};
       depts.forEach(function (d) { state.deptById[d.id] = d; });
+      state.departmentsTree = deptTreeOrder(depts, state.deptById); // 표시용 트리 순서
 
       // 2) 연락처: 오버레이 적용(항상 사본, 부서명은 deptById 단일 원천화)
       var edits = (S && S.getEdits) ? S.getEdits() : {};
@@ -123,7 +144,7 @@
     },
 
     getDepartments: function () {
-      return state.departments;
+      return state.departmentsTree || state.departments;
     },
 
     getDeptById: function (id) {
@@ -176,7 +197,7 @@
     /** 부서 → 멤버순 정렬된 연락처 그룹 배열 반환 */
     groupedByDept: function () {
       var groups = [];
-      state.departments.forEach(function (d) {
+      (state.departmentsTree || state.departments).forEach(function (d) {
         var members = Data.membersOfDept(d.id);
         if (members.length) groups.push({ dept: d, members: members });
       });

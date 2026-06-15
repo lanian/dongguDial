@@ -1,6 +1,7 @@
 #!/usr/bin/env python3
 """의존성 없이 PWA 아이콘(PNG)을 생성한다.
-브랜드 배경 + 흰색 인물 실루엣. maskable 버전은 안전 영역 패딩을 둔다.
+브랜드 배경 + 흰색 인물 실루엣 + 우하단 비상(긴급) 배지(빨강 원 + 흰 십자).
+maskable 버전은 안전 영역(중앙 80%) 안에 모든 모티브가 들어가도록 축소·이동한다.
 """
 import struct
 import zlib
@@ -9,6 +10,7 @@ import os
 BRAND = (31, 111, 235)       # #1f6feb
 BRAND_DARK = (22, 87, 192)
 WHITE = (255, 255, 255)
+EMERGENCY = (229, 72, 77)    # #e5484d
 
 
 def lerp(a, b, t):
@@ -23,6 +25,15 @@ def make_icon(size, maskable=False):
             i = (y * size + x) * 3
             px[i], px[i + 1], px[i + 2] = color
 
+    def disc(cx, cy, r, color):
+        r2 = r * r
+        y0, y1 = max(0, int(cy - r)), min(size, int(cy + r) + 1)
+        for y in range(y0, y1):
+            for x in range(max(0, int(cx - r)), min(size, int(cx + r) + 1)):
+                dx, dy = x - cx, y - cy
+                if dx * dx + dy * dy <= r2:
+                    setp(x, y, color)
+
     # 배경: 위→아래 그라데이션
     for y in range(size):
         col = lerp(BRAND, BRAND_DARK, y / size)
@@ -30,19 +41,13 @@ def make_icon(size, maskable=False):
             i = (y * size + x) * 3
             px[i], px[i + 1], px[i + 2] = col
 
-    # maskable 은 가장자리 잘림 대비해 글리프를 더 작게(안전영역 ~80%)
-    scale = 0.62 if maskable else 0.74
+    scale = 0.60 if maskable else 0.74
     cx = size / 2.0
+
     # 머리
     head_r = size * 0.16 * (scale / 0.74)
     head_cy = size * (0.40 if not maskable else 0.42)
-    head_r2 = head_r * head_r
-    for y in range(size):
-        for x in range(size):
-            dx = x - cx
-            dy = y - head_cy
-            if dx * dx + dy * dy <= head_r2:
-                setp(x, y, WHITE)
+    disc(cx, head_cy, head_r, WHITE)
 
     # 몸통(어깨): 아래로 열린 반타원
     body_cy = size * (0.95 if not maskable else 0.92)
@@ -52,10 +57,25 @@ def make_icon(size, maskable=False):
         for x in range(size):
             dx = (x - cx) / body_rx
             dy = (y - body_cy) / body_ry
-            if dx * dx + dy * dy <= 1.0 and y < body_cy:
-                # 머리와 분리되는 목 부분 약간의 간격
-                if y > head_cy + head_r * 0.55:
-                    setp(x, y, WHITE)
+            if dx * dx + dy * dy <= 1.0 and y < body_cy and y > head_cy + head_r * 0.55:
+                setp(x, y, WHITE)
+
+    # 우하단 비상 배지 (빨강 원 + 흰 테두리 링 + 흰 십자)
+    bcx = size * (0.72 if not maskable else 0.68)
+    bcy = size * (0.72 if not maskable else 0.68)
+    br = size * (0.20 if not maskable else 0.17)
+    disc(bcx, bcy, br * 1.12, WHITE)    # 흰 링
+    disc(bcx, bcy, br, EMERGENCY)       # 빨강 본체
+    # 흰 십자(+)
+    arm = br * 0.55
+    thick = br * 0.20
+    for y in range(int(bcy - arm), int(bcy + arm) + 1):
+        for x in range(int(bcx - thick), int(bcx + thick) + 1):
+            setp(x, y, WHITE)
+    for y in range(int(bcy - thick), int(bcy + thick) + 1):
+        for x in range(int(bcx - arm), int(bcx + arm) + 1):
+            setp(x, y, WHITE)
+
     return bytes(px)
 
 
@@ -64,7 +84,6 @@ def write_png(path, size, rgb):
         c = typ + data
         return struct.pack(">I", len(data)) + c + struct.pack(">I", zlib.crc32(c) & 0xFFFFFFFF)
 
-    # 각 행 앞에 filter byte(0) 추가
     raw = bytearray()
     stride = size * 3
     for y in range(size):

@@ -56,7 +56,12 @@
   }
   function topOverlay() { var o = topOverlayObj(); return o ? o.el : null; }
   function closeTop(fromPop) { var o = topOverlayObj(); if (o) o.close(fromPop); }
-  function syncInert() { setBgInert(anyOverlayOpen()); }
+  // 열린 오버레이를 우선순위(topmost-first)대로 z-index 재배치 → DOM 순서와 무관하게 항상 최신이 위
+  function restack() {
+    var open = overlayList().filter(function (o) { return !o.el.hidden; });
+    open.forEach(function (o, i) { o.el.style.zIndex = String(20 + open.length - i); });
+  }
+  function syncInert() { setBgInert(anyOverlayOpen()); restack(); }
   function updateFab() {
     var show = !anyOverlayOpen() && !current.query &&
       (current.tab === "all" || current.tab === "org");

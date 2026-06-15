@@ -27,11 +27,10 @@ jobs:
       - name: Checkout
         uses: actions/checkout@v4
 
+      # 사전 준비(1회): 저장소 Settings → Pages → Source = "GitHub Actions"
+      # (GITHUB_TOKEN 은 Pages 사이트를 최초 "생성"할 권한이 없어 자동 활성화 불가)
       - name: Setup Pages
         uses: actions/configure-pages@v5
-        with:
-          # 저장소에 Pages 사이트가 없으면 자동 생성(수동 Settings 설정 불필요)
-          enablement: true
 
       - name: Upload artifact
         uses: actions/upload-pages-artifact@v3

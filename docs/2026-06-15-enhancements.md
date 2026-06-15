@@ -76,3 +76,12 @@ UX:
 비주얼:
 - info-row 아이콘 상단 정렬, 다크모드 카드 보더 전환, 히어로 brand 옅은 그라데이션, info-value break-all은 전화행만
 검증: jsdom 상세 9/9 + 회귀(정합성9·UX8·가져오기·대체) 통과. SW 캐시 v20.
+
+## 8) 사원 사진 관리 (로컬 + 백업 포함)
+- js/photos.js: IndexedDB 영구 저장 + 메모리 캐시(동기 렌더). 미지원 시 캐시 폴백.
+- 업로드 시 canvas로 256px 정사각 JPEG 압축(중앙 크롭), 연락처 id별 저장.
+- 아바타(목록/상세)에 사진 표시, 없으면 이니셜 폴백. 상세 히어로 사진 탭→확대 뷰어(#photo-viewer, 오버레이 스택 최상위).
+- 편집 폼에 사진 선택/제거(미리보기), 저장 시 Photos.set/remove, 연락처 삭제 시 사진 제거.
+- 백업(export)에 photos(dataURL map) 포함, import 시 Photos.importMap 복구. 초기화/전체대체 시 Photos.clearAll.
+- 부팅 시 Photos.loadAll 후 렌더. SW 캐시 v23(photos.js 포함).
+- 검증: jsdom 사진 10/10 + 회귀(정합성9·UX8·상세9·대체) 통과.

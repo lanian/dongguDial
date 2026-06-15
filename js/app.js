@@ -4,7 +4,7 @@
 (function () {
   "use strict";
 
-  var APP_VERSION = "22"; // SW 캐시(donggu-dial-vNN)와 함께 갱신
+  var APP_VERSION = "23"; // SW 캐시(donggu-dial-vNN)와 함께 갱신
   var listEl = document.getElementById("list");
   var resultStatus = document.getElementById("result-status");
   var searchInput = document.getElementById("search-input");
@@ -32,8 +32,10 @@
   var sortBtns = Array.prototype.slice.call(document.querySelectorAll(".sort-seg .seg-btn"));
   var themeBtns = Array.prototype.slice.call(document.querySelectorAll(".theme-seg .seg-btn"));
 
+  var photoViewerEl = document.getElementById("photo-viewer");
   var current = { tab: "all", query: "", detailId: null, sort: "dept", collapsed: {}, orgCollapsed: {} };
   var editId = null;
+  var pendingPhoto; // undefined=변경없음, null=제거, string=새 dataURL
   var bgEls = [appBar, tabsNav, listEl];
   var focusStack = [];
 
@@ -46,6 +48,7 @@
   // 오버레이(중첩 가능) — topmost 우선 순서. close 함수는 hoisting됨.
   function overlayList() {
     return [
+      { el: photoViewerEl, close: closePhotoViewer },
       { el: deptEditorEl, close: closeDeptEditor },
       { el: deptMgrEl, close: closeDeptMgr },
       { el: editorEl, close: closeEditor },
@@ -266,10 +269,71 @@
     setTimeout(function () { scrollToEl(document.getElementById("org-" + deptId)); }, 60);
   }
 
+  // ---------- 사진 뷰어 / 압축 ----------
+  function openPhotoViewer(dataURL, name) {
+    var img = document.getElementById("photo-viewer-img");
+    img.src = dataURL; img.alt = (name || "") + " 사진";
+    pushFocus(); photoViewerEl.hidden = false; syncInert(); updateFab();
+    document.getElementById("photo-viewer-close").focus();
+    history.pushState({ photo: true }, "", "#photo");
+  }
+  function closePhotoViewer(fromPop) {
+    photoViewerEl.hidden = true; syncInert(); updateFab(); popFocus();
+    document.getElementById("photo-viewer-img").src = "";
+    if (!fromPop && location.hash === "#photo") history.back();
+  }
+  document.getElementById("photo-viewer-close").addEventListener("click", function () { closePhotoViewer(false); });
+
+  // 파일 → 256px 정사각 JPEG dataURL(중앙 크롭, 압축)
+  function fileToAvatar(file) {
+    return new Promise(function (res, rej) {
+      if (!file.type || file.type.indexOf("image/") !== 0) { rej(new Error("이미지 파일이 아닙니다")); return; }
+      var img = new Image(), url = URL.createObjectURL(file);
+      img.onload = function () {
+        try {
+          var S = 256, cv = document.createElement("canvas");
+          cv.width = S; cv.height = S;
+          var ctx = cv.getContext("2d");
+          var m = Math.min(img.width, img.height), sx = (img.width - m) / 2, sy = (img.height - m) / 2;
+          ctx.drawImage(img, sx, sy, m, m, 0, 0, S, S);
+          URL.revokeObjectURL(url);
+          res(cv.toDataURL("image/jpeg", 0.8));
+        } catch (e) { URL.revokeObjectURL(url); rej(e); }
+      };
+      img.onerror = function () { URL.revokeObjectURL(url); rej(new Error("이미지를 읽지 못했습니다")); };
+      img.src = url;
+    });
+  }
+
+  // 편집 폼의 사진 미리보기/선택/제거 연결
+  function setupPhotoControls(contact) {
+    var prev = document.getElementById("ef-photo-prev");
+    var fileInp = document.getElementById("ef-photo-file");
+    function paint() {
+      prev.textContent = ""; prev.className = "ef-photo-prev"; prev.style.background = "";
+      var cur = pendingPhoto !== undefined ? pendingPhoto : ((window.Photos && contact.id != null) ? Photos.get(contact.id) : null);
+      if (cur) { var im = document.createElement("img"); im.src = cur; im.alt = "미리보기"; prev.appendChild(im); }
+      else {
+        prev.classList.add("ef-photo-initial");
+        prev.style.background = UI.avatarColor(contact.name || "");
+        prev.textContent = (contact.name || "?").trim().charAt(0) || "?";
+      }
+    }
+    paint();
+    document.getElementById("ef-photo-pick").addEventListener("click", function () { fileInp.value = ""; fileInp.click(); });
+    document.getElementById("ef-photo-remove").addEventListener("click", function () { pendingPhoto = null; paint(); });
+    fileInp.addEventListener("change", function () {
+      var f = fileInp.files && fileInp.files[0];
+      if (!f) return;
+      fileToAvatar(f).then(function (d) { pendingPhoto = d; paint(); })
+        .catch(function (e) { window.alert("사진 처리 실패: " + e.message); });
+    });
+  }
+
   function openDetail(contact) {
     current.detailId = contact.id;
     Storage.pushRecent(contact.id);
-    UI.renderDetail(detailBody, contact, { onOrg: goToOrg });
+    UI.renderDetail(detailBody, contact, { onOrg: goToOrg, onPhoto: openPhotoViewer });
     detailEl.setAttribute("aria-label", (contact.name || "연락처") + " 상세");
     updateFavButton();
     pushFocus();
@@ -403,6 +467,7 @@
 
   document.getElementById("export-btn").addEventListener("click", function () {
     var data = Storage.exportData();
+    if (window.Photos) data.photos = Photos.all();
     var blob = new Blob([JSON.stringify(data, null, 2)], { type: "application/json" });
     var url = URL.createObjectURL(blob);
     var d = new Date();
@@ -434,6 +499,7 @@
         setThemeUI(Storage.getTheme());
         refreshCounts();
         render();
+        if (window.Photos && data.photos) Photos.importMap(data.photos, false).then(render);
         window.alert("복구 완료: 즐겨찾기 " + result.favorites + ", 최근 " + result.recent +
           ", 편집 " + result.edits + ", 추가 " + result.custom);
       } catch (e) {
@@ -450,6 +516,8 @@
     document.getElementById("editor-bar-title").textContent = contact ? "연락처 편집" : "연락처 추가";
     var depts = Data.getDepartments();
     UI.renderEditForm(editorBody, contact || { deptId: depts[0] && depts[0].id }, depts);
+    pendingPhoto = undefined;
+    setupPhotoControls(contact || {});
     document.getElementById("editor-delete").style.display = contact ? "" : "none";
     pushFocus();
     editorEl.hidden = false;
@@ -484,11 +552,14 @@
     var id;
     if (editId == null) id = Storage.addContact(fields);
     else { Storage.saveContact(editId, fields); id = editId; }
+    if (pendingPhoto !== undefined && window.Photos) {
+      if (pendingPhoto === null) Photos.remove(id); else Photos.set(id, pendingPhoto);
+    }
     Data.rebuild();
     closeEditor(false);
     if (!detailEl.hidden && current.detailId === id) {
       var c = Data.getById(id);
-      if (c) { UI.renderDetail(detailBody, c, { onOrg: goToOrg }); updateFavButton(); }
+      if (c) { UI.renderDetail(detailBody, c, { onOrg: goToOrg, onPhoto: openPhotoViewer }); updateFavButton(); }
     }
     render();
     showSnack("저장되었습니다");
@@ -498,6 +569,7 @@
     if (!window.confirm("이 연락처를 삭제할까요?")) return;
     var delId = editId;
     Storage.deleteContact(delId);
+    if (window.Photos) Photos.remove(delId);
     Data.rebuild();
     closeEditor(false);
     if (!detailEl.hidden && current.detailId === delId) closeDetail(false);
@@ -511,6 +583,7 @@
   document.getElementById("reset-edits-btn").addEventListener("click", function () {
     if (!window.confirm("수정·추가한 연락처와 부서를 모두 초기화할까요?")) return;
     Storage.resetAllEdits();
+    if (window.Photos) Photos.clearAll();
     Data.rebuild();
     refreshCounts();
     render();
@@ -731,7 +804,7 @@
           ? "초기화 후 가져오기: 기존 샘플·편집·추가·가져온 연락처와 부서를 모두 비우고 이 파일(" + rows.length + "건)만 남깁니다. 계속할까요?"
           : rows.length + "건을 가져옵니다. 기존 데이터에 추가됩니다. 계속할까요?";
         if (!window.confirm(msg)) return;
-        if (importMode === "replace") { Storage.resetAllEdits(); Storage.setBaseHidden(true); Data.rebuild(); }
+        if (importMode === "replace") { Storage.resetAllEdits(); if (window.Photos) Photos.clearAll(); Storage.setBaseHidden(true); Data.rebuild(); }
         var res;
         try { res = applyContactImport(rows); }
         catch (e) { window.alert("가져오기 실패: " + e.message); return; }
@@ -814,7 +887,9 @@
 
   // ---------- 부팅 ----------
   UI.renderSkeleton(listEl, 8);
+  var photosReady = (window.Photos && Photos.loadAll) ? Photos.loadAll() : Promise.resolve();
   Data.load()
+    .then(function () { return photosReady; })
     .then(function () {
       render();
       syncStickyOffsets();

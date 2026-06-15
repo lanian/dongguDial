@@ -74,8 +74,17 @@
 
   function makeAvatar(contact, sizeClass) {
     var a = el("div", "avatar" + (sizeClass ? " " + sizeClass : ""));
-    a.style.background = avatarColor(contact.name || "");
-    a.textContent = initial(contact.name);
+    var photo = (window.Photos && Photos.get) ? Photos.get(contact.id) : null;
+    if (photo) {
+      a.classList.add("avatar--photo");
+      var im = el("img");
+      im.src = photo;
+      im.alt = (contact.name || "") + " 사진";
+      a.appendChild(im);
+    } else {
+      a.style.background = avatarColor(contact.name || "");
+      a.textContent = initial(contact.name);
+    }
     return a;
   }
 
@@ -338,6 +347,20 @@
       contact = contact || {};
       var form = el("div", "edit-form");
 
+      // 사진 블록 (app이 미리보기 채우고 버튼/파일 입력을 연결)
+      var photoRow = el("div", "ef-photo");
+      var prev = el("div", "ef-photo-prev");
+      prev.id = "ef-photo-prev";
+      photoRow.appendChild(prev);
+      var pbtns = el("div", "ef-photo-btns");
+      var pick = el("button", "ef-photo-btn"); pick.id = "ef-photo-pick"; pick.type = "button"; pick.textContent = "사진 선택";
+      var rem = el("button", "ef-photo-btn ef-photo-rem"); rem.id = "ef-photo-remove"; rem.type = "button"; rem.textContent = "제거";
+      pbtns.appendChild(pick); pbtns.appendChild(rem);
+      photoRow.appendChild(pbtns);
+      var fileInp = el("input"); fileInp.id = "ef-photo-file"; fileInp.type = "file"; fileInp.accept = "image/*"; fileInp.hidden = true;
+      photoRow.appendChild(fileInp);
+      form.appendChild(photoRow);
+
       form.appendChild(field("이름", textInput("ef-name", contact.name, "홍길동")));
 
       var deptSel = el("select", "ef-input");
@@ -481,7 +504,17 @@
       container.textContent = "";
 
       var hero = el("div", "detail-hero");
-      hero.appendChild(makeAvatar(contact, ""));
+      var av = makeAvatar(contact, "");
+      var photo = (window.Photos && Photos.get) ? Photos.get(contact.id) : null;
+      if (photo && opts.onPhoto) {
+        av.setAttribute("role", "button");
+        av.tabIndex = 0;
+        av.setAttribute("aria-label", "사진 크게 보기");
+        av.style.cursor = "zoom-in";
+        av.addEventListener("click", function () { opts.onPhoto(photo, contact.name); });
+        av.addEventListener("keydown", function (e) { if (e.key === "Enter" || e.key === " ") { e.preventDefault(); opts.onPhoto(photo, contact.name); } });
+      }
+      hero.appendChild(av);
       hero.appendChild(el("h2", "detail-name", contact.name || ""));
       var roleParts = [contact.position, contact.dept].filter(Boolean);
       if (roleParts.length) hero.appendChild(el("p", "detail-role", roleParts.join(" · ")));

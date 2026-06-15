@@ -156,6 +156,14 @@
     </div>
   </section>
 
+  <!-- 사진 크게 보기 (오버레이) -->
+  <section id="photo-viewer" class="photo-viewer" role="dialog" aria-modal="true" aria-label="사진 보기" hidden>
+    <button id="photo-viewer-close" class="icon-btn photo-viewer-close" aria-label="닫기">
+      <svg class="ic" aria-hidden="true"><use href="#ic-close"/></svg>
+    </button>
+    <img id="photo-viewer-img" alt="" />
+  </section>
+
   <!-- 연락처 추가 FAB -->
   <button id="fab-add" class="fab" aria-label="연락처 추가">
     <svg class="ic" aria-hidden="true"><use href="#ic-plus"/></svg>
@@ -300,6 +308,7 @@
   </div>
 
   <script src="js/storage.js"></script>
+  <script src="js/photos.js"></script>
   <script src="js/data.js"></script>
   <script src="js/import.js"></script>
   <script src="js/ui.js"></script>

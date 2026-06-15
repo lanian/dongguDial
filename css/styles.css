@@ -493,7 +493,7 @@ mark {
   justify-content: center;
   gap: var(--sp-4);
   background: var(--surface);
-  padding: 0 var(--sp-4) 22px;
+  padding: var(--sp-5) var(--sp-4) 22px;
 }
 .quick {
   display: flex;

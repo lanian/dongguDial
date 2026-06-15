@@ -16,8 +16,13 @@
   var detailBack = document.getElementById("detail-back");
   var detailFav = document.getElementById("detail-fav");
   var settingsEl = document.getElementById("settings");
+  var listTools = document.getElementById("list-tools");
+  var deptNav = document.getElementById("dept-nav");
+  var alphaRail = document.getElementById("alpha-rail");
+  var snackbar = document.getElementById("snackbar");
+  var segBtns = Array.prototype.slice.call(document.querySelectorAll(".seg-btn"));
 
-  var current = { tab: "all", query: "", detailId: null };
+  var current = { tab: "all", query: "", detailId: null, sort: "dept", collapsed: {} };
   var lastFocused = null;
   var bgEls = [appBar, tabsNav, listEl];
 
@@ -41,28 +46,137 @@
     if (!current.query && current.tab === "favorites") render();
   }
 
+  function showTools(on) {
+    listTools.hidden = !on;
+  }
+  function showDeptNav(on) {
+    deptNav.hidden = !on;
+    deptNav.style.display = on ? "" : "none";
+  }
+  function showAlphaRail(on) {
+    alphaRail.hidden = !on;
+  }
+
+  function buildDeptNav(groups) {
+    deptNav.textContent = "";
+    var frag = document.createDocumentFragment();
+    groups.forEach(function (g) {
+      var chip = document.createElement("button");
+      chip.type = "button";
+      chip.className = "dept-chip";
+      chip.textContent = g.dept.name;
+      chip.addEventListener("click", function () {
+        current.collapsed[g.dept.id] = false;
+        render();
+        scrollToEl(document.getElementById("dept-" + g.dept.id));
+      });
+      frag.appendChild(chip);
+    });
+    deptNav.appendChild(frag);
+  }
+
+  function buildAlphaRail(groups) {
+    alphaRail.textContent = "";
+    var frag = document.createDocumentFragment();
+    groups.forEach(function (g) {
+      var b = document.createElement("button");
+      b.type = "button";
+      b.className = "alpha-key";
+      b.textContent = g.key;
+      b.setAttribute("aria-label", g.key + "로 이동");
+      b.addEventListener("click", function () {
+        scrollToEl(document.getElementById("grp-" + g.key));
+      });
+      frag.appendChild(b);
+    });
+    alphaRail.appendChild(frag);
+  }
+
+  function scrollToEl(el) {
+    if (!el) return;
+    var off = appBar.offsetHeight + tabsNav.offsetHeight + 4;
+    var y = el.getBoundingClientRect().top + window.scrollY - off;
+    window.scrollTo({ top: y, behavior: "smooth" });
+  }
+
   function render() {
     var q = current.query.trim();
     if (q) {
+      showTools(false); showDeptNav(false); showAlphaRail(false);
       var results = Data.search(q);
-      UI.renderFlat(listEl, results, openDetail,
-        "‘" + q + "’ 검색 결과가 없습니다.", onFavChanged);
+      UI.renderFlat(listEl, results, {
+        onOpen: openDetail, onFav: onFavChanged, query: q,
+        emptyMsg: "‘" + q + "’ 검색 결과가 없습니다.",
+      });
       resultStatus.textContent = results.length + "건 검색됨";
       return;
     }
     resultStatus.textContent = "";
+
     if (current.tab === "all") {
-      UI.renderGroups(listEl, Data.groupedByDept(), openDetail, onFavChanged);
-    } else if (current.tab === "favorites") {
-      UI.renderFlat(listEl, Data.resolveIds(Storage.getFavorites()), openDetail,
-        "즐겨찾기한 연락처가 없습니다.\n별 아이콘을 눌러 추가하세요.", onFavChanged,
-        "전체에서 찾기", function () { switchTab(tabs[0]); });
+      showTools(true);
+      if (current.sort === "name") {
+        showDeptNav(false);
+        var ng = Data.groupedByName();
+        UI.renderNameView(listEl, ng, { onOpen: openDetail, onFav: onFavChanged });
+        buildAlphaRail(ng);
+        showAlphaRail(true);
+      } else {
+        showAlphaRail(false);
+        var dg = Data.groupedByDept();
+        UI.renderDeptView(listEl, dg, {
+          onOpen: openDetail, onFav: onFavChanged,
+          collapsed: current.collapsed,
+          onToggle: function (id) { current.collapsed[id] = !current.collapsed[id]; render(); },
+        });
+        buildDeptNav(dg);
+        showDeptNav(true);
+      }
+      return;
+    }
+
+    showTools(false); showDeptNav(false); showAlphaRail(false);
+    if (current.tab === "favorites") {
+      UI.renderFlat(listEl, Data.resolveIds(Storage.getFavorites()), {
+        onOpen: openDetail, onFav: onFavChanged,
+        emptyMsg: "즐겨찾기한 연락처가 없습니다.\n별 아이콘을 눌러 추가하세요.",
+        actionLabel: "전체에서 찾기", onAction: function () { switchTab(tabs[0]); },
+      });
     } else if (current.tab === "recent") {
-      UI.renderFlat(listEl, Data.resolveIds(Storage.getRecent()), openDetail,
-        "최근 본 연락처가 없습니다.", onFavChanged,
-        "전체에서 찾기", function () { switchTab(tabs[0]); });
+      UI.renderFlat(listEl, Data.resolveIds(Storage.getRecent()), {
+        onOpen: openDetail, onFav: onFavChanged,
+        emptyMsg: "최근 본 연락처가 없습니다.",
+        actionLabel: "전체에서 찾기", onAction: function () { switchTab(tabs[0]); },
+      });
     }
   }
+
+  // 정렬 세그먼트
+  segBtns.forEach(function (b) {
+    b.addEventListener("click", function () {
+      current.sort = b.dataset.sort;
+      segBtns.forEach(function (x) {
+        var on = x === b;
+        x.classList.toggle("is-active", on);
+        x.setAttribute("aria-pressed", on ? "true" : "false");
+      });
+      render();
+    });
+  });
+
+  // 스낵바 (가벼운 피드백)
+  var snackTimer;
+  function showSnack(msg) {
+    snackbar.textContent = msg;
+    snackbar.hidden = false;
+    snackbar.classList.add("is-on");
+    clearTimeout(snackTimer);
+    snackTimer = setTimeout(function () {
+      snackbar.classList.remove("is-on");
+      setTimeout(function () { snackbar.hidden = true; }, 200);
+    }, 1600);
+  }
+  window.showSnack = showSnack;
 
   // ---------- 상세 ----------
   function openDetail(contact) {

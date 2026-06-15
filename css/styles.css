@@ -169,6 +169,81 @@ body.overlay-open { overflow: hidden; }
 }
 .tab.is-active { color: var(--brand); border-bottom-color: var(--brand); }
 
+/* ---------- List tools (정렬 + 부서칩) ---------- */
+.list-tools {
+  background: var(--bg);
+  padding: var(--sp-2) var(--sp-4) 0;
+}
+.sort-seg {
+  display: inline-flex;
+  background: var(--surface);
+  border: 1px solid var(--divider);
+  border-radius: var(--r-pill);
+  padding: 2px;
+}
+.seg-btn {
+  border: none;
+  background: none;
+  color: var(--on-surface-muted);
+  font: inherit;
+  font-size: var(--fs-sm);
+  font-weight: var(--fw-med);
+  padding: 7px 16px;
+  min-height: 36px;
+  border-radius: var(--r-pill);
+  cursor: pointer;
+}
+.seg-btn.is-active { background: var(--brand); color: #fff; }
+
+.dept-nav {
+  display: flex;
+  gap: var(--sp-2);
+  overflow-x: auto;
+  padding: var(--sp-2) 0 var(--sp-1);
+  -webkit-overflow-scrolling: touch;
+  scrollbar-width: none;
+}
+.dept-nav::-webkit-scrollbar { display: none; }
+.dept-chip {
+  flex: 0 0 auto;
+  border: 1px solid var(--divider);
+  background: var(--surface);
+  color: var(--on-surface);
+  font: inherit;
+  font-size: var(--fs-sm);
+  padding: 6px 12px;
+  min-height: 34px;
+  border-radius: var(--r-pill);
+  white-space: nowrap;
+  cursor: pointer;
+}
+.dept-chip:active { background: var(--divider); }
+
+/* ---------- Alpha rail (가나다 바로가기) ---------- */
+.alpha-rail {
+  position: fixed;
+  right: 2px;
+  top: 50%;
+  transform: translateY(-50%);
+  z-index: var(--z-tabs);
+  display: flex;
+  flex-direction: column;
+  align-items: center;
+  gap: 1px;
+  padding: var(--sp-1) 2px;
+}
+.alpha-key {
+  border: none;
+  background: none;
+  color: var(--brand);
+  font-size: 10px;
+  font-weight: var(--fw-bold);
+  line-height: 1;
+  padding: 1px 4px;
+  cursor: pointer;
+}
+.alpha-key:active { color: var(--brand-dark); }
+
 /* ---------- List ---------- */
 .list { padding: var(--sp-2) 0 calc(var(--sp-6) + var(--safe-bottom)); }
 .list:focus-visible { outline: none; }
@@ -184,6 +259,31 @@ body.overlay-open { overflow: hidden; }
   letter-spacing: 0.02em;
 }
 .section-header .count { font-weight: var(--fw-reg); opacity: 0.7; }
+.section-toggle {
+  display: flex;
+  align-items: center;
+  gap: 4px;
+  width: 100%;
+  border: none;
+  font: inherit;
+  font-weight: var(--fw-bold);
+  text-align: left;
+  cursor: pointer;
+}
+.section-chevron {
+  width: 1em; height: 1em;
+  color: var(--on-surface-muted);
+  transition: transform 0.15s;
+  transform: rotate(90deg);
+}
+.section-toggle[aria-expanded="false"] .section-chevron { transform: rotate(0); }
+
+mark {
+  background: rgba(var(--brand-rgb), 0.22);
+  color: inherit;
+  border-radius: 3px;
+  padding: 0 1px;
+}
 
 .row {
   display: flex;
@@ -424,7 +524,11 @@ body.overlay-open { overflow: hidden; }
 .info-label { font-size: var(--fs-sm); color: var(--on-surface-muted); }
 .info-value { font-size: var(--fs-lg); word-break: break-all; }
 a.info-row .info-value { color: var(--brand-link); }
+.info-value--link { color: var(--brand-link); }
 .info-chevron { color: var(--on-surface-muted); }
+.info-actions { display: flex; align-items: center; gap: var(--sp-1); flex: 0 0 auto; }
+.mini-btn--ghost { background: transparent; color: var(--on-surface-muted); }
+.mini-btn--ghost:active { background: var(--divider); }
 
 /* ---------- Settings / Backup ---------- */
 .settings-section-title {
@@ -494,6 +598,25 @@ a.info-row .info-value { color: var(--brand-link); }
   color: var(--on-inverse-muted);
   cursor: pointer;
 }
+
+/* ---------- Snackbar ---------- */
+.snackbar {
+  position: fixed;
+  left: 50%;
+  bottom: calc(20px + var(--safe-bottom));
+  transform: translate(-50%, 8px);
+  z-index: var(--z-toast);
+  background: var(--inverse-surface);
+  color: var(--on-inverse);
+  font-size: var(--fs-sm);
+  padding: 10px 16px;
+  border-radius: var(--r-pill);
+  box-shadow: var(--elev-2);
+  opacity: 0;
+  transition: opacity 0.2s, transform 0.2s;
+  max-width: 90vw;
+}
+.snackbar.is-on { opacity: 1; transform: translate(-50%, 0); }
 
 [hidden] { display: none !important; }
 

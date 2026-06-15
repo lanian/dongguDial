@@ -34,6 +34,14 @@
     return out;
   }
 
+  var INDEX_BASE = { "ㄲ": "ㄱ", "ㄸ": "ㄷ", "ㅃ": "ㅂ", "ㅆ": "ㅅ", "ㅉ": "ㅈ" };
+  function nameInitial(name) {
+    if (!name) return "#";
+    var ch = chosung(name.charAt(0));
+    if (!/[ㄱ-ㅎ]/.test(ch)) return "#";
+    return INDEX_BASE[ch] || ch;
+  }
+
   function buildSearchIndex(c) {
     var parts = [c.name, c.dept, c.team, c.position, c.work].filter(Boolean);
     c._haystack = parts.join(" ").toLowerCase();
@@ -97,6 +105,33 @@
         groups.push({ dept: { id: 0, name: "기타" }, members: orphans });
       }
       return groups;
+    },
+
+    /** 가나다(초성) 인덱스 순서 */
+    nameIndexOrder: ["ㄱ", "ㄴ", "ㄷ", "ㄹ", "ㅁ", "ㅂ", "ㅅ", "ㅇ", "ㅈ", "ㅊ", "ㅋ", "ㅌ", "ㅍ", "ㅎ", "#"],
+
+    /** 이름 첫 글자의 대표 초성(쌍자음은 기본자음으로) */
+    nameInitial: function (name) {
+      return nameInitial(name);
+    },
+
+    /** 초성별 그룹 [{key, members}] (이름 가나다순) */
+    groupedByName: function () {
+      var map = {};
+      state.contacts.forEach(function (c) {
+        var k = nameInitial(c.name);
+        (map[k] = map[k] || []).push(c);
+      });
+      return Data.nameIndexOrder
+        .filter(function (k) { return map[k]; })
+        .map(function (k) {
+          return {
+            key: k,
+            members: map[k].sort(function (a, b) {
+              return (a.name || "").localeCompare(b.name || "", "ko");
+            }),
+          };
+        });
     },
 
     /** id 목록을 연락처 객체 목록으로 (없는 id 는 제외) */

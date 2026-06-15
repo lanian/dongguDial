@@ -1,6 +1,6 @@
 /**
- * 렌더링 헬퍼: 아이콘 / 목록 / 상세 / 빈·로딩 상태.
- * DOM 생성은 textContent 위주로 처리해 XSS 를 피한다.
+ * 렌더링 헬퍼: 아이콘 / 목록(부서·가나다) / 상세 / 빈·로딩 상태.
+ * DOM 생성은 textContent·노드 조립으로 처리해 XSS 를 피한다.
  */
 (function (global) {
   "use strict";
@@ -18,11 +18,8 @@
     return AVATAR_COLORS[sum % AVATAR_COLORS.length];
   }
 
-  function initial(name) {
-    return name ? name.trim().charAt(0) : "?";
-  }
+  function initial(name) { return name ? name.trim().charAt(0) : "?"; }
 
-  /** 인라인 SVG 스프라이트 참조 노드 생성 (currentColor 상속) */
   function icon(name, cls) {
     var svg = document.createElementNS(SVG_NS, "svg");
     svg.setAttribute("class", "ic" + (cls ? " " + cls : ""));
@@ -46,27 +43,33 @@
     return p;
   }
 
-  function clean(p) {
-    return p.replace(/[^0-9+]/g, "");
-  }
-
-  function statusBadge(status) {
-    var map = {
-      "휴직": ["휴직", "badge--leave"],
-      "파견": ["파견", "badge--dispatched"],
-      "교육": ["교육", "badge--training"],
-    };
-    var info = map[status];
-    if (!info) return null;
-    var span = el("span", "badge " + info[1], info[0]);
-    return span;
-  }
+  function clean(p) { return p.replace(/[^0-9+]/g, ""); }
 
   function el(tag, className, text) {
     var n = document.createElement(tag);
     if (className) n.className = className;
     if (text != null) n.textContent = text;
     return n;
+  }
+
+  /** text 안의 q 일치 부분을 <mark>로 강조하여 parent 에 추가 */
+  function highlightInto(parent, text, q) {
+    text = text || "";
+    if (!q) { parent.appendChild(document.createTextNode(text)); return; }
+    var lower = text.toLowerCase(), ql = q.toLowerCase(), idx = 0, pos;
+    while ((pos = lower.indexOf(ql, idx)) !== -1) {
+      if (pos > idx) parent.appendChild(document.createTextNode(text.slice(idx, pos)));
+      var m = el("mark", null, text.slice(pos, pos + ql.length));
+      parent.appendChild(m);
+      idx = pos + ql.length;
+    }
+    if (idx < text.length) parent.appendChild(document.createTextNode(text.slice(idx)));
+  }
+
+  function statusBadge(status) {
+    var map = { "휴직": "badge--leave", "파견": "badge--dispatched", "교육": "badge--training" };
+    if (!map[status]) return null;
+    return el("span", "badge " + map[status], status);
   }
 
   function makeAvatar(contact, sizeClass) {
@@ -76,79 +79,169 @@
     return a;
   }
 
+  function snack(msg) {
+    if (global.showSnack) global.showSnack(msg);
+  }
+
+  // ---------- 연락처 동작 (전부 로컬) ----------
+  function copyText(text) {
+    if (navigator.clipboard && navigator.clipboard.writeText) {
+      navigator.clipboard.writeText(text).then(function () { snack("복사됨"); })
+        .catch(function () { snack("복사 실패"); });
+    } else {
+      var ta = el("textarea");
+      ta.value = text;
+      ta.style.position = "fixed";
+      ta.style.opacity = "0";
+      document.body.appendChild(ta);
+      ta.select();
+      try { document.execCommand("copy"); snack("복사됨"); } catch (e) { snack("복사 실패"); }
+      document.body.removeChild(ta);
+    }
+  }
+
+  function buildVCard(c) {
+    function esc(s) { return String(s || "").replace(/([,;\\])/g, "\\$1"); }
+    var lines = ["BEGIN:VCARD", "VERSION:3.0"];
+    lines.push("N:" + esc(c.name) + ";;;;");
+    lines.push("FN:" + esc(c.name));
+    if (c.dept || c.team) lines.push("ORG:" + esc(c.dept) + ";" + esc(c.team));
+    if (c.position) lines.push("TITLE:" + esc(c.position));
+    if (c.phone) lines.push("TEL;TYPE=CELL:" + clean(c.phone));
+    if (c.tel) lines.push("TEL;TYPE=WORK:" + clean(c.tel));
+    if (c.birth) lines.push("BDAY:" + c.birth);
+    lines.push("END:VCARD");
+    return lines.join("\r\n");
+  }
+
+  function downloadVCard(c) {
+    var blob = new Blob([buildVCard(c)], { type: "text/vcard;charset=utf-8" });
+    var url = URL.createObjectURL(blob);
+    var a = el("a");
+    a.href = url;
+    a.download = (c.name || "contact") + ".vcf";
+    document.body.appendChild(a);
+    a.click();
+    document.body.removeChild(a);
+    setTimeout(function () { URL.revokeObjectURL(url); }, 1000);
+    snack("연락처 파일을 저장했어요");
+  }
+
+  function shareContact(c) {
+    var parts = [c.name];
+    if (c.position || c.dept) parts.push([c.dept, c.team, c.position].filter(Boolean).join(" "));
+    if (c.phone) parts.push("휴대전화 " + formatPhone(c.phone));
+    if (c.tel) parts.push("사내번호 " + formatPhone(c.tel));
+    var text = parts.join("\n");
+    if (navigator.share) {
+      navigator.share({ title: c.name, text: text }).catch(function () {});
+    } else {
+      copyText(text);
+    }
+  }
+
+  // ---------- 행 ----------
+  function renderRow(contact, opts) {
+    opts = opts || {};
+    var row = el("div", "row");
+    row.setAttribute("role", "button");
+    row.tabIndex = 0;
+    var subParts = [contact.dept, contact.team, contact.position].filter(Boolean);
+    row.setAttribute("aria-label", (contact.name || "") + ", " + subParts.join(" ") + ", 상세 보기");
+
+    row.appendChild(makeAvatar(contact));
+
+    var main = el("div", "row-main");
+    var name = el("div", "row-name");
+    var nameText = el("span");
+    highlightInto(nameText, contact.name || "", opts.query);
+    name.appendChild(nameText);
+    var badge = statusBadge(contact.status);
+    if (badge) name.appendChild(badge);
+    main.appendChild(name);
+    var sub = el("div", "row-sub");
+    highlightInto(sub, subParts.join(" · "), opts.query);
+    main.appendChild(sub);
+    row.appendChild(main);
+
+    var actions = el("div", "row-actions");
+
+    var isFav = Storage.isFavorite(contact.id);
+    var star = el("button", "mini-btn mini-btn--star" + (isFav ? " is-on" : ""));
+    star.type = "button";
+    star.setAttribute("aria-label", isFav ? "즐겨찾기 해제" : "즐겨찾기 추가");
+    star.setAttribute("aria-pressed", isFav ? "true" : "false");
+    star.appendChild(icon("star"));
+    star.addEventListener("click", function (e) {
+      e.stopPropagation();
+      var nowFav = Storage.toggleFavorite(contact.id);
+      star.classList.toggle("is-on", nowFav);
+      star.setAttribute("aria-pressed", nowFav ? "true" : "false");
+      star.setAttribute("aria-label", nowFav ? "즐겨찾기 해제" : "즐겨찾기 추가");
+      if (navigator.vibrate) navigator.vibrate(10);
+      if (opts.onFav) opts.onFav();
+    });
+    actions.appendChild(star);
+
+    if (contact.phone) {
+      var call = el("a", "mini-btn");
+      call.href = "tel:" + clean(contact.phone);
+      call.setAttribute("aria-label", contact.name + " 전화 걸기");
+      call.appendChild(icon("phone"));
+      call.addEventListener("click", function (e) {
+        e.stopPropagation();
+        Storage.pushRecent(contact.id);
+      });
+      actions.appendChild(call);
+    }
+    row.appendChild(actions);
+
+    row.addEventListener("click", function () { opts.onOpen(contact); });
+    row.addEventListener("keydown", function (e) {
+      if (e.key === "Enter" || e.key === " ") { e.preventDefault(); opts.onOpen(contact); }
+    });
+    return row;
+  }
+
+  function appendRows(frag, members, opts) {
+    members.forEach(function (c) { frag.appendChild(renderRow(c, opts)); });
+  }
+
   var UI = {
     avatarColor: avatarColor,
     icon: icon,
     formatPhone: formatPhone,
+    renderRow: renderRow,
 
-    /**
-     * 연락처 한 행 생성.
-     * onOpen(contact): 행 열기, onFav(): 즐겨찾기 토글 후 콜백.
-     */
-    renderRow: function (contact, onOpen, onFav) {
-      var row = el("div", "row");
-      row.setAttribute("role", "button");
-      row.tabIndex = 0;
-      var subParts = [contact.dept, contact.team, contact.position].filter(Boolean);
-      row.setAttribute("aria-label", (contact.name || "") + ", " + subParts.join(" ") + ", 상세 보기");
-
-      row.appendChild(makeAvatar(contact));
-
-      var main = el("div", "row-main");
-      var name = el("div", "row-name");
-      name.appendChild(document.createTextNode(contact.name || ""));
-      var badge = statusBadge(contact.status);
-      if (badge) name.appendChild(badge);
-      main.appendChild(name);
-      main.appendChild(el("div", "row-sub", subParts.join(" · ")));
-      row.appendChild(main);
-
-      var actions = el("div", "row-actions");
-
-      // 즐겨찾기 토글
-      var isFav = Storage.isFavorite(contact.id);
-      var star = el("button", "mini-btn mini-btn--star" + (isFav ? " is-on" : ""));
-      star.type = "button";
-      star.setAttribute("aria-label", isFav ? "즐겨찾기 해제" : "즐겨찾기 추가");
-      star.setAttribute("aria-pressed", isFav ? "true" : "false");
-      star.appendChild(icon("star"));
-      star.addEventListener("click", function (e) {
-        e.stopPropagation();
-        var nowFav = Storage.toggleFavorite(contact.id);
-        star.classList.toggle("is-on", nowFav);
-        star.setAttribute("aria-pressed", nowFav ? "true" : "false");
-        star.setAttribute("aria-label", nowFav ? "즐겨찾기 해제" : "즐겨찾기 추가");
-        if (navigator.vibrate) navigator.vibrate(10);
-        if (onFav) onFav();
-      });
-      actions.appendChild(star);
-
-      // 전화
-      if (contact.phone) {
-        var call = el("a", "mini-btn");
-        call.href = "tel:" + clean(contact.phone);
-        call.setAttribute("aria-label", contact.name + " 전화 걸기");
-        call.appendChild(icon("phone"));
-        call.addEventListener("click", function (e) {
-          e.stopPropagation();
-          Storage.pushRecent(contact.id);
-        });
-        actions.appendChild(call);
+    /** 부서 뷰 (접기/펼치기). opts: onOpen,onFav,collapsed,onToggle */
+    renderDeptView: function (container, groups, opts) {
+      container.textContent = "";
+      if (!groups.length) {
+        container.appendChild(UI.emptyState("표시할 연락처가 없습니다."));
+        return;
       }
-      row.appendChild(actions);
-
-      row.addEventListener("click", function () { onOpen(contact); });
-      row.addEventListener("keydown", function (e) {
-        if (e.key === "Enter" || e.key === " ") {
-          e.preventDefault();
-          onOpen(contact);
-        }
+      var frag = document.createDocumentFragment();
+      groups.forEach(function (g) {
+        var collapsed = opts.collapsed && opts.collapsed[g.dept.id];
+        var header = el("button", "section-header section-toggle");
+        header.type = "button";
+        header.id = "dept-" + g.dept.id;
+        header.setAttribute("aria-expanded", collapsed ? "false" : "true");
+        var chev = icon("chevron", "section-chevron");
+        header.appendChild(chev);
+        header.appendChild(document.createTextNode(" " + g.dept.name + " "));
+        header.appendChild(el("span", "count", "(" + g.members.length + ")"));
+        header.addEventListener("click", function () {
+          if (opts.onToggle) opts.onToggle(g.dept.id);
+        });
+        frag.appendChild(header);
+        if (!collapsed) appendRows(frag, g.members, opts);
       });
-      return row;
+      container.appendChild(frag);
     },
 
-    /** 그룹 목록 렌더 (부서별). groups: [{dept, members}] */
-    renderGroups: function (container, groups, onOpen, onFav) {
+    /** 가나다 뷰. opts: onOpen,onFav */
+    renderNameView: function (container, groups, opts) {
       container.textContent = "";
       if (!groups.length) {
         container.appendChild(UI.emptyState("표시할 연락처가 없습니다."));
@@ -157,31 +250,28 @@
       var frag = document.createDocumentFragment();
       groups.forEach(function (g) {
         var header = el("div", "section-header");
-        header.appendChild(document.createTextNode(g.dept.name + " "));
+        header.id = "grp-" + g.key;
+        header.appendChild(document.createTextNode(g.key + " "));
         header.appendChild(el("span", "count", "(" + g.members.length + ")"));
         frag.appendChild(header);
-        g.members.forEach(function (c) {
-          frag.appendChild(UI.renderRow(c, onOpen, onFav));
-        });
+        appendRows(frag, g.members, opts);
       });
       container.appendChild(frag);
     },
 
-    /** 평면 목록 렌더 (검색/즐겨찾기/최근) */
-    renderFlat: function (container, contacts, onOpen, emptyMsg, onFav, actionLabel, onAction) {
+    /** 평면 목록. opts: onOpen,onFav,query,emptyMsg,actionLabel,onAction */
+    renderFlat: function (container, contacts, opts) {
+      opts = opts || {};
       container.textContent = "";
       if (!contacts.length) {
-        container.appendChild(UI.emptyState(emptyMsg || "결과가 없습니다.", actionLabel, onAction));
+        container.appendChild(UI.emptyState(opts.emptyMsg || "결과가 없습니다.", opts.actionLabel, opts.onAction));
         return;
       }
       var frag = document.createDocumentFragment();
-      contacts.forEach(function (c) {
-        frag.appendChild(UI.renderRow(c, onOpen, onFav));
-      });
+      appendRows(frag, contacts, opts);
       container.appendChild(frag);
     },
 
-    /** 로딩 스켈레톤 */
     renderSkeleton: function (container, n) {
       container.textContent = "";
       var frag = document.createDocumentFragment();
@@ -212,7 +302,7 @@
       return wrap;
     },
 
-    /** 상세 본문 렌더 */
+    /** 상세 본문 */
     renderDetail: function (container, contact) {
       container.textContent = "";
 
@@ -224,14 +314,16 @@
       container.appendChild(hero);
 
       var qa = el("div", "quick-actions");
-      qa.appendChild(quickAction("phone", "전화", contact.phone ? "tel:" + clean(contact.phone) : null, "전화 걸기"));
-      qa.appendChild(quickAction("message", "문자", contact.phone ? "sms:" + clean(contact.phone) : null, "문자 보내기"));
-      qa.appendChild(quickAction("building", "사내", contact.tel ? "tel:" + clean(contact.tel) : null, "사내번호로 전화"));
+      qa.appendChild(quickLink("phone", "전화", contact.phone ? "tel:" + clean(contact.phone) : null, "전화 걸기"));
+      qa.appendChild(quickLink("message", "문자", contact.phone ? "sms:" + clean(contact.phone) : null, "문자 보내기"));
+      qa.appendChild(quickLink("building", "사내", contact.tel ? "tel:" + clean(contact.tel) : null, "사내번호로 전화"));
+      qa.appendChild(quickBtn("share", "공유", function () { shareContact(contact); }, "연락처 공유"));
+      qa.appendChild(quickBtn("download", "저장", function () { downloadVCard(contact); }, "연락처 파일로 저장"));
       container.appendChild(qa);
 
       var card = el("div", "info-card");
-      addInfo(card, "mobile", "휴대전화", formatPhone(contact.phone), "tel:", contact.phone);
-      addInfo(card, "building", "사내번호", formatPhone(contact.tel), "tel:", contact.tel);
+      addPhoneRow(card, "mobile", "휴대전화", contact.phone);
+      addPhoneRow(card, "building", "사내번호", contact.tel);
       addInfo(card, "building", "부서", contact.dept);
       addInfo(card, "users", "팀", contact.team);
       addInfo(card, "badge", "직책", contact.position);
@@ -242,15 +334,10 @@
     },
   };
 
-  function quickAction(iconName, label, href, aria) {
+  function quickLink(iconName, label, href, aria) {
     var node = href ? el("a", "quick") : el("div", "quick quick--disabled");
-    if (href) {
-      node.href = href;
-      node.setAttribute("aria-label", aria);
-    } else {
-      node.setAttribute("aria-disabled", "true");
-      node.setAttribute("aria-label", label + " 없음");
-    }
+    if (href) { node.href = href; node.setAttribute("aria-label", aria); }
+    else { node.setAttribute("aria-disabled", "true"); node.setAttribute("aria-label", label + " 없음"); }
     var ico = el("div", "quick-ico");
     ico.appendChild(icon(iconName));
     node.appendChild(ico);
@@ -258,14 +345,50 @@
     return node;
   }
 
-  function addInfo(card, iconName, label, value, linkScheme, rawValue) {
+  function quickBtn(iconName, label, onClick, aria) {
+    var node = el("button", "quick");
+    node.type = "button";
+    node.setAttribute("aria-label", aria);
+    var ico = el("div", "quick-ico");
+    ico.appendChild(icon(iconName));
+    node.appendChild(ico);
+    node.appendChild(el("span", null, label));
+    node.addEventListener("click", onClick);
+    return node;
+  }
+
+  /** 전화 정보 행: 값 + [전화][복사] */
+  function addPhoneRow(card, iconName, label, raw) {
+    if (!raw) return;
+    var row = el("div", "info-row");
+    var ico = el("span", "info-ico");
+    ico.appendChild(icon(iconName));
+    row.appendChild(ico);
+    var text = el("div", "info-text");
+    text.appendChild(el("div", "info-label", label));
+    var val = el("div", "info-value info-value--link", formatPhone(raw));
+    text.appendChild(val);
+    row.appendChild(text);
+
+    var acts = el("div", "info-actions");
+    var call = el("a", "mini-btn");
+    call.href = "tel:" + clean(raw);
+    call.setAttribute("aria-label", label + " 전화 걸기");
+    call.appendChild(icon("phone"));
+    acts.appendChild(call);
+    var copy = el("button", "mini-btn mini-btn--ghost");
+    copy.type = "button";
+    copy.setAttribute("aria-label", label + " 복사");
+    copy.appendChild(icon("copy"));
+    copy.addEventListener("click", function () { copyText(formatPhone(raw)); });
+    acts.appendChild(copy);
+    row.appendChild(acts);
+    card.appendChild(row);
+  }
+
+  function addInfo(card, iconName, label, value) {
     if (!value) return;
-    var isLink = !!linkScheme;
-    var row = isLink ? el("a", "info-row") : el("div", "info-row");
-    if (isLink) {
-      row.href = linkScheme + clean(rawValue || value);
-      row.setAttribute("aria-label", label + " " + value);
-    }
+    var row = el("div", "info-row");
     var ico = el("span", "info-ico");
     ico.appendChild(icon(iconName));
     row.appendChild(ico);
@@ -273,11 +396,6 @@
     text.appendChild(el("div", "info-label", label));
     text.appendChild(el("div", "info-value", value));
     row.appendChild(text);
-    if (isLink) {
-      var chev = el("span", "info-chevron");
-      chev.appendChild(icon("chevron"));
-      row.appendChild(chev);
-    }
     card.appendChild(row);
   }
 

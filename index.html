@@ -37,6 +37,8 @@
     <symbol id="ic-bookmark" viewBox="0 0 24 24"><path d="M19 21l-7-5-7 5V5a2 2 0 0 1 2-2h10a2 2 0 0 1 2 2z"/></symbol>
     <symbol id="ic-chevron" viewBox="0 0 24 24"><path d="m9 18 6-6-6-6"/></symbol>
     <symbol id="ic-contacts" viewBox="0 0 24 24"><path d="M16 21v-2a4 4 0 0 0-4-4H8a4 4 0 0 0-4 4v2"/><circle cx="10" cy="7" r="4"/><path d="M20 8v6M23 11h-6"/></symbol>
+    <symbol id="ic-copy" viewBox="0 0 24 24"><rect x="9" y="9" width="13" height="13" rx="2"/><path d="M5 15H4a2 2 0 0 1-2-2V4a2 2 0 0 1 2-2h9a2 2 0 0 1 2 2v1"/></symbol>
+    <symbol id="ic-share" viewBox="0 0 24 24"><circle cx="18" cy="5" r="3"/><circle cx="6" cy="12" r="3"/><circle cx="18" cy="19" r="3"/><path d="m8.6 13.5 6.8 3.98M15.4 6.5 8.6 10.48"/></symbol>
   </svg>
 
   <header class="app-bar">
@@ -66,8 +68,18 @@
             aria-selected="false" aria-controls="list" tabindex="-1">최근</button>
   </nav>
 
+  <div id="list-tools" class="list-tools">
+    <div class="sort-seg" role="group" aria-label="정렬 방식">
+      <button class="seg-btn is-active" data-sort="dept" aria-pressed="true">부서순</button>
+      <button class="seg-btn" data-sort="name" aria-pressed="false">가나다순</button>
+    </div>
+    <div id="dept-nav" class="dept-nav" role="group" aria-label="부서 바로가기"></div>
+  </div>
+
   <main id="list" class="list" role="tabpanel" tabindex="0" aria-labelledby="tab-all"></main>
+  <nav id="alpha-rail" class="alpha-rail" aria-label="가나다 바로가기" hidden></nav>
   <p id="result-status" class="sr-only" role="status" aria-live="polite"></p>
+  <div id="snackbar" class="snackbar" role="status" aria-live="polite" hidden></div>
 
   <!-- 상세 화면 (오버레이) -->
   <section id="detail" class="detail" role="dialog" aria-modal="true"

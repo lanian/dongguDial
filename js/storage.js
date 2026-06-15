@@ -12,6 +12,7 @@
   var CUSTOM_KEY = "dongguDial.custom.v1";   // [ {id, ...} ]  (사용자가 추가한 연락처)
   var DEPT_EDITS_KEY = "dongguDial.deptEdits.v1";   // { [id]: {name,parentId,sortOrder,level,__deleted?} }
   var DEPT_CUSTOM_KEY = "dongguDial.deptCustom.v1"; // [ {id,name,parentId,level,sortOrder} ]
+  var BASE_HIDDEN_KEY = "dongguDial.baseHidden.v1"; // true면 번들 샘플(기본) 데이터 숨김
   var RECENT_LIMIT = 30;
 
   // 고유 id 생성기 (같은 ms 에 여러 건 추가해도 충돌 없도록 카운터 결합)
@@ -147,12 +148,17 @@
       }
     },
 
-    /** 모든 편집/추가 초기화 (연락처 + 부서) */
+    /** 번들 기본(샘플) 데이터 숨김 여부 — 전체 명부를 가져온 파일로 대체할 때 사용 */
+    getBaseHidden: function () { return read(BASE_HIDDEN_KEY, false) === true; },
+    setBaseHidden: function (v) { write(BASE_HIDDEN_KEY, !!v); },
+
+    /** 모든 편집/추가 초기화 (연락처 + 부서, 기본 데이터 다시 표시) */
     resetAllEdits: function () {
       write(EDITS_KEY, {});
       write(CUSTOM_KEY, []);
       write(DEPT_EDITS_KEY, {});
       write(DEPT_CUSTOM_KEY, []);
+      write(BASE_HIDDEN_KEY, false);
     },
 
     isEdited: function (id) {
@@ -185,6 +191,7 @@
         custom: read(CUSTOM_KEY, []),
         deptEdits: read(DEPT_EDITS_KEY, {}),
         deptCustom: read(DEPT_CUSTOM_KEY, []),
+        baseHidden: read(BASE_HIDDEN_KEY, false) === true,
       };
     },
 
@@ -232,6 +239,8 @@
       write(CUSTOM_KEY, custom);
       write(DEPT_EDITS_KEY, deptEdits);
       write(DEPT_CUSTOM_KEY, deptCustom);
+      if (mode === "replace") write(BASE_HIDDEN_KEY, data.baseHidden === true);
+      else if (data.baseHidden === true) write(BASE_HIDDEN_KEY, true);
       if (data.theme) write(THEME_KEY, data.theme);
       return { favorites: favs.length, recent: recent.length,
         edits: Object.keys(edits).length, custom: custom.length,

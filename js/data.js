@@ -69,16 +69,19 @@
     /** 부서·연락처 오버레이(편집/추가/삭제)를 기본 데이터에 병합해 유효 상태 재구성 */
     rebuild: function () {
       var S = global.Storage;
+      var hideBase = !!(S && S.getBaseHidden && S.getBaseHidden());
 
       // 1) 부서: 오버레이 적용 → sortOrder(직제) 정렬
       var deptEdits = (S && S.getDeptEdits) ? S.getDeptEdits() : {};
       var deptCustom = (S && S.getDeptCustom) ? S.getDeptCustom() : [];
       var depts = [];
-      (state.baseDepartments || []).forEach(function (d) {
-        var e = deptEdits[d.id];
-        if (e && e.__deleted) return;
-        depts.push(e ? Object.assign({}, d, e) : d);
-      });
+      if (!hideBase) {
+        (state.baseDepartments || []).forEach(function (d) {
+          var e = deptEdits[d.id];
+          if (e && e.__deleted) return;
+          depts.push(e ? Object.assign({}, d, e) : d);
+        });
+      }
       deptCustom.forEach(function (d) {
         var e = deptEdits[d.id];
         if (e && e.__deleted) return;
@@ -100,7 +103,7 @@
         if (e && !e.__deleted) v._edited = true;
         eff.push(v);
       }
-      state.base.forEach(add);
+      if (!hideBase) state.base.forEach(add);
       customs.forEach(function (c) { c._custom = true; add(c); });
       state.contacts = eff;
       state.byId = {};

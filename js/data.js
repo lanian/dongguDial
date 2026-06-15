@@ -6,7 +6,8 @@
   "use strict";
 
   var state = {
-    contacts: [],
+    base: [],          // JSON 원본 연락처
+    contacts: [],      // 편집/추가 오버레이가 적용된 유효 연락처
     departments: [],
     byId: {},
     deptById: {},
@@ -66,14 +67,33 @@
             state.deptById[d.id] = d;
           });
 
-          state.contacts = json.contacts || [];
-          state.byId = {};
-          state.contacts.forEach(function (c) {
-            state.byId[c.id] = c;
-            buildSearchIndex(c);
-          });
+          state.base = json.contacts || [];
+          Data.rebuild();
           return state;
         });
+    },
+
+    /** 편집(오버레이) + 커스텀 연락처를 기본 데이터에 병합해 유효 목록 재구성 */
+    rebuild: function () {
+      var S = global.Storage;
+      var edits = (S && S.getEdits) ? S.getEdits() : {};
+      var customs = (S && S.getCustom) ? S.getCustom() : [];
+      var eff = [];
+      function add(c) {
+        var e = edits[c.id];
+        if (e && e.__deleted) return;
+        var v = e ? Object.assign({}, c, e) : c;
+        if (e && !e.__deleted) v._edited = true;
+        eff.push(v);
+      }
+      state.base.forEach(add);
+      customs.forEach(function (c) { c._custom = true; add(c); });
+      state.contacts = eff;
+      state.byId = {};
+      eff.forEach(function (c) {
+        state.byId[c.id] = c;
+        buildSearchIndex(c);
+      });
     },
 
     getById: function (id) {
@@ -105,6 +125,36 @@
         groups.push({ dept: { id: 0, name: "기타" }, members: orphans });
       }
       return groups;
+    },
+
+    /** 조직도: 부서 → 팀 → 멤버 트리 */
+    groupedByOrg: function () {
+      function teamsOf(members) {
+        var map = {}, order = [];
+        members.forEach(function (c) {
+          var t = c.team || "(팀 없음)";
+          if (!map[t]) { map[t] = []; order.push(t); }
+          map[t].push(c);
+        });
+        return order.map(function (t) {
+          return {
+            name: t,
+            members: map[t].sort(function (a, b) {
+              return (a.memberSortOrder || 0) - (b.memberSortOrder || 0);
+            }),
+          };
+        });
+      }
+      var out = [];
+      state.departments.forEach(function (d) {
+        var members = state.contacts.filter(function (c) { return c.deptId === d.id; });
+        if (members.length) out.push({ dept: d, teams: teamsOf(members), count: members.length });
+      });
+      var orphans = state.contacts.filter(function (c) { return !state.deptById[c.deptId]; });
+      if (orphans.length) {
+        out.push({ dept: { id: 0, name: "기타" }, teams: teamsOf(orphans), count: orphans.length });
+      }
+      return out;
     },
 
     /** 가나다(초성) 인덱스 순서 */

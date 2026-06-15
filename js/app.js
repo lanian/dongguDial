@@ -16,15 +16,38 @@
   var detailBack = document.getElementById("detail-back");
   var detailFav = document.getElementById("detail-fav");
   var settingsEl = document.getElementById("settings");
+  var editorEl = document.getElementById("editor");
+  var editorBody = document.getElementById("editor-body");
+  var fab = document.getElementById("fab-add");
   var listTools = document.getElementById("list-tools");
   var deptNav = document.getElementById("dept-nav");
   var alphaRail = document.getElementById("alpha-rail");
   var snackbar = document.getElementById("snackbar");
-  var segBtns = Array.prototype.slice.call(document.querySelectorAll(".seg-btn"));
+  var sortBtns = Array.prototype.slice.call(document.querySelectorAll(".sort-seg .seg-btn"));
+  var themeBtns = Array.prototype.slice.call(document.querySelectorAll(".theme-seg .seg-btn"));
 
-  var current = { tab: "all", query: "", detailId: null, sort: "dept", collapsed: {} };
-  var lastFocused = null;
+  var current = { tab: "all", query: "", detailId: null, sort: "dept", collapsed: {}, orgCollapsed: {} };
+  var editId = null;
   var bgEls = [appBar, tabsNav, listEl];
+  var focusStack = [];
+
+  function pushFocus() { focusStack.push(document.activeElement); }
+  function popFocus() { var el = focusStack.pop(); if (el && el.focus) el.focus(); }
+  function anyOverlayOpen() {
+    return !detailEl.hidden || !settingsEl.hidden || !editorEl.hidden;
+  }
+  function syncInert() { setBgInert(anyOverlayOpen()); }
+  function topOverlay() {
+    if (!editorEl.hidden) return editorEl;
+    if (!settingsEl.hidden) return settingsEl;
+    if (!detailEl.hidden) return detailEl;
+    return null;
+  }
+  function updateFab() {
+    var show = !anyOverlayOpen() && !current.query &&
+      (current.tab === "all" || current.tab === "org");
+    fab.hidden = !show;
+  }
 
   // ---------- 배경 비활성화(오버레이용) ----------
   function setBgInert(on) {
@@ -99,7 +122,9 @@
     window.scrollTo({ top: y, behavior: "smooth" });
   }
 
-  function render() {
+  function render() { renderBody(); updateFab(); }
+
+  function renderBody() {
     var q = current.query.trim();
     if (q) {
       showTools(false); showDeptNav(false); showAlphaRail(false);
@@ -136,7 +161,13 @@
     }
 
     showTools(false); showDeptNav(false); showAlphaRail(false);
-    if (current.tab === "favorites") {
+    if (current.tab === "org") {
+      UI.renderOrgView(listEl, Data.groupedByOrg(), {
+        onOpen: openDetail, onFav: onFavChanged,
+        collapsed: current.orgCollapsed,
+        onToggle: function (id) { current.orgCollapsed[id] = !current.orgCollapsed[id]; render(); },
+      });
+    } else if (current.tab === "favorites") {
       UI.renderFlat(listEl, Data.resolveIds(Storage.getFavorites()), {
         onOpen: openDetail, onFav: onFavChanged,
         emptyMsg: "즐겨찾기한 연락처가 없습니다.\n별 아이콘을 눌러 추가하세요.",
@@ -152,10 +183,10 @@
   }
 
   // 정렬 세그먼트
-  segBtns.forEach(function (b) {
+  sortBtns.forEach(function (b) {
     b.addEventListener("click", function () {
       current.sort = b.dataset.sort;
-      segBtns.forEach(function (x) {
+      sortBtns.forEach(function (x) {
         var on = x === b;
         x.classList.toggle("is-active", on);
         x.setAttribute("aria-pressed", on ? "true" : "false");
@@ -163,6 +194,29 @@
       render();
     });
   });
+
+  // ---------- 테마 ----------
+  function applyTheme(t) {
+    var root = document.documentElement;
+    if (t === "light" || t === "dark") root.setAttribute("data-theme", t);
+    else root.removeAttribute("data-theme"); // system
+  }
+  function setThemeUI(t) {
+    themeBtns.forEach(function (b) {
+      var on = b.dataset.theme === t;
+      b.classList.toggle("is-active", on);
+      b.setAttribute("aria-pressed", on ? "true" : "false");
+    });
+  }
+  themeBtns.forEach(function (b) {
+    b.addEventListener("click", function () {
+      Storage.setTheme(b.dataset.theme);
+      applyTheme(b.dataset.theme);
+      setThemeUI(b.dataset.theme);
+    });
+  });
+  applyTheme(Storage.getTheme());
+  setThemeUI(Storage.getTheme());
 
   // 스낵바 (가벼운 피드백)
   var snackTimer;
@@ -184,9 +238,10 @@
     Storage.pushRecent(contact.id);
     UI.renderDetail(detailBody, contact);
     updateFavButton();
-    lastFocused = document.activeElement;
-    setBgInert(true);
+    pushFocus();
     detailEl.hidden = false;
+    syncInert();
+    updateFab();
     detailBody.scrollTop = 0;
     detailBack.focus();
     if (location.hash !== "#contact/" + contact.id) {
@@ -197,11 +252,17 @@
   function closeDetail(fromPop) {
     detailEl.hidden = true;
     current.detailId = null;
-    setBgInert(false);
-    if (lastFocused && lastFocused.focus) lastFocused.focus();
+    syncInert();
+    updateFab();
+    popFocus();
     if (!fromPop && location.hash) history.back();
     if (current.tab === "recent" || current.tab === "favorites") render();
   }
+
+  document.getElementById("detail-edit").addEventListener("click", function () {
+    var c = Data.getById(current.detailId);
+    if (c) openEditor(c);
+  });
 
   function updateFavButton() {
     var isFav = Storage.isFavorite(current.detailId);
@@ -266,20 +327,24 @@
 
   function refreshCounts() {
     var c = Storage.counts();
-    settingsCounts.textContent = "즐겨찾기 " + c.favorites + " · 최근 " + c.recent;
+    var t = "즐겨찾기 " + c.favorites + " · 최근 " + c.recent;
+    if (c.edits || c.custom) t += " · 편집 " + c.edits + " · 추가 " + c.custom;
+    settingsCounts.textContent = t;
   }
   function openSettings() {
     refreshCounts();
-    lastFocused = document.activeElement;
-    setBgInert(true);
+    pushFocus();
     settingsEl.hidden = false;
+    syncInert();
+    updateFab();
     document.getElementById("settings-back").focus();
     history.pushState({ settings: true }, "", "#settings");
   }
   function closeSettings(fromPop) {
     settingsEl.hidden = true;
-    setBgInert(false);
-    if (lastFocused && lastFocused.focus) lastFocused.focus();
+    syncInert();
+    updateFab();
+    popFocus();
     if (!fromPop && location.hash === "#settings") history.back();
   }
 
@@ -316,9 +381,13 @@
       try {
         var data = JSON.parse(String(reader.result));
         var result = Storage.importData(data, "merge");
+        Data.rebuild();
+        applyTheme(Storage.getTheme());
+        setThemeUI(Storage.getTheme());
         refreshCounts();
         render();
-        window.alert("복구 완료: 즐겨찾기 " + result.favorites + ", 최근 " + result.recent);
+        window.alert("복구 완료: 즐겨찾기 " + result.favorites + ", 최근 " + result.recent +
+          ", 편집 " + result.edits + ", 추가 " + result.custom);
       } catch (e) {
         window.alert("가져오기 실패: " + e.message);
       }
@@ -327,16 +396,89 @@
     reader.readAsText(file);
   });
 
+  // ---------- 연락처 편집 / 추가 (로컬 오버레이) ----------
+  function openEditor(contact) {
+    editId = contact ? contact.id : null;
+    document.getElementById("editor-bar-title").textContent = contact ? "연락처 편집" : "연락처 추가";
+    var depts = Data.getDepartments();
+    UI.renderEditForm(editorBody, contact || { deptId: depts[0] && depts[0].id }, depts);
+    document.getElementById("editor-delete").style.display = contact ? "" : "none";
+    pushFocus();
+    editorEl.hidden = false;
+    syncInert();
+    updateFab();
+    editorBody.scrollTop = 0;
+    document.getElementById("editor-cancel").focus();
+    history.pushState({ editor: true }, "", "#edit");
+  }
+  function closeEditor(fromPop) {
+    editorEl.hidden = true;
+    syncInert();
+    updateFab();
+    popFocus();
+    if (!fromPop && location.hash === "#edit") history.back();
+  }
+  function val(id) { var e = document.getElementById(id); return e ? e.value.trim() : ""; }
+  function saveEditor() {
+    var name = val("ef-name");
+    if (!name) { window.alert("이름을 입력하세요."); return; }
+    var depts = Data.getDepartments();
+    var deptId = parseInt(val("ef-dept"), 10);
+    var dept = "";
+    depts.forEach(function (d) { if (d.id === deptId) dept = d.name; });
+    var fields = {
+      name: name, deptId: deptId, dept: dept,
+      team: val("ef-team"), position: val("ef-position"), work: val("ef-work"),
+      phone: val("ef-phone"), tel: val("ef-tel"), birth: val("ef-birth"),
+      status: val("ef-status") || "미설정",
+    };
+    var id;
+    if (editId == null) id = Storage.addContact(fields);
+    else { Storage.saveContact(editId, fields); id = editId; }
+    Data.rebuild();
+    closeEditor(false);
+    if (!detailEl.hidden && current.detailId === id) {
+      var c = Data.getById(id);
+      if (c) { UI.renderDetail(detailBody, c); updateFavButton(); }
+    }
+    render();
+    showSnack("저장되었습니다");
+  }
+  function deleteEditor() {
+    if (editId == null) return;
+    if (!window.confirm("이 연락처를 삭제할까요?")) return;
+    var delId = editId;
+    Storage.deleteContact(delId);
+    Data.rebuild();
+    closeEditor(false);
+    if (!detailEl.hidden && current.detailId === delId) closeDetail(false);
+    render();
+    showSnack("삭제되었습니다");
+  }
+  document.getElementById("editor-cancel").addEventListener("click", function () { closeEditor(false); });
+  document.getElementById("editor-save").addEventListener("click", saveEditor);
+  document.getElementById("editor-delete").addEventListener("click", deleteEditor);
+  fab.addEventListener("click", function () { openEditor(null); });
+  document.getElementById("reset-edits-btn").addEventListener("click", function () {
+    if (!window.confirm("수정·추가한 연락처를 모두 초기화할까요?")) return;
+    Storage.resetAllEdits();
+    Data.rebuild();
+    refreshCounts();
+    render();
+    showSnack("초기화되었습니다");
+  });
+
   // ---------- 전역 키보드 (Esc 닫기 / 오버레이 포커스 트랩) ----------
   document.addEventListener("keydown", function (e) {
     if (e.key === "Escape") {
+      if (!editorEl.hidden) { closeEditor(false); return; }
       if (!settingsEl.hidden) { closeSettings(false); return; }
       if (!detailEl.hidden) { closeDetail(false); return; }
       if (searchInput.value) { searchClear.click(); }
       return;
     }
     if (e.key === "Tab") {
-      var ov = !settingsEl.hidden ? settingsEl : (!detailEl.hidden ? detailEl : null);
+      var ov = topOverlay();
       if (!ov) return;
       var f = Array.prototype.filter.call(
         ov.querySelectorAll('button, a[href], input, [tabindex]:not([tabindex="-1"])'),
@@ -351,7 +493,9 @@
 
   // ---------- 히스토리(뒤로가기로 오버레이 닫기) ----------
   window.addEventListener("popstate", function (e) {
-    if (!settingsEl.hidden) {
+    if (!editorEl.hidden) {
+      closeEditor(true);
+    } else if (!settingsEl.hidden) {
       closeSettings(true);
     } else if (!detailEl.hidden) {
       closeDetail(true);
@@ -372,6 +516,8 @@
       switchTab(tabs[1]);
     } else if (location.hash === "#recent") {
       switchTab(tabs[2]);
+    } else if (location.hash === "#org") {
+      switchTab(tabs[3]);
     }
   }
 

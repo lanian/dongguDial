@@ -272,6 +272,81 @@
       container.appendChild(frag);
     },
 
+    /** 조직도: 부서(접기) → 팀 → 멤버. opts: onOpen,onFav,collapsed,onToggle */
+    renderOrgView: function (container, tree, opts) {
+      container.textContent = "";
+      if (!tree.length) {
+        container.appendChild(UI.emptyState("조직 정보가 없습니다."));
+        return;
+      }
+      var frag = document.createDocumentFragment();
+      tree.forEach(function (node) {
+        var collapsed = opts.collapsed && opts.collapsed[node.dept.id];
+        var header = el("button", "section-header section-toggle");
+        header.type = "button";
+        header.id = "org-" + node.dept.id;
+        header.setAttribute("aria-expanded", collapsed ? "false" : "true");
+        header.appendChild(icon("chevron", "section-chevron"));
+        header.appendChild(document.createTextNode(" " + node.dept.name + " "));
+        header.appendChild(el("span", "count", "(" + node.count + ")"));
+        header.addEventListener("click", function () {
+          if (opts.onToggle) opts.onToggle(node.dept.id);
+        });
+        frag.appendChild(header);
+        if (collapsed) return;
+        node.teams.forEach(function (t) {
+          var th = el("div", "org-team");
+          th.appendChild(el("span", "org-team-name", t.name));
+          th.appendChild(el("span", "count", " (" + t.members.length + ")"));
+          frag.appendChild(th);
+          t.members.forEach(function (c) {
+            var row = renderRow(c, opts);
+            row.classList.add("row--indent");
+            frag.appendChild(row);
+          });
+        });
+      });
+      container.appendChild(frag);
+    },
+
+    /** 편집/추가 폼 렌더. 입력값은 #ef-* id로 app이 읽는다. */
+    renderEditForm: function (container, contact, departments) {
+      container.textContent = "";
+      contact = contact || {};
+      var form = el("div", "edit-form");
+
+      form.appendChild(field("이름", textInput("ef-name", contact.name, "홍길동")));
+
+      var deptSel = el("select", "ef-input");
+      deptSel.id = "ef-dept";
+      departments.forEach(function (d) {
+        var o = el("option", null, d.name);
+        o.value = String(d.id);
+        if (contact.deptId === d.id) o.selected = true;
+        deptSel.appendChild(o);
+      });
+      form.appendChild(field("부서", deptSel));
+
+      form.appendChild(field("팀", textInput("ef-team", contact.team, "인사팀")));
+      form.appendChild(field("직책", textInput("ef-position", contact.position, "팀장")));
+      form.appendChild(field("담당업무", textInput("ef-work", contact.work, "채용")));
+      form.appendChild(field("휴대전화", textInput("ef-phone", contact.phone, "010-0000-0000", "tel")));
+      form.appendChild(field("사내번호", textInput("ef-tel", contact.tel, "02-000-0000", "tel")));
+      form.appendChild(field("생년월일", textInput("ef-birth", contact.birth, "1990-01-01")));
+
+      var statusSel = el("select", "ef-input");
+      statusSel.id = "ef-status";
+      ["재직", "휴직", "파견", "교육", "미설정"].forEach(function (s) {
+        var o = el("option", null, s);
+        o.value = s;
+        if ((contact.status || "미설정") === s) o.selected = true;
+        statusSel.appendChild(o);
+      });
+      form.appendChild(field("재직상태", statusSel));
+
+      container.appendChild(form);
+    },
+
     renderSkeleton: function (container, n) {
       container.textContent = "";
       var frag = document.createDocumentFragment();
@@ -311,6 +386,8 @@
       hero.appendChild(el("h2", "detail-name", contact.name || ""));
       var role = [contact.dept, contact.team, contact.position].filter(Boolean).join(" · ");
       hero.appendChild(el("p", "detail-role", role));
+      if (contact._custom) hero.appendChild(el("span", "edit-chip", "추가한 연락처"));
+      else if (contact._edited) hero.appendChild(el("span", "edit-chip", "수정됨"));
       container.appendChild(hero);
 
       var qa = el("div", "quick-actions");
@@ -384,6 +461,21 @@
     acts.appendChild(copy);
     row.appendChild(acts);
     card.appendChild(row);
+  }
+
+  function field(label, input) {
+    var wrap = el("label", "ef-field");
+    wrap.appendChild(el("span", "ef-label", label));
+    wrap.appendChild(input);
+    return wrap;
+  }
+  function textInput(id, value, ph, type) {
+    var inp = el("input", "ef-input");
+    inp.id = id;
+    inp.type = type || "text";
+    if (value) inp.value = value;
+    if (ph) inp.placeholder = ph;
+    return inp;
   }
 
   function addInfo(card, iconName, label, value) {

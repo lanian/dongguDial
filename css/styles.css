@@ -611,22 +611,67 @@ a.info-row .info-value { color: var(--brand-link); }
 }
 
 /* ---------- Org tree ---------- */
-.org-team {
-  display: flex;
-  align-items: baseline;
-  gap: 4px;
-  padding: 10px var(--sp-4) 4px calc(var(--sp-4) + 14px);
+.org-summary {
+  padding: var(--sp-2) var(--sp-4);
+  color: var(--on-surface-muted);
   font-size: var(--fs-sm);
+}
+.org-node { margin-bottom: var(--sp-2); }
+
+.org-dept { gap: 6px; }
+.org-dept .org-dept-name { font-weight: var(--fw-bold); }
+.org-lead {
+  color: var(--on-surface-muted);
+  font-size: var(--fs-sm);
+  font-weight: var(--fw-reg);
+  margin-left: 6px;
+  overflow: hidden;
+  text-overflow: ellipsis;
+  white-space: nowrap;
+}
+.org-badge {
+  margin-left: auto;
+  flex: 0 0 auto;
+  display: inline-flex;
+  align-items: center;
+  justify-content: center;
+  min-width: 22px;
+  height: 20px;
+  padding: 0 7px;
+  border-radius: var(--r-pill);
+  background: rgba(var(--brand-rgb), 0.14);
+  color: var(--brand);
+  font-size: var(--fs-cap);
+  font-weight: var(--fw-bold);
+}
+.org-badge--sm { background: var(--divider); color: var(--on-surface-muted); }
+
+.org-dept-body { background: var(--surface); }
+.org-team-block {
+  margin-left: var(--sp-5);
+  border-left: 2px solid var(--divider);
+}
+.org-team-header {
+  display: flex;
+  align-items: center;
+  gap: 6px;
+  width: 100%;
+  border: none;
+  background: var(--surface);
+  color: inherit;
+  font: inherit;
   font-weight: var(--fw-med);
-  color: var(--on-surface);
-  background: var(--bg);
+  text-align: left;
+  padding: 11px var(--sp-4) 11px 10px;
+  cursor: pointer;
+  border-bottom: 1px solid var(--divider);
 }
-.org-team-name { font-weight: var(--fw-bold); }
-.org-team .count { color: var(--on-surface-muted); font-weight: var(--fw-reg); }
-.row--indent {
-  padding-left: calc(var(--sp-4) + 14px);
-  border-left: 3px solid var(--divider);
-}
+.org-team-header:active { background: var(--divider); }
+.org-team-header .section-chevron { width: 0.9em; height: 0.9em; }
+.org-team-block .row { padding-left: 14px; }
+.org-team-block .row:last-child { border-bottom: none; }
+.row--lead { box-shadow: inset 3px 0 0 var(--brand); }
+.row--lead .row-name { font-weight: var(--fw-bold); }
 
 /* ---------- Theme segment ---------- */
 .theme-seg { display: flex; padding: var(--sp-2); gap: var(--sp-2); }

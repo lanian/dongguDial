@@ -207,6 +207,17 @@
     members.forEach(function (c) { frag.appendChild(renderRow(c, opts)); });
   }
 
+  // 직책이 '장/담당관/위원/단장'으로 끝나면 리더로 간주(주무관 제외)
+  function isLead(c) {
+    var p = (c.position || "").trim();
+    return /장$/.test(p) || /담당관$/.test(p) || /위원$/.test(p) || /단장$/.test(p);
+  }
+  function orgRow(c, opts) {
+    var r = renderRow(c, opts);
+    if (isLead(c)) r.classList.add("row--lead");
+    return r;
+  }
+
   var UI = {
     avatarColor: avatarColor,
     icon: icon,
@@ -272,44 +283,63 @@
       container.appendChild(frag);
     },
 
-    /** 조직도: 국(접기) → 직속 인원 → 과 → 인원. opts: onOpen,onFav,collapsed,onToggle */
+    /** 조직도(트리): 부서(국/실/관) → 팀(과) → 인원. 2단 접기 + 리더 강조.
+     *  opts: onOpen,onFav,collapsed,onToggle */
     renderOrgView: function (container, tree, opts) {
       container.textContent = "";
       if (!tree.length) {
         container.appendChild(UI.emptyState("조직 정보가 없습니다."));
         return;
       }
+      var totalPeople = tree.reduce(function (a, n) { return a + n.count; }, 0);
+      var summary = el("div", "org-summary");
+      summary.appendChild(el("span", null, "총 " + tree.length + "개 부서 · " + totalPeople + "명"));
+      container.appendChild(summary);
+
       var frag = document.createDocumentFragment();
       tree.forEach(function (node) {
-        var collapsed = opts.collapsed && opts.collapsed[node.dept.id];
-        var header = el("button", "section-header section-toggle");
+        var collapsed = !!(opts.collapsed && opts.collapsed[node.dept.id]);
+        var wrap = el("div", "org-node");
+
+        var header = el("button", "section-header section-toggle org-dept");
         header.type = "button";
         header.id = "org-" + node.dept.id;
         header.setAttribute("aria-expanded", collapsed ? "false" : "true");
         header.appendChild(icon("chevron", "section-chevron"));
-        header.appendChild(document.createTextNode(" " + node.dept.name + " "));
-        header.appendChild(el("span", "count", "(" + node.count + ")"));
-        header.addEventListener("click", function () {
-          if (opts.onToggle) opts.onToggle(node.dept.id);
-        });
-        frag.appendChild(header);
-        if (collapsed) return;
-        // 국 직속 인원
-        node.directMembers.forEach(function (c) {
-          frag.appendChild(renderRow(c, opts));
-        });
-        // 하위 과 → 인원
-        node.children.forEach(function (ch) {
-          var th = el("div", "org-team");
-          th.appendChild(el("span", "org-team-name", ch.dept.name));
-          th.appendChild(el("span", "count", " (" + ch.members.length + ")"));
-          frag.appendChild(th);
-          ch.members.forEach(function (c) {
-            var row = renderRow(c, opts);
-            row.classList.add("row--indent");
-            frag.appendChild(row);
+        header.appendChild(el("span", "org-dept-name", node.dept.name));
+        var lead = node.directMembers.filter(isLead)[0];
+        if (lead) header.appendChild(el("span", "org-lead", lead.name + " " + lead.position));
+        header.appendChild(el("span", "org-badge", String(node.count)));
+        header.addEventListener("click", function () { if (opts.onToggle) opts.onToggle(node.dept.id); });
+        wrap.appendChild(header);
+
+        if (!collapsed) {
+          var body = el("div", "org-dept-body");
+          node.directMembers.forEach(function (c) { body.appendChild(orgRow(c, opts)); });
+          node.children.forEach(function (ch) {
+            var tCollapsed = !!(opts.collapsed && opts.collapsed[ch.dept.id]);
+            var block = el("div", "org-team-block");
+            var th = el("button", "org-team-header");
+            th.type = "button";
+            th.id = "org-" + ch.dept.id;
+            th.setAttribute("aria-expanded", tCollapsed ? "false" : "true");
+            th.appendChild(icon("chevron", "section-chevron"));
+            th.appendChild(el("span", "org-team-name", ch.dept.name));
+            var tLead = ch.members.filter(isLead)[0];
+            if (tLead) th.appendChild(el("span", "org-lead", tLead.name + " " + tLead.position));
+            th.appendChild(el("span", "org-badge org-badge--sm", String(ch.members.length)));
+            th.addEventListener("click", function () { if (opts.onToggle) opts.onToggle(ch.dept.id); });
+            block.appendChild(th);
+            if (!tCollapsed) {
+              var tbody = el("div", "org-team-body");
+              ch.members.forEach(function (c) { tbody.appendChild(orgRow(c, opts)); });
+              block.appendChild(tbody);
+            }
+            body.appendChild(block);
           });
-        });
+          wrap.appendChild(body);
+        }
+        frag.appendChild(wrap);
       });
       container.appendChild(frag);
     },

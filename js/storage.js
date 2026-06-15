@@ -14,6 +14,13 @@
   var DEPT_CUSTOM_KEY = "dongguDial.deptCustom.v1"; // [ {id,name,parentId,level,sortOrder} ]
   var RECENT_LIMIT = 30;
 
+  // 고유 id 생성기 (같은 ms 에 여러 건 추가해도 충돌 없도록 카운터 결합)
+  var _seq = 0;
+  function uid(prefix) {
+    _seq += 1;
+    return prefix + Date.now().toString(36) + _seq.toString(36);
+  }
+
   function read(key, fallback) {
     try {
       var raw = localStorage.getItem(key);
@@ -76,7 +83,7 @@
     /** 새 연락처 추가 → 부여된 id 반환 */
     addContact: function (fields) {
       var customs = read(CUSTOM_KEY, []);
-      var id = "u" + Date.now().toString(36);
+      var id = uid("u");
       customs.push(Object.assign({ id: id }, fields));
       write(CUSTOM_KEY, customs);
       return id;
@@ -123,7 +130,7 @@
     },
     addDept: function (fields) {
       var customs = read(DEPT_CUSTOM_KEY, []);
-      var id = "d" + Date.now().toString(36);
+      var id = uid("d");
       customs.push(Object.assign({ id: id }, fields));
       write(DEPT_CUSTOM_KEY, customs);
       return id;

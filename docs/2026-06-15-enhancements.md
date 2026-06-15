@@ -39,3 +39,9 @@
 - 백업 v3에 `deptEdits`/`deptCustom` 포함. 초기화는 연락처+부서 함께.
 - 오버레이 처리 일반화: `overlayList()`(중첩 우선순위) 기반 `closeTop`/`topOverlay`/Esc·Tab·popstate.
 - 비고: 조직도는 인원 있는 부서만 표시(빈 부서는 부서관리에서 관리). SW 캐시 v11.
+
+## 5) CSV·Excel 가져오기 + id 충돌 수정 — 추가
+- `js/import.js`(의존성 없음): CSV 파서(따옴표/CRLF/BOM), XLSX 파서(브라우저 `DecompressionStream('deflate-raw')`로 압축 해제 + 정규식 XML 파싱), CSV 인코딩 자동 판별(UTF-8/CP949).
+- 설정 → **연락처 가져오기(CSV·Excel)**: 열 제목 별칭 자동 매핑(이름·부서·상위부서·직책·담당업무·휴대전화·사내번호·생년월일·재직상태), 부서 자동 생성(상위부서로 위계 연결), 재직상태 정규화, 미리 건수 확인. **CSV 양식 다운로드** 제공.
+- 버그 수정: `addContact`/`addDept`가 `Date.now()` 기반 id라 **같은 ms 다건 추가 시 id 충돌**(부서가 자기 부모가 되어 조직도 무한 재귀). `uid()`(타임스탬프+증가 카운터)로 해결.
+- SW 캐시 v13(import.js 포함).

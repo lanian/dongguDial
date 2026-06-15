@@ -566,6 +566,120 @@
   document.getElementById("dept-editor-save").addEventListener("click", saveDeptEditor);
   document.getElementById("dept-editor-delete").addEventListener("click", deleteDeptEditor);
 
+  // ---------- 연락처 CSV/Excel 가져오기 (로컬) ----------
+  var importContactsFile = document.getElementById("import-contacts-file");
+  var FIELD_ALIASES = {
+    name: ["이름", "성명", "직원명", "name"],
+    dept: ["부서", "소속", "부서명", "department"],
+    parent: ["상위부서", "상위", "상위조직", "국"],
+    team: ["팀", "팀명"],
+    position: ["직책", "직위", "직급", "position"],
+    work: ["담당업무", "업무", "담당", "work"],
+    phone: ["휴대전화", "휴대폰", "핸드폰", "휴대", "개인전화", "연락처", "hp", "mobile", "phone"],
+    tel: ["사내번호", "내선", "내선번호", "사무실", "직통", "전화", "tel"],
+    birth: ["생년월일", "생일", "출생", "birth"],
+    status: ["재직상태", "상태", "재직", "status"],
+  };
+  function norm(s) { return (s || "").toString().trim().toLowerCase().replace(/\s+/g, ""); }
+  function buildFieldMap(headers) {
+    var map = {};
+    Object.keys(FIELD_ALIASES).forEach(function (field) {
+      var aliases = FIELD_ALIASES[field].map(norm);
+      var h = headers.find(function (hd) { return aliases.indexOf(norm(hd)) !== -1; });
+      if (h) map[field] = h;
+    });
+    return map;
+  }
+  function normStatus(s) {
+    s = (s || "").trim();
+    var m = { "재직중": "재직", "휴직중": "휴직", "파견중": "파견", "교육중": "교육" };
+    s = m[s] || s;
+    return ["재직", "휴직", "파견", "교육"].indexOf(s) >= 0 ? s : "미설정";
+  }
+  function applyContactImport(rows) {
+    var headers = Object.keys(rows[0] || {});
+    var fmap = buildFieldMap(headers);
+    if (!fmap.name) throw new Error("‘이름’ 열을 찾을 수 없습니다. 양식을 확인하세요.");
+    var deptCache = {}, sortCounter = 0, newDepts = 0;
+    Data.getDepartments().forEach(function (d) {
+      deptCache[d.name] = { id: d.id, level: d.level || 0 };
+      if ((d.sortOrder || 0) > sortCounter) sortCounter = d.sortOrder || 0;
+    });
+    function resolveDept(name, parent) {
+      name = (name || "").trim();
+      if (!name) return 0;
+      if (deptCache[name]) return deptCache[name].id;
+      var parentId = 0, level = 0;
+      parent = (parent || "").trim();
+      if (parent) {
+        if (!deptCache[parent]) resolveDept(parent, "");
+        var pinfo = deptCache[parent];
+        parentId = pinfo.id; level = (pinfo.level || 0) + 1;
+      }
+      sortCounter += 10;
+      var id = Storage.addDept({ name: name, parentId: parentId, level: level, sortOrder: sortCounter });
+      deptCache[name] = { id: id, level: level };
+      newDepts++;
+      return id;
+    }
+    function v(r, f) { return fmap[f] ? (r[fmap[f]] || "").trim() : ""; }
+    var added = 0, skipped = 0;
+    rows.forEach(function (r) {
+      var name = v(r, "name");
+      if (!name) { skipped++; return; }
+      var deptName = v(r, "dept");
+      var deptId = resolveDept(deptName, v(r, "parent"));
+      Storage.addContact({
+        name: name, deptId: deptId, dept: deptName,
+        team: v(r, "team"), position: v(r, "position"), work: v(r, "work"),
+        phone: v(r, "phone"), tel: v(r, "tel"), birth: v(r, "birth"),
+        status: normStatus(v(r, "status")),
+      });
+      added++;
+    });
+    return { added: added, skipped: skipped, newDepts: newDepts };
+  }
+  document.getElementById("import-contacts-btn").addEventListener("click", function () {
+    importContactsFile.value = "";
+    importContactsFile.click();
+  });
+  importContactsFile.addEventListener("change", function () {
+    var file = importContactsFile.files && importContactsFile.files[0];
+    if (!file) return;
+    var isCSV = /\.csv$/i.test(file.name);
+    var reader = new FileReader();
+    reader.onload = function () {
+      var parse;
+      try {
+        parse = isCSV
+          ? Promise.resolve(Importer.parseCSV(Importer.decodeText(reader.result)))
+          : Importer.parseXLSX(reader.result);
+      } catch (e) { window.alert("가져오기 실패: " + e.message); return; }
+      parse.then(function (rows) {
+        if (!rows || !rows.length) { window.alert("가져올 행이 없습니다."); return; }
+        if (!window.confirm(rows.length + "건을 가져옵니다. 기존 데이터에 추가됩니다. 계속할까요?")) return;
+        var res;
+        try { res = applyContactImport(rows); }
+        catch (e) { window.alert("가져오기 실패: " + e.message); return; }
+        Data.rebuild(); render(); refreshCounts();
+        showSnack("가져오기 완료: " + res.added + "명" + (res.newDepts ? " · 신규 부서 " + res.newDepts + "개" : ""));
+        if (res.skipped) window.alert("이름이 없어 건너뛴 행: " + res.skipped + "건");
+      }).catch(function (e) { window.alert("가져오기 실패: " + e.message); });
+    };
+    reader.onerror = function () { window.alert("파일을 읽지 못했습니다."); };
+    reader.readAsArrayBuffer(file); // CSV/XLSX 모두 ArrayBuffer로 읽어 인코딩 자동 판별
+  });
+  document.getElementById("import-template-btn").addEventListener("click", function () {
+    var csv = "이름,부서,상위부서,직책,담당업무,휴대전화,사내번호,생년월일,재직상태\n" +
+      "홍길동,자치행정과,행정복지국,과장,자치행정,010-1234-5678,062-608-0000,1980-01-01,재직\n";
+    var blob = new Blob(["﻿" + csv], { type: "text/csv;charset=utf-8" });
+    var url = URL.createObjectURL(blob);
+    var a = document.createElement("a");
+    a.href = url; a.download = "행정전화부-가져오기양식.csv";
+    document.body.appendChild(a); a.click(); document.body.removeChild(a);
+    setTimeout(function () { URL.revokeObjectURL(url); }, 1000);
+  });
+
   // ---------- 전역 키보드 (Esc 닫기 / 오버레이 포커스 트랩) ----------
   document.addEventListener("keydown", function (e) {
     if (e.key === "Escape") {

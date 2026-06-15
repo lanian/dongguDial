@@ -213,6 +213,25 @@
         <b>내 편집/추가 연락처</b>도 백업·복구됩니다.
       </p>
 
+      <div class="settings-section-title">연락처 가져오기 (CSV·Excel)</div>
+      <div class="info-card">
+        <button class="settings-action" id="import-contacts-btn">
+          <span class="info-ico"><svg class="ic" aria-hidden="true"><use href="#ic-upload"/></svg></span>
+          <div class="info-text">
+            <div class="info-value">파일에서 가져오기</div>
+            <div class="info-label">CSV(.csv) 또는 Excel(.xlsx) 명부 일괄 추가</div>
+          </div>
+        </button>
+        <button class="settings-action" id="import-template-btn">
+          <span class="info-ico"><svg class="ic" aria-hidden="true"><use href="#ic-download"/></svg></span>
+          <div class="info-text">
+            <div class="info-value">CSV 양식 내려받기</div>
+            <div class="info-label">열 제목(이름·부서·상위부서·직책·휴대전화·사내번호…)</div>
+          </div>
+        </button>
+      </div>
+      <input id="import-contacts-file" type="file" accept=".csv,.xlsx,.xls,text/csv" hidden />
+
       <div class="settings-section-title">부서·조직 관리</div>
       <div class="info-card">
         <button class="settings-action" id="deptmgr-btn">
@@ -257,6 +276,7 @@
 
   <script src="js/storage.js"></script>
   <script src="js/data.js"></script>
+  <script src="js/import.js"></script>
   <script src="js/ui.js"></script>
   <script src="js/app.js"></script>
 </body>

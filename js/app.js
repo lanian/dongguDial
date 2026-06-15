@@ -4,7 +4,7 @@
 (function () {
   "use strict";
 
-  var APP_VERSION = "24"; // SW 캐시(donggu-dial-vNN)와 함께 갱신
+  var APP_VERSION = "27"; // SW 캐시(donggu-dial-vNN)와 함께 갱신
   var listEl = document.getElementById("list");
   var resultStatus = document.getElementById("result-status");
   var searchInput = document.getElementById("search-input");

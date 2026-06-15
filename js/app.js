@@ -4,7 +4,7 @@
 (function () {
   "use strict";
 
-  var APP_VERSION = "27"; // SW 캐시(donggu-dial-vNN)와 함께 갱신
+  var APP_VERSION = "28"; // SW 캐시(donggu-dial-vNN)와 함께 갱신
   var listEl = document.getElementById("list");
   var resultStatus = document.getElementById("result-status");
   var searchInput = document.getElementById("search-input");
@@ -566,7 +566,7 @@
     var dept = d0 ? d0.name : "";
     var fields = {
       name: name, deptId: deptId, dept: dept,
-      team: val("ef-team"), position: val("ef-position"), work: val("ef-work"),
+      position: val("ef-position"), work: val("ef-work"),
       phone: val("ef-phone"), tel: val("ef-tel"), birth: val("ef-birth"),
       status: val("ef-status") || "미설정",
     };

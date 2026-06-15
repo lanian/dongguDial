@@ -377,7 +377,6 @@
       });
       form.appendChild(field("부서", deptSel));
 
-      form.appendChild(field("팀", textInput("ef-team", contact.team, "인사팀")));
       form.appendChild(field("직책", textInput("ef-position", contact.position, "팀장")));
       form.appendChild(field("담당업무", textInput("ef-work", contact.work, "채용")));
       form.appendChild(field("휴대전화", textInput("ef-phone", contact.phone, "010-0000-0000", "tel")));
@@ -553,7 +552,6 @@
       // 소속 섹션
       var c2 = el("div", "info-card");
       addOrgRow(c2, contact, opts.onOrg);
-      addInfo(c2, "users", "팀", contact.team);
       addInfo(c2, "work", "담당업무", contact.work);
       addInfo(c2, "status", "재직상태", contact.status && contact.status !== "미설정" ? contact.status : null);
       if (c2.childNodes.length) {

@@ -467,10 +467,18 @@
     if (!("serviceWorker" in navigator)) { showSnack("이 브라우저는 업데이트 확인을 지원하지 않습니다"); return; }
     showSnack("업데이트 확인 중…");
     navigator.serviceWorker.getRegistration().then(function (reg) {
-      if (!reg) { showSnack("최신 버전입니다 (v" + APP_VERSION + ")"); return; }
+      if (!reg) { showSnack("설치된 서비스워커가 없습니다"); return; }
       return reg.update().then(function () {
-        if (reg.waiting) { showUpdateToast(reg); showSnack("새 버전이 있습니다 — 새로고침하세요"); }
-        else showSnack("최신 버전입니다 (v" + APP_VERSION + ")");
+        if (reg.waiting) { showUpdateToast(reg); showSnack("새 버전이 있습니다 — 새로고침하세요"); return; }
+        var sw = reg.installing;
+        if (sw) {
+          showSnack("새 버전을 받는 중…");
+          sw.addEventListener("statechange", function () {
+            if (sw.state === "installed") { showUpdateToast(reg); showSnack("새 버전 준비됨 — 새로고침하세요"); }
+          });
+          return;
+        }
+        showSnack("최신 버전입니다 (v" + APP_VERSION + ")");
       });
     }).catch(function () { showSnack("업데이트 확인 실패"); });
   });

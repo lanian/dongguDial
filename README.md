@@ -1,4 +1,4 @@
-# 비상연락망 (dongguDial PWA)
+# 행정전화부 (dongguDial PWA)
 
 부서별 직원 연락처를 빠르게 찾아 전화·문자할 수 있는 **설치형 웹앱(PWA)**.
 Android 앱 `net.donggu.contact` 의 "연락처" 기능을 가볍게 웹으로 옮긴 버전이다.

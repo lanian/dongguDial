@@ -1,7 +1,7 @@
 #!/usr/bin/env python3
 """의존성 없이 PWA 아이콘(PNG)을 생성한다.
-브랜드 배경 + 흰색 인물 실루엣 + 우하단 비상(긴급) 배지(빨강 원 + 흰 십자).
-maskable 버전은 안전 영역(중앙 80%) 안에 모든 모티브가 들어가도록 축소·이동한다.
+브랜드 배경 + 흰색 인물 실루엣(행정전화부 = 직원 명부).
+maskable 버전은 안전 영역(중앙 80%) 안에 모티브가 들어가도록 축소한다.
 """
 import struct
 import zlib
@@ -10,7 +10,6 @@ import os
 BRAND = (31, 111, 235)       # #1f6feb
 BRAND_DARK = (22, 87, 192)
 WHITE = (255, 255, 255)
-EMERGENCY = (229, 72, 77)    # #e5484d
 
 
 def lerp(a, b, t):
@@ -41,7 +40,7 @@ def make_icon(size, maskable=False):
             i = (y * size + x) * 3
             px[i], px[i + 1], px[i + 2] = col
 
-    scale = 0.60 if maskable else 0.74
+    scale = 0.64 if maskable else 0.74
     cx = size / 2.0
 
     # 머리
@@ -59,22 +58,6 @@ def make_icon(size, maskable=False):
             dy = (y - body_cy) / body_ry
             if dx * dx + dy * dy <= 1.0 and y < body_cy and y > head_cy + head_r * 0.55:
                 setp(x, y, WHITE)
-
-    # 우하단 비상 배지 (빨강 원 + 흰 테두리 링 + 흰 십자)
-    bcx = size * (0.72 if not maskable else 0.68)
-    bcy = size * (0.72 if not maskable else 0.68)
-    br = size * (0.20 if not maskable else 0.17)
-    disc(bcx, bcy, br * 1.12, WHITE)    # 흰 링
-    disc(bcx, bcy, br, EMERGENCY)       # 빨강 본체
-    # 흰 십자(+)
-    arm = br * 0.55
-    thick = br * 0.20
-    for y in range(int(bcy - arm), int(bcy + arm) + 1):
-        for x in range(int(bcx - thick), int(bcx + thick) + 1):
-            setp(x, y, WHITE)
-    for y in range(int(bcy - thick), int(bcy + thick) + 1):
-        for x in range(int(bcx - arm), int(bcx + arm) + 1):
-            setp(x, y, WHITE)
 
     return bytes(px)
 

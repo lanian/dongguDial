@@ -184,7 +184,7 @@
       String(d.getDate()).padStart(2, "0");
     var a = document.createElement("a");
     a.href = url;
-    a.download = "비상연락망-백업-" + stamp + ".json";
+    a.download = "행정전화부-백업-" + stamp + ".json";
     document.body.appendChild(a);
     a.click();
     document.body.removeChild(a);

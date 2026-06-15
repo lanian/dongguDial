@@ -86,7 +86,7 @@
      */
     importData: function (data, mode) {
       if (!data || data.app !== "dongguDial" || data.type !== "backup") {
-        throw new Error("비상연락망 백업 파일이 아닙니다.");
+        throw new Error("행정전화부 백업 파일이 아닙니다.");
       }
       var inFav = Array.isArray(data.favorites)
         ? data.favorites.filter(function (x) { return typeof x === "number"; })

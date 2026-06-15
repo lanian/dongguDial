@@ -116,15 +116,17 @@ icons/                  PWA 아이콘 (tools/make_icons.py 로 생성)
 
 ## 아이콘 재생성
 
-앱 아이콘은 **"동구" 한글 워드마크**(광주광역시 동구)로, Pillow + CJK 폰트로 생성한다.
+앱 아이콘은 **광주광역시 동구 공식 심볼마크**(빨강 태양 + 파랑 까치 'G' + 초록 잎)다.
+원본 마크는 공식 CI에서 추출·정리한 `tools/assets/donggu-symbol.png`(투명 PNG)이며,
+`make_icons.py`가 흰 배경에 합성해 아이콘을 생성한다.
 
 ```bash
 pip install pillow           # 1회
 python3 tools/make_icons.py  # icons/icon-192·512·maskable-512 생성
 ```
 
-폰트는 `wqy-zenhei`/`NanumGothic`/`NotoSansCJK` 중 설치된 것을 자동 사용한다.
-공식 휘장(emblem)을 쓰려면 같은 크기(192/512)의 PNG를 `icons/`에 직접 교체하면 된다.
+다른 마크로 교체하려면 `tools/assets/donggu-symbol.png`를 바꾸고 다시 실행하거나,
+같은 크기(192/512)의 PNG를 `icons/`에 직접 덮어쓰면 된다.
 
 ## 캐시 버전 올리기
 

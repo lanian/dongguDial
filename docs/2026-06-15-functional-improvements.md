@@ -5,7 +5,7 @@
 
 ## 명칭/아이덴티티
 - [x] 비상연락망 → **행정전화부** (타이틀/manifest/백업 파일명/오류 메시지/README)
-- [x] 앱 아이콘 → **"동구" 한글 워드마크**(광주광역시 동구). `tools/make_icons.py`가 Pillow+CJK 폰트로 생성
+- [x] 앱 아이콘 → **광주광역시 동구 공식 심볼마크** (tools/assets/donggu-symbol.png 합성, tools/make_icons.py)
       (이전 인물/비상 모티브 대체). 공식 휘장은 동일 크기 PNG 교체로 대응 가능
 
 ## 탐색성 (부서·가나다)

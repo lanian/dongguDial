@@ -4,7 +4,7 @@
 (function () {
   "use strict";
 
-  var APP_VERSION = "23"; // SW 캐시(donggu-dial-vNN)와 함께 갱신
+  var APP_VERSION = "24"; // SW 캐시(donggu-dial-vNN)와 함께 갱신
   var listEl = document.getElementById("list");
   var resultStatus = document.getElementById("result-status");
   var searchInput = document.getElementById("search-input");
@@ -110,7 +110,10 @@
   function buildDeptNav(groups) {
     deptNav.textContent = "";
     var frag = document.createDocumentFragment();
-    groups.forEach(function (g) {
+    // 최상위(국/실/관)만 칩으로 — 클릭 시 해당 부서 섹션으로 이동
+    groups.filter(function (g) {
+      return (window.Data && Data.depthOf) ? Data.depthOf(g.dept.id) === 0 : true;
+    }).forEach(function (g) {
       var chip = document.createElement("button");
       chip.type = "button";
       chip.className = "dept-chip";

@@ -268,9 +268,11 @@
       var frag = document.createDocumentFragment();
       groups.forEach(function (g) {
         var collapsed = opts.collapsed && opts.collapsed[g.dept.id];
-        var header = el("button", "section-header section-toggle");
+        var depth = (window.Data && Data.depthOf) ? Data.depthOf(g.dept.id) : 0;
+        var header = el("button", "section-header section-toggle section-lvl-" + Math.min(depth, 2));
         header.type = "button";
         header.id = "dept-" + g.dept.id;
+        header.style.paddingLeft = (16 + depth * 16) + "px";
         header.setAttribute("aria-expanded", collapsed ? "false" : "true");
         var chev = icon("chevron", "section-chevron");
         header.appendChild(chev);
@@ -280,7 +282,13 @@
           if (opts.onToggle) opts.onToggle(g.dept.id);
         });
         frag.appendChild(header);
-        if (!collapsed) appendRows(frag, g.members, opts);
+        if (!collapsed) {
+          g.members.forEach(function (c) {
+            var row = renderRow(c, opts);
+            if (depth > 0) row.style.paddingLeft = (16 + depth * 16) + "px";
+            frag.appendChild(row);
+          });
+        }
       });
       container.appendChild(frag);
     },

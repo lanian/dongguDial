@@ -18,6 +18,11 @@
   var settingsEl = document.getElementById("settings");
   var editorEl = document.getElementById("editor");
   var editorBody = document.getElementById("editor-body");
+  var deptMgrEl = document.getElementById("deptmgr");
+  var deptMgrBody = document.getElementById("deptmgr-body");
+  var deptEditorEl = document.getElementById("dept-editor");
+  var deptEditorBody = document.getElementById("dept-editor-body");
+  var deptEditId = null;
   var fab = document.getElementById("fab-add");
   var listTools = document.getElementById("list-tools");
   var deptNav = document.getElementById("dept-nav");
@@ -33,16 +38,25 @@
 
   function pushFocus() { focusStack.push(document.activeElement); }
   function popFocus() { var el = focusStack.pop(); if (el && el.focus) el.focus(); }
-  function anyOverlayOpen() {
-    return !detailEl.hidden || !settingsEl.hidden || !editorEl.hidden;
+  // 오버레이(중첩 가능) — topmost 우선 순서. close 함수는 hoisting됨.
+  function overlayList() {
+    return [
+      { el: deptEditorEl, close: closeDeptEditor },
+      { el: deptMgrEl, close: closeDeptMgr },
+      { el: editorEl, close: closeEditor },
+      { el: settingsEl, close: closeSettings },
+      { el: detailEl, close: closeDetail },
+    ];
   }
-  function syncInert() { setBgInert(anyOverlayOpen()); }
-  function topOverlay() {
-    if (!editorEl.hidden) return editorEl;
-    if (!settingsEl.hidden) return settingsEl;
-    if (!detailEl.hidden) return detailEl;
+  function anyOverlayOpen() { return overlayList().some(function (o) { return !o.el.hidden; }); }
+  function topOverlayObj() {
+    var l = overlayList();
+    for (var i = 0; i < l.length; i++) if (!l[i].el.hidden) return l[i];
     return null;
   }
+  function topOverlay() { var o = topOverlayObj(); return o ? o.el : null; }
+  function closeTop(fromPop) { var o = topOverlayObj(); if (o) o.close(fromPop); }
+  function syncInert() { setBgInert(anyOverlayOpen()); }
   function updateFab() {
     var show = !anyOverlayOpen() && !current.query &&
       (current.tab === "all" || current.tab === "org");
@@ -329,6 +343,7 @@
     var c = Storage.counts();
     var t = "즐겨찾기 " + c.favorites + " · 최근 " + c.recent;
     if (c.edits || c.custom) t += " · 편집 " + c.edits + " · 추가 " + c.custom;
+    if (c.deptEdits || c.deptCustom) t += " · 부서변경 " + (c.deptEdits + c.deptCustom);
     settingsCounts.textContent = t;
   }
   function openSettings() {
@@ -460,7 +475,7 @@
   document.getElementById("editor-delete").addEventListener("click", deleteEditor);
   fab.addEventListener("click", function () { openEditor(null); });
   document.getElementById("reset-edits-btn").addEventListener("click", function () {
-    if (!window.confirm("수정·추가한 연락처를 모두 초기화할까요?")) return;
+    if (!window.confirm("수정·추가한 연락처와 부서를 모두 초기화할까요?")) return;
     Storage.resetAllEdits();
     Data.rebuild();
     refreshCounts();
@@ -468,12 +483,88 @@
     showSnack("초기화되었습니다");
   });
 
+  // ---------- 부서 관리 (로컬 오버레이) ----------
+  function renderDeptMgrList() {
+    UI.renderDeptManager(deptMgrBody, Data.getDepartments(),
+      { direct: Data.directCountByDept(), child: Data.childCountByParent() },
+      openDeptEditor);
+  }
+  function openDeptMgr() {
+    renderDeptMgrList();
+    pushFocus(); deptMgrEl.hidden = false; syncInert(); updateFab();
+    document.getElementById("deptmgr-back").focus();
+    history.pushState({ deptmgr: true }, "", "#depts");
+  }
+  function closeDeptMgr(fromPop) {
+    deptMgrEl.hidden = true; syncInert(); updateFab(); popFocus();
+    if (!fromPop && location.hash === "#depts") history.back();
+  }
+  document.getElementById("deptmgr-btn").addEventListener("click", openDeptMgr);
+  document.getElementById("deptmgr-back").addEventListener("click", function () { closeDeptMgr(false); });
+  document.getElementById("deptmgr-add").addEventListener("click", function () { openDeptEditor(null); });
+
+  function defaultDeptSort() {
+    var max = 0;
+    Data.getDepartments().forEach(function (d) { if ((d.sortOrder || 0) > max) max = d.sortOrder || 0; });
+    return max + 10;
+  }
+  function openDeptEditor(dept) {
+    deptEditId = dept ? dept.id : null;
+    document.getElementById("dept-editor-bar-title").textContent = dept ? "부서 편집" : "부서 추가";
+    UI.renderDeptForm(deptEditorBody, dept || {}, Data.getDepartments());
+    document.getElementById("dept-editor-delete").style.display = dept ? "" : "none";
+    pushFocus(); deptEditorEl.hidden = false; syncInert(); updateFab();
+    deptEditorBody.scrollTop = 0;
+    document.getElementById("dept-editor-cancel").focus();
+    history.pushState({ depteditor: true }, "", "#dept-edit");
+  }
+  function closeDeptEditor(fromPop) {
+    deptEditorEl.hidden = true; syncInert(); updateFab(); popFocus();
+    if (!fromPop && location.hash === "#dept-edit") history.back();
+  }
+  function saveDeptEditor() {
+    var name = val("df-name");
+    if (!name) { window.alert("부서명을 입력하세요."); return; }
+    var parentId = parseInt(val("df-parent"), 10) || 0;
+    var parent = parentId ? Data.getDeptById(parentId) : null;
+    var level = parent ? (parent.level || 0) + 1 : 0;
+    var sortRaw = val("df-sort");
+    var sortOrder = sortRaw === "" ? defaultDeptSort() : parseInt(sortRaw, 10);
+    var fields = { name: name, parentId: parentId, level: level, sortOrder: sortOrder };
+    if (deptEditId == null) Storage.addDept(fields);
+    else Storage.saveDept(deptEditId, fields);
+    Data.rebuild();
+    closeDeptEditor(false);
+    renderDeptMgrList();
+    render();
+    refreshCounts();
+    showSnack("부서가 저장되었습니다");
+  }
+  function deleteDeptEditor() {
+    if (deptEditId == null) return;
+    var dc = Data.directCountByDept()[deptEditId] || 0;
+    var cc = Data.childCountByParent()[deptEditId] || 0;
+    if (dc || cc) {
+      window.alert("소속 인원(" + dc + "명) 또는 하위 부서(" + cc + "개)가 있어 삭제할 수 없습니다.\n먼저 인원·하위부서를 옮기거나 삭제하세요.");
+      return;
+    }
+    if (!window.confirm("이 부서를 삭제할까요?")) return;
+    Storage.deleteDept(deptEditId);
+    Data.rebuild();
+    closeDeptEditor(false);
+    renderDeptMgrList();
+    render();
+    refreshCounts();
+    showSnack("부서가 삭제되었습니다");
+  }
+  document.getElementById("dept-editor-cancel").addEventListener("click", function () { closeDeptEditor(false); });
+  document.getElementById("dept-editor-save").addEventListener("click", saveDeptEditor);
+  document.getElementById("dept-editor-delete").addEventListener("click", deleteDeptEditor);
+
   // ---------- 전역 키보드 (Esc 닫기 / 오버레이 포커스 트랩) ----------
   document.addEventListener("keydown", function (e) {
     if (e.key === "Escape") {
-      if (!editorEl.hidden) { closeEditor(false); return; }
-      if (!settingsEl.hidden) { closeSettings(false); return; }
-      if (!detailEl.hidden) { closeDetail(false); return; }
+      if (anyOverlayOpen()) { closeTop(false); return; }
       if (searchInput.value) { searchClear.click(); }
       return;
     }
@@ -493,12 +584,8 @@
 
   // ---------- 히스토리(뒤로가기로 오버레이 닫기) ----------
   window.addEventListener("popstate", function (e) {
-    if (!editorEl.hidden) {
-      closeEditor(true);
-    } else if (!settingsEl.hidden) {
-      closeSettings(true);
-    } else if (!detailEl.hidden) {
-      closeDetail(true);
+    if (anyOverlayOpen()) {
+      closeTop(true);
     } else if (e.state && e.state.detail) {
       var c = Data.getById(e.state.detail);
       if (c) openDetail(c);

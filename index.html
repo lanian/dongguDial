@@ -123,6 +123,39 @@
     </div>
   </section>
 
+  <!-- 부서 관리 (오버레이) -->
+  <section id="deptmgr" class="detail" role="dialog" aria-modal="true"
+           aria-labelledby="deptmgr-bar-title" hidden>
+    <header class="detail-bar">
+      <button id="deptmgr-back" class="icon-btn" aria-label="뒤로">
+        <svg class="ic" aria-hidden="true"><use href="#ic-back"/></svg>
+      </button>
+      <span class="detail-bar-title" id="deptmgr-bar-title">부서 관리</span>
+      <button id="deptmgr-add" class="icon-btn" aria-label="부서 추가">
+        <svg class="ic" aria-hidden="true"><use href="#ic-plus"/></svg>
+      </button>
+    </header>
+    <div id="deptmgr-body" class="detail-body"></div>
+  </section>
+
+  <!-- 부서 편집/추가 (오버레이) -->
+  <section id="dept-editor" class="detail" role="dialog" aria-modal="true"
+           aria-labelledby="dept-editor-bar-title" hidden>
+    <header class="detail-bar">
+      <button id="dept-editor-cancel" class="icon-btn" aria-label="취소">
+        <svg class="ic" aria-hidden="true"><use href="#ic-close"/></svg>
+      </button>
+      <span class="detail-bar-title" id="dept-editor-bar-title">부서 편집</span>
+      <button id="dept-editor-save" class="text-btn">저장</button>
+    </header>
+    <div id="dept-editor-body" class="detail-body"></div>
+    <div class="editor-footer">
+      <button id="dept-editor-delete" class="danger-btn" type="button">
+        <svg class="ic" aria-hidden="true"><use href="#ic-trash"/></svg> 삭제
+      </button>
+    </div>
+  </section>
+
   <!-- 연락처 추가 FAB -->
   <button id="fab-add" class="fab" aria-label="연락처 추가">
     <svg class="ic" aria-hidden="true"><use href="#ic-plus"/></svg>
@@ -179,6 +212,17 @@
         백업은 서버 업로드가 아니라 파일 다운로드/업로드입니다. 즐겨찾기·최근과 함께
         <b>내 편집/추가 연락처</b>도 백업·복구됩니다.
       </p>
+
+      <div class="settings-section-title">부서·조직 관리</div>
+      <div class="info-card">
+        <button class="settings-action" id="deptmgr-btn">
+          <span class="info-ico"><svg class="ic" aria-hidden="true"><use href="#ic-org"/></svg></span>
+          <div class="info-text">
+            <div class="info-value">부서 관리</div>
+            <div class="info-label">부서·직제(국/과/팀) 추가·수정·순서 변경</div>
+          </div>
+        </button>
+      </div>
 
       <div class="settings-section-title">내 편집 관리</div>
       <div class="info-card">

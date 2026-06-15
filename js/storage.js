@@ -10,6 +10,8 @@
   var THEME_KEY = "dongguDial.theme.v1";
   var EDITS_KEY = "dongguDial.edits.v1";     // { [id]: {field:val,..., __deleted?:true} }  (기본 연락처 오버레이)
   var CUSTOM_KEY = "dongguDial.custom.v1";   // [ {id, ...} ]  (사용자가 추가한 연락처)
+  var DEPT_EDITS_KEY = "dongguDial.deptEdits.v1";   // { [id]: {name,parentId,sortOrder,level,__deleted?} }
+  var DEPT_CUSTOM_KEY = "dongguDial.deptCustom.v1"; // [ {id,name,parentId,level,sortOrder} ]
   var RECENT_LIMIT = 30;
 
   function read(key, fallback) {
@@ -101,10 +103,49 @@
       if (edits[id]) { delete edits[id]; write(EDITS_KEY, edits); }
     },
 
-    /** 모든 편집/추가 초기화 */
+    // ---------- 부서 편집 / 추가 (로컬) ----------
+    getDeptEdits: function () { return read(DEPT_EDITS_KEY, {}); },
+    getDeptCustom: function () { return read(DEPT_CUSTOM_KEY, []); },
+    isCustomDept: function (id) {
+      return read(DEPT_CUSTOM_KEY, []).some(function (d) { return d.id === id; });
+    },
+    saveDept: function (id, fields) {
+      var customs = read(DEPT_CUSTOM_KEY, []);
+      var i = customs.findIndex(function (d) { return d.id === id; });
+      if (i !== -1) {
+        customs[i] = Object.assign({}, customs[i], fields, { id: id });
+        write(DEPT_CUSTOM_KEY, customs);
+      } else {
+        var edits = read(DEPT_EDITS_KEY, {});
+        edits[id] = Object.assign({}, edits[id], fields);
+        write(DEPT_EDITS_KEY, edits);
+      }
+    },
+    addDept: function (fields) {
+      var customs = read(DEPT_CUSTOM_KEY, []);
+      var id = "d" + Date.now().toString(36);
+      customs.push(Object.assign({ id: id }, fields));
+      write(DEPT_CUSTOM_KEY, customs);
+      return id;
+    },
+    deleteDept: function (id) {
+      var customs = read(DEPT_CUSTOM_KEY, []);
+      var n = customs.filter(function (d) { return d.id !== id; });
+      if (n.length !== customs.length) {
+        write(DEPT_CUSTOM_KEY, n);
+      } else {
+        var edits = read(DEPT_EDITS_KEY, {});
+        edits[id] = { __deleted: true };
+        write(DEPT_EDITS_KEY, edits);
+      }
+    },
+
+    /** 모든 편집/추가 초기화 (연락처 + 부서) */
     resetAllEdits: function () {
       write(EDITS_KEY, {});
       write(CUSTOM_KEY, []);
+      write(DEPT_EDITS_KEY, {});
+      write(DEPT_CUSTOM_KEY, []);
     },
 
     isEdited: function (id) {
@@ -119,6 +160,8 @@
         recent: read(RECENT_KEY, []).length,
         edits: Object.keys(read(EDITS_KEY, {})).length,
         custom: read(CUSTOM_KEY, []).length,
+        deptEdits: Object.keys(read(DEPT_EDITS_KEY, {})).length,
+        deptCustom: read(DEPT_CUSTOM_KEY, []).length,
       };
     },
 
@@ -126,13 +169,15 @@
       return {
         app: "dongguDial",
         type: "backup",
-        version: 2,
+        version: 3,
         exportedAt: new Date().toISOString(),
         favorites: read(FAV_KEY, []),
         recent: read(RECENT_KEY, []),
         theme: read(THEME_KEY, "system"),
         edits: read(EDITS_KEY, {}),
         custom: read(CUSTOM_KEY, []),
+        deptEdits: read(DEPT_EDITS_KEY, {}),
+        deptCustom: read(DEPT_CUSTOM_KEY, []),
       };
     },
 
@@ -144,13 +189,17 @@
       var inRecent = Array.isArray(data.recent) ? data.recent : [];
       var inEdits = (data.edits && typeof data.edits === "object") ? data.edits : {};
       var inCustom = Array.isArray(data.custom) ? data.custom : [];
+      var inDeptEdits = (data.deptEdits && typeof data.deptEdits === "object") ? data.deptEdits : {};
+      var inDeptCustom = Array.isArray(data.deptCustom) ? data.deptCustom : [];
 
-      var favs, recent, edits, custom;
+      var favs, recent, edits, custom, deptEdits, deptCustom;
       if (mode === "replace") {
         favs = inFav.slice();
         recent = inRecent.slice(0, RECENT_LIMIT);
         edits = inEdits;
         custom = inCustom;
+        deptEdits = inDeptEdits;
+        deptCustom = inDeptCustom;
       } else {
         var curFav = read(FAV_KEY, []);
         favs = curFav.slice();
@@ -165,14 +214,21 @@
         var byId = {};
         read(CUSTOM_KEY, []).concat(inCustom).forEach(function (c) { if (c && c.id) byId[c.id] = c; });
         custom = Object.keys(byId).map(function (k) { return byId[k]; });
+        deptEdits = Object.assign({}, read(DEPT_EDITS_KEY, {}), inDeptEdits);
+        var dById = {};
+        read(DEPT_CUSTOM_KEY, []).concat(inDeptCustom).forEach(function (d) { if (d && d.id) dById[d.id] = d; });
+        deptCustom = Object.keys(dById).map(function (k) { return dById[k]; });
       }
       write(FAV_KEY, favs);
       write(RECENT_KEY, recent);
       write(EDITS_KEY, edits);
       write(CUSTOM_KEY, custom);
+      write(DEPT_EDITS_KEY, deptEdits);
+      write(DEPT_CUSTOM_KEY, deptCustom);
       if (data.theme) write(THEME_KEY, data.theme);
       return { favorites: favs.length, recent: recent.length,
-        edits: Object.keys(edits).length, custom: custom.length };
+        edits: Object.keys(edits).length, custom: custom.length,
+        deptCustom: deptCustom.length };
     },
   };
 

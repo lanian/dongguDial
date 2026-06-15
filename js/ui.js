@@ -364,6 +364,62 @@
       container.appendChild(form);
     },
 
+    /** 부서 관리 목록: 직제순 + 레벨 들여쓰기, 각 행 탭 → onEdit(dept) */
+    renderDeptManager: function (container, departments, counts, onEdit) {
+      container.textContent = "";
+      if (!departments.length) {
+        container.appendChild(UI.emptyState("부서가 없습니다. ‘부서 추가’로 만들어 보세요."));
+        return;
+      }
+      var card = el("div", "info-card");
+      departments.forEach(function (d) {
+        var row = el("button", "deptmgr-row");
+        row.type = "button";
+        row.style.paddingLeft = (16 + (d.level || 0) * 16) + "px";
+        var main = el("div", "info-text");
+        var nm = el("div", "info-value");
+        nm.appendChild(document.createTextNode(d.name));
+        if (d._custom) nm.appendChild(el("span", "edit-chip edit-chip--inline", "추가"));
+        main.appendChild(nm);
+        var dc = (counts.direct[d.id] || 0), cc = (counts.child[d.id] || 0);
+        main.appendChild(el("div", "info-label",
+          "직속 " + dc + "명" + (cc ? " · 하위 " + cc + "개" : "")));
+        row.appendChild(main);
+        row.appendChild(icon("chevron", "info-chevron"));
+        row.addEventListener("click", function () { onEdit(d); });
+        card.appendChild(row);
+      });
+      container.appendChild(card);
+    },
+
+    /** 부서 편집/추가 폼. 입력값은 #df-* id로 app이 읽는다. */
+    renderDeptForm: function (container, dept, departments) {
+      container.textContent = "";
+      dept = dept || {};
+      var form = el("div", "edit-form");
+      form.appendChild(field("부서명", textInput("df-name", dept.name, "예: 행정복지국 / 자치행정과 / 총무팀")));
+
+      var sel = el("select", "ef-input");
+      sel.id = "df-parent";
+      var top = el("option", null, "최상위 (국·실·관)");
+      top.value = "0";
+      if (!dept.parentId) top.selected = true;
+      sel.appendChild(top);
+      var blocked = descendantsOf(dept.id, departments);
+      if (dept.id) blocked[dept.id] = true; // 자기 자신은 상위로 선택 불가
+      departments.forEach(function (d) {
+        if (blocked[d.id]) return;
+        var o = el("option", null, "　".repeat(d.level || 0) + d.name);
+        o.value = String(d.id);
+        if (String(dept.parentId || 0) === String(d.id)) o.selected = true;
+        sel.appendChild(o);
+      });
+      form.appendChild(field("상위 부서", sel));
+      form.appendChild(field("직제 순서 (작을수록 위)",
+        textInput("df-sort", dept.sortOrder != null ? String(dept.sortOrder) : "", "예: 300", "number")));
+      container.appendChild(form);
+    },
+
     renderSkeleton: function (container, n) {
       container.textContent = "";
       var frag = document.createDocumentFragment();
@@ -478,6 +534,20 @@
     acts.appendChild(copy);
     row.appendChild(acts);
     card.appendChild(row);
+  }
+
+  /** dept.id의 모든 하위(자손) id 집합 — 순환 부모 선택 방지용 */
+  function descendantsOf(id, depts) {
+    var set = {};
+    if (!id) return set;
+    var byParent = {};
+    depts.forEach(function (d) { (byParent[d.parentId] = byParent[d.parentId] || []).push(d.id); });
+    (function rec(pid) {
+      (byParent[pid] || []).forEach(function (cid) {
+        if (!set[cid]) { set[cid] = true; rec(cid); }
+      });
+    })(id);
+    return set;
   }
 
   function field(label, input) {

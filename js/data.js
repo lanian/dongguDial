@@ -59,23 +59,37 @@
           return res.json();
         })
         .then(function (json) {
-          state.departments = (json.departments || []).slice().sort(function (a, b) {
-            return (a.sortOrder || 0) - (b.sortOrder || 0);
-          });
-          state.deptById = {};
-          state.departments.forEach(function (d) {
-            state.deptById[d.id] = d;
-          });
-
+          state.baseDepartments = (json.departments || []).slice();
           state.base = json.contacts || [];
           Data.rebuild();
           return state;
         });
     },
 
-    /** 편집(오버레이) + 커스텀 연락처를 기본 데이터에 병합해 유효 목록 재구성 */
+    /** 부서·연락처 오버레이(편집/추가/삭제)를 기본 데이터에 병합해 유효 상태 재구성 */
     rebuild: function () {
       var S = global.Storage;
+
+      // 1) 부서: 오버레이 적용 → sortOrder(직제) 정렬
+      var deptEdits = (S && S.getDeptEdits) ? S.getDeptEdits() : {};
+      var deptCustom = (S && S.getDeptCustom) ? S.getDeptCustom() : [];
+      var depts = [];
+      (state.baseDepartments || []).forEach(function (d) {
+        var e = deptEdits[d.id];
+        if (e && e.__deleted) return;
+        depts.push(e ? Object.assign({}, d, e) : d);
+      });
+      deptCustom.forEach(function (d) {
+        var e = deptEdits[d.id];
+        if (e && e.__deleted) return;
+        depts.push(e ? Object.assign({}, d, e) : Object.assign({ _custom: true }, d));
+      });
+      depts.sort(function (a, b) { return (a.sortOrder || 0) - (b.sortOrder || 0); });
+      state.departments = depts;
+      state.deptById = {};
+      depts.forEach(function (d) { state.deptById[d.id] = d; });
+
+      // 2) 연락처: 오버레이 적용
       var edits = (S && S.getEdits) ? S.getEdits() : {};
       var customs = (S && S.getCustom) ? S.getCustom() : [];
       var eff = [];
@@ -102,6 +116,26 @@
 
     getDepartments: function () {
       return state.departments;
+    },
+
+    getDeptById: function (id) {
+      return state.deptById[id];
+    },
+
+    /** 부서별 직속 인원 수 맵 */
+    directCountByDept: function () {
+      var m = {};
+      state.contacts.forEach(function (c) { m[c.deptId] = (m[c.deptId] || 0) + 1; });
+      return m;
+    },
+
+    /** 상위부서별 하위부서 수 맵 */
+    childCountByParent: function () {
+      var m = {};
+      state.departments.forEach(function (d) {
+        if (d.parentId) m[d.parentId] = (m[d.parentId] || 0) + 1;
+      });
+      return m;
     },
 
     /** 부서 → 멤버순 정렬된 연락처 그룹 배열 반환 */

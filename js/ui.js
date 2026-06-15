@@ -265,30 +265,20 @@
         container.appendChild(UI.emptyState("표시할 연락처가 없습니다."));
         return;
       }
+      // 명부형: 접기/들여쓰기 없이 평면. 헤더에 부서 경로(국 › 과 › 팀) 표기
       var frag = document.createDocumentFragment();
       groups.forEach(function (g) {
-        var collapsed = opts.collapsed && opts.collapsed[g.dept.id];
-        var depth = (window.Data && Data.depthOf) ? Data.depthOf(g.dept.id) : 0;
-        var header = el("button", "section-header section-toggle section-lvl-" + Math.min(depth, 2));
-        header.type = "button";
+        var header = el("div", "section-header section-dir");
         header.id = "dept-" + g.dept.id;
-        header.style.paddingLeft = (16 + depth * 16) + "px";
-        header.setAttribute("aria-expanded", collapsed ? "false" : "true");
-        var chev = icon("chevron", "section-chevron");
-        header.appendChild(chev);
-        header.appendChild(document.createTextNode(" " + g.dept.name + " "));
-        header.appendChild(el("span", "count", "(" + g.members.length + ")"));
-        header.addEventListener("click", function () {
-          if (opts.onToggle) opts.onToggle(g.dept.id);
-        });
-        frag.appendChild(header);
-        if (!collapsed) {
-          g.members.forEach(function (c) {
-            var row = renderRow(c, opts);
-            if (depth > 0) row.style.paddingLeft = (16 + depth * 16) + "px";
-            frag.appendChild(row);
-          });
+        var path = (window.Data && Data.deptPath) ? Data.deptPath(g.dept.id) : [{ name: g.dept.name }];
+        if (path.length > 1) {
+          header.appendChild(el("span", "section-path-inline",
+            path.slice(0, -1).map(function (p) { return p.name; }).join(" › ") + " › "));
         }
+        header.appendChild(el("span", "section-leaf", g.dept.name + " "));
+        header.appendChild(el("span", "count", "(" + g.members.length + ")"));
+        frag.appendChild(header);
+        appendRows(frag, g.members, opts);
       });
       container.appendChild(frag);
     },
@@ -336,8 +326,14 @@
       var totalPeople = tree.reduce(function (a, n) { return a + n.count; }, 0);
       var summary = el("div", "org-summary");
       summary.appendChild(el("span", null, "총 " + tree.length + "개 부서 · " + totalPeople + "명"));
+      if (opts.onToggleAll) {
+        var ta = el("button", "org-summary-btn", opts.allCollapsed ? "모두 펼치기" : "모두 접기");
+        ta.type = "button";
+        ta.addEventListener("click", opts.onToggleAll);
+        summary.appendChild(ta);
+      }
       if (opts.onManage) {
-        var mb = el("button", "org-manage-btn", "부서 관리");
+        var mb = el("button", "org-summary-btn org-manage-btn", "부서 관리");
         mb.type = "button";
         mb.addEventListener("click", opts.onManage);
         summary.appendChild(mb);

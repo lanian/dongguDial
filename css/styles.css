@@ -275,6 +275,10 @@ body.overlay-open { overflow: hidden; }
 .section-lvl-2 { font-weight: var(--fw-reg); color: var(--on-surface-muted); }
 .section-toggle.section-lvl-1 .section-chevron,
 .section-toggle.section-lvl-2 .section-chevron { opacity: 0.7; }
+/* 전체(명부) 부서 헤더: 평면 + 경로(국 › 과 › 팀) */
+.section-dir { display: block; white-space: nowrap; overflow: hidden; text-overflow: ellipsis; }
+.section-path-inline { color: var(--on-surface-muted); font-weight: var(--fw-reg); }
+.section-leaf { font-weight: var(--fw-bold); }
 .section-toggle {
   display: flex;
   align-items: center;
@@ -813,8 +817,7 @@ select.ef-input { appearance: none; }
 .deptmgr-move[disabled] { opacity: 0.25; pointer-events: none; }
 .chev-up { transform: rotate(-90deg); }
 .chev-down { transform: rotate(90deg); }
-.org-manage-btn {
-  margin-left: auto;
+.org-summary-btn {
   border: 1px solid var(--divider);
   background: var(--surface);
   color: var(--brand);
@@ -825,6 +828,7 @@ select.ef-input { appearance: none; }
   border-radius: var(--r-pill);
   cursor: pointer;
 }
+.org-summary > .org-summary-btn:first-of-type { margin-left: auto; }
 
 /* ---------- FAB ---------- */
 .fab {

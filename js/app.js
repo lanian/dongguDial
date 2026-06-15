@@ -192,11 +192,21 @@
 
     showTools(false); showDeptNav(false); showAlphaRail(false);
     if (current.tab === "org") {
+      var depts = Data.getDepartments();
+      var allCol = depts.length > 0 && depts.every(function (d) { return current.orgCollapsed[d.id]; });
       UI.renderOrgView(listEl, Data.groupedByOrg(), {
         onOpen: openDetail, onFav: onFavChanged,
         collapsed: current.orgCollapsed,
         onToggle: function (id) { current.orgCollapsed[id] = !current.orgCollapsed[id]; render(); },
         onManage: openDeptMgr,
+        allCollapsed: allCol,
+        onToggleAll: function () {
+          var ds = Data.getDepartments();
+          var anyOpen = ds.some(function (d) { return !current.orgCollapsed[d.id]; });
+          if (anyOpen) ds.forEach(function (d) { current.orgCollapsed[d.id] = true; });
+          else current.orgCollapsed = {};
+          render();
+        },
       });
     } else if (current.tab === "favorites") {
       UI.renderFlat(listEl, Data.resolveIds(Storage.getFavorites()), {

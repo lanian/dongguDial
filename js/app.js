@@ -37,7 +37,11 @@
   var focusStack = [];
 
   function pushFocus() { focusStack.push(document.activeElement); }
-  function popFocus() { var el = focusStack.pop(); if (el && el.focus) el.focus(); }
+  function popFocus() {
+    var el = focusStack.pop();
+    if (el && document.contains(el) && el.focus) el.focus();
+    else if (listEl && listEl.focus) listEl.focus(); // 재렌더로 원래 요소가 사라진 경우 폴백
+  }
   // 오버레이(중첩 가능) — topmost 우선 순서. close 함수는 hoisting됨.
   function overlayList() {
     return [
@@ -253,10 +257,19 @@
   window.showSnack = showSnack;
 
   // ---------- 상세 ----------
+  function goToOrg(deptId) {
+    closeDetail(false);
+    switchTab(tabs[3]); // 조직도
+    Data.deptPath(deptId).forEach(function (p) { current.orgCollapsed[p.id] = false; });
+    render();
+    setTimeout(function () { scrollToEl(document.getElementById("org-" + deptId)); }, 60);
+  }
+
   function openDetail(contact) {
     current.detailId = contact.id;
     Storage.pushRecent(contact.id);
-    UI.renderDetail(detailBody, contact);
+    UI.renderDetail(detailBody, contact, { onOrg: goToOrg });
+    detailEl.setAttribute("aria-label", (contact.name || "연락처") + " 상세");
     updateFavButton();
     pushFocus();
     detailEl.hidden = false;
@@ -293,9 +306,10 @@
 
   detailFav.addEventListener("click", function () {
     if (current.detailId == null) return;
-    Storage.toggleFavorite(current.detailId);
+    var nowFav = Storage.toggleFavorite(current.detailId);
     updateFavButton();
     if (navigator.vibrate) navigator.vibrate(10);
+    showSnack(nowFav ? "즐겨찾기에 추가됨" : "즐겨찾기에서 제거됨");
   });
   detailBack.addEventListener("click", function () { closeDetail(false); });
 
@@ -461,7 +475,7 @@
     closeEditor(false);
     if (!detailEl.hidden && current.detailId === id) {
       var c = Data.getById(id);
-      if (c) { UI.renderDetail(detailBody, c); updateFavButton(); }
+      if (c) { UI.renderDetail(detailBody, c, { onOrg: goToOrg }); updateFavButton(); }
     }
     render();
     showSnack("저장되었습니다");

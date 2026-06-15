@@ -9,7 +9,7 @@
 
   var AVATAR_COLORS = [
     "#1f6feb", "#7c3aed", "#0e7490", "#be185d",
-    "#15803d", "#c2410c", "#0f766e", "#7e22ce",
+    "#15803d", "#b45309", "#0f766e", "#7e22ce",
   ];
 
   function avatarColor(name) {
@@ -476,43 +476,63 @@
     },
 
     /** 상세 본문 */
-    renderDetail: function (container, contact) {
+    renderDetail: function (container, contact, opts) {
+      opts = opts || {};
       container.textContent = "";
 
       var hero = el("div", "detail-hero");
       hero.appendChild(makeAvatar(contact, ""));
       hero.appendChild(el("h2", "detail-name", contact.name || ""));
-      var role = [contact.dept, contact.team, contact.position].filter(Boolean).join(" · ");
-      hero.appendChild(el("p", "detail-role", role));
-      if (contact._custom) hero.appendChild(el("span", "edit-chip", "추가한 연락처"));
-      else if (contact._edited) hero.appendChild(el("span", "edit-chip", "수정됨"));
+      var roleParts = [contact.position, contact.dept].filter(Boolean);
+      if (roleParts.length) hero.appendChild(el("p", "detail-role", roleParts.join(" · ")));
+      var chips = el("div", "detail-chips");
+      var sb = statusBadge(contact.status);
+      if (sb) chips.appendChild(sb);
+      if (contact._custom) chips.appendChild(el("span", "edit-chip", "추가한 연락처"));
+      else if (contact._edited) chips.appendChild(el("span", "edit-chip", "수정됨"));
+      if (chips.childNodes.length) hero.appendChild(chips);
       container.appendChild(hero);
 
       var qa = el("div", "quick-actions");
-      qa.appendChild(quickLink("phone", "전화", contact.phone ? "tel:" + clean(contact.phone) : null, "전화 걸기"));
-      qa.appendChild(quickLink("message", "문자", contact.phone ? "sms:" + clean(contact.phone) : null, "문자 보내기"));
-      qa.appendChild(quickLink("building", "사내", contact.tel ? "tel:" + clean(contact.tel) : null, "사내번호로 전화"));
-      qa.appendChild(quickBtn("share", "공유", function () { shareContact(contact); }, "연락처 공유"));
-      qa.appendChild(quickBtn("download", "저장", function () { downloadVCard(contact); }, "연락처 파일로 저장"));
+      qa.appendChild(quickComm("phone", "전화", contact.phone ? "tel:" + clean(contact.phone) : null, "전화 걸기"));
+      qa.appendChild(quickComm("message", "문자", contact.phone ? "sms:" + clean(contact.phone) : null, "문자 보내기"));
+      qa.appendChild(quickComm("building", "사내전화", contact.tel ? "tel:" + clean(contact.tel) : null, "사내번호로 전화"));
+      qa.appendChild(quickBtn("share", "공유", function () { shareContact(contact); }, "연락처 공유", true));
+      qa.appendChild(quickBtn("download", "저장", function () { downloadVCard(contact); }, "연락처 파일로 저장", true));
       container.appendChild(qa);
 
-      var card = el("div", "info-card");
-      addPhoneRow(card, "mobile", "휴대전화", contact.phone);
-      addPhoneRow(card, "building", "사내번호", contact.tel);
-      addInfo(card, "building", "부서", contact.dept);
-      addInfo(card, "users", "팀", contact.team);
-      addInfo(card, "badge", "직책", contact.position);
-      addInfo(card, "work", "담당업무", contact.work);
-      addInfo(card, "cake", "생년월일", contact.birth);
-      addInfo(card, "status", "재직상태", contact.status && contact.status !== "미설정" ? contact.status : null);
-      container.appendChild(card);
+      // 연락처 섹션
+      var c1 = el("div", "info-card");
+      addPhoneRow(c1, "mobile", "휴대전화", contact.phone);
+      addPhoneRow(c1, "building", "사내번호", contact.tel);
+      var rep = deptRep(contact);
+      if (rep) addPhoneRow(c1, "users", "부서 대표(" + rep.name + ")", rep.tel);
+      addInfo(c1, "cake", "생년월일", contact.birth);
+      if (c1.childNodes.length) {
+        container.appendChild(sectionTitle("연락처"));
+        container.appendChild(c1);
+      }
+
+      // 소속 섹션
+      var c2 = el("div", "info-card");
+      addOrgRow(c2, contact, opts.onOrg);
+      addInfo(c2, "users", "팀", contact.team);
+      addInfo(c2, "work", "담당업무", contact.work);
+      addInfo(c2, "status", "재직상태", contact.status && contact.status !== "미설정" ? contact.status : null);
+      if (c2.childNodes.length) {
+        container.appendChild(sectionTitle("소속"));
+        container.appendChild(c2);
+      }
     },
   };
 
-  function quickLink(iconName, label, href, aria) {
-    var node = href ? el("a", "quick") : el("div", "quick quick--disabled");
-    if (href) { node.href = href; node.setAttribute("aria-label", aria); }
-    else { node.setAttribute("aria-disabled", "true"); node.setAttribute("aria-label", label + " 없음"); }
+  function sectionTitle(text) { return el("div", "info-section-title", text); }
+
+  // 통신 quick(전화/문자/사내): 값 없으면 disabled 버튼(접근 가능·시각적 비활성)
+  function quickComm(iconName, label, href, aria) {
+    var node;
+    if (href) { node = el("a", "quick"); node.href = href; node.setAttribute("aria-label", aria); }
+    else { node = el("button", "quick quick--off"); node.type = "button"; node.disabled = true; node.setAttribute("aria-label", label + " 없음"); }
     var ico = el("div", "quick-ico");
     ico.appendChild(icon(iconName));
     node.appendChild(ico);
@@ -520,8 +540,8 @@
     return node;
   }
 
-  function quickBtn(iconName, label, onClick, aria) {
-    var node = el("button", "quick");
+  function quickBtn(iconName, label, onClick, aria, util) {
+    var node = el("button", "quick" + (util ? " quick--util" : ""));
     node.type = "button";
     node.setAttribute("aria-label", aria);
     var ico = el("div", "quick-ico");
@@ -532,7 +552,44 @@
     return node;
   }
 
-  /** 전화 정보 행: 값 + [전화][복사] */
+  /** 같은 부서 리더(장)의 사내번호 — 본인과 다르면 '부서 대표'로 노출 */
+  function deptRep(contact) {
+    if (!(window.Data && Data.membersOfDept)) return null;
+    var mem = Data.membersOfDept(contact.deptId);
+    for (var i = 0; i < mem.length; i++) {
+      var m = mem[i];
+      if (m.id !== contact.id && isLead(m) && m.tel) return { name: m.name, tel: m.tel };
+    }
+    return null;
+  }
+
+  /** 조직 경로(국 › 과 › 팀) 행 — onOrg 있으면 탭 시 조직도 이동 */
+  function addOrgRow(card, contact, onOrg) {
+    var path = (window.Data && Data.deptPath) ? Data.deptPath(contact.deptId) : [];
+    if (!path.length) { addInfo(card, "building", "부서", contact.dept); return; }
+    var row = onOrg ? el("button", "info-row info-row--btn") : el("div", "info-row");
+    if (onOrg) {
+      row.type = "button";
+      row.setAttribute("aria-label", "조직도에서 " + path[path.length - 1].name + " 보기");
+      row.addEventListener("click", function () { onOrg(contact.deptId); });
+    }
+    var ico = el("span", "info-ico");
+    ico.appendChild(icon("building"));
+    row.appendChild(ico);
+    var text = el("div", "info-text");
+    text.appendChild(el("div", "info-label", "조직"));
+    var v = el("div", "info-value");
+    path.forEach(function (p, i) {
+      if (i) v.appendChild(el("span", "org-sep", " › "));
+      v.appendChild(document.createTextNode(p.name));
+    });
+    text.appendChild(v);
+    row.appendChild(text);
+    if (onOrg) { var ch = el("span", "info-chevron"); ch.appendChild(icon("chevron")); row.appendChild(ch); }
+    card.appendChild(row);
+  }
+
+  /** 전화 정보 행: 값(전화 링크) + [복사] */
   function addPhoneRow(card, iconName, label, raw) {
     if (!raw) return;
     var row = el("div", "info-row");
@@ -541,16 +598,13 @@
     row.appendChild(ico);
     var text = el("div", "info-text");
     text.appendChild(el("div", "info-label", label));
-    var val = el("div", "info-value info-value--link", formatPhone(raw));
+    var val = el("a", "info-value info-value--link");
+    val.href = "tel:" + clean(raw);
+    val.textContent = formatPhone(raw);
+    val.setAttribute("aria-label", label + " " + formatPhone(raw) + " 전화 걸기");
     text.appendChild(val);
     row.appendChild(text);
-
     var acts = el("div", "info-actions");
-    var call = el("a", "mini-btn");
-    call.href = "tel:" + clean(raw);
-    call.setAttribute("aria-label", label + " 전화 걸기");
-    call.appendChild(icon("phone"));
-    acts.appendChild(call);
     var copy = el("button", "mini-btn mini-btn--ghost");
     copy.type = "button";
     copy.setAttribute("aria-label", label + " 복사");

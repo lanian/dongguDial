@@ -140,6 +140,16 @@
       return n;
     },
 
+    /** 부서 조직 경로(최상위→해당 부서) [{id,name}...] */
+    deptPath: function (id) {
+      var out = [], d = state.deptById[id], guard = 0;
+      while (d && guard++ < 64) {
+        out.unshift({ id: d.id, name: d.name });
+        d = d.parentId ? state.deptById[d.parentId] : null;
+      }
+      return out;
+    },
+
     /** 부서 직속 인원(멤버순 정렬) */
     membersOfDept: function (id) {
       return (state.membersByDept[id] || []).slice().sort(function (a, b) {

@@ -71,7 +71,26 @@ python3 -m http.server 8000
 ```
 
 필드는 Android 앱의 `User` 테이블 / `Sawon` 모델과 동일한 의미를 따른다.
-실데이터로 바꾸려면 이 파일만 교체하면 된다. (예: 기존 SQLite `User` 테이블을 위 형식의 JSON 으로 export)
+
+### 실데이터로 교체 — `tools/export_contacts.py`
+
+기존 SQLite DB(`User` + `Department` 테이블)에서 위 형식의 JSON 을 바로 뽑아낸다. (표준 라이브러리만 사용)
+
+```bash
+python3 tools/export_contacts.py <평문.sqlite>            # → data/contacts.json
+python3 tools/export_contacts.py db.sqlite -o out.json   # 출력 경로 지정
+python3 tools/export_contacts.py db.sqlite --include-inactive  # 비활성 부서 포함
+```
+
+처리 내용:
+- `Department` 의 `sort_order` 순으로 부서 정렬, 기본은 `is_active=1` 만 포함
+- `employment_status` 정규화(`재직중`→`재직`, `미입력`→`미설정` 등)
+- 이름 없는 행(섹션 헤더/플레이스홀더) 제외
+- `dept_id`, `member_sort_order` 순으로 정렬, Department 테이블이 없으면 `dept` 텍스트로 부서 자동 생성
+
+> **운영 DB(`appdb.sqlite`)는 SQLCipher 로 암호화**되어 있다. 먼저 SQLCipher 로
+> 복호화한 평문 SQLite 파일을 만든 뒤 이 스크립트에 넘긴다. (복호화 명령 예시는
+> 스크립트 상단 docstring 참고)
 
 ## 구조
 

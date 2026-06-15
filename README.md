@@ -63,7 +63,8 @@ python3 -m http.server 8000
 {
   "version": 1,
   "departments": [
-    { "id": 1, "name": "경영지원본부", "sortOrder": 10 }
+    { "id": 20, "name": "행정복지국", "parentId": 0,  "level": 0, "sortOrder": 300 },
+    { "id": 21, "name": "자치행정과", "parentId": 20, "level": 1, "sortOrder": 310 }
   ],
   "contacts": [
     {
@@ -81,6 +82,10 @@ python3 -m http.server 8000
 ```
 
 필드는 Android 앱의 `User` 테이블 / `Sawon` 모델과 동일한 의미를 따른다.
+
+**부서는 직제순으로 구성**된다. `sortOrder`(직제 정렬, 작을수록 위), `parentId`(상위 부서 id, 최상위는 0),
+`level`(0=국/실/직속, 1=과/담당관)로 위계를 표현한다. 목록·조직도·부서 칩은 모두 `sortOrder`(직제) 순서를
+따르고, 조직도는 **국 → 과 → 인원** 트리로 렌더된다. `contacts[].deptId`는 소속 부서(과 또는 직속 국) id를 가리킨다.
 
 ### 실데이터로 교체 — `tools/export_contacts.py`
 

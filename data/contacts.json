@@ -1,108 +1,64 @@
 {
-  "version": 1,
-  "generatedAt": "2026-06-14",
+  "version": 2,
+  "generatedAt": "2026-06-15",
+  "note": "대표 예시(샘플) 직제·명부입니다. 실제 명부는 tools/export_contacts.py로 교체하세요.",
   "departments": [
-    { "id": 1, "name": "경영지원본부", "sortOrder": 10 },
-    { "id": 2, "name": "영업본부", "sortOrder": 20 },
-    { "id": 3, "name": "기술연구소", "sortOrder": 30 },
-    { "id": 4, "name": "생산본부", "sortOrder": 40 }
+    { "id": 1,  "name": "구청장",        "parentId": 0,  "level": 0, "sortOrder": 100 },
+    { "id": 2,  "name": "부구청장",      "parentId": 0,  "level": 0, "sortOrder": 110 },
+
+    { "id": 10, "name": "기획실",        "parentId": 0,  "level": 0, "sortOrder": 200 },
+    { "id": 11, "name": "기획예산과",    "parentId": 10, "level": 1, "sortOrder": 210 },
+    { "id": 12, "name": "감사담당관",    "parentId": 0,  "level": 0, "sortOrder": 230 },
+
+    { "id": 20, "name": "행정복지국",    "parentId": 0,  "level": 0, "sortOrder": 300 },
+    { "id": 21, "name": "자치행정과",    "parentId": 20, "level": 1, "sortOrder": 310 },
+    { "id": 22, "name": "민원여권과",    "parentId": 20, "level": 1, "sortOrder": 320 },
+    { "id": 23, "name": "사회복지과",    "parentId": 20, "level": 1, "sortOrder": 330 },
+    { "id": 24, "name": "세무과",        "parentId": 20, "level": 1, "sortOrder": 340 },
+
+    { "id": 30, "name": "도시관리국",    "parentId": 0,  "level": 0, "sortOrder": 400 },
+    { "id": 31, "name": "도시계획과",    "parentId": 30, "level": 1, "sortOrder": 410 },
+    { "id": 32, "name": "건축과",        "parentId": 30, "level": 1, "sortOrder": 420 },
+    { "id": 33, "name": "교통행정과",    "parentId": 30, "level": 1, "sortOrder": 430 },
+    { "id": 34, "name": "환경과",        "parentId": 30, "level": 1, "sortOrder": 440 },
+
+    { "id": 40, "name": "보건소",        "parentId": 0,  "level": 0, "sortOrder": 500 },
+    { "id": 50, "name": "의회사무국",    "parentId": 0,  "level": 0, "sortOrder": 600 }
   ],
   "contacts": [
-    {
-      "id": 1, "name": "김도현", "deptId": 1, "dept": "경영지원본부", "team": "인사팀",
-      "position": "본부장", "work": "총괄", "phone": "010-1234-5601", "tel": "02-555-0101",
-      "birth": "1972-03-14", "status": "재직", "image": "",
-      "memberSortOrder": 1
-    },
-    {
-      "id": 2, "name": "이서연", "deptId": 1, "dept": "경영지원본부", "team": "인사팀",
-      "position": "팀장", "work": "채용·교육", "phone": "010-1234-5602", "tel": "02-555-0102",
-      "birth": "1985-07-22", "status": "재직", "image": "",
-      "memberSortOrder": 2
-    },
-    {
-      "id": 3, "name": "박지훈", "deptId": 1, "dept": "경영지원본부", "team": "총무팀",
-      "position": "과장", "work": "자산·계약", "phone": "010-1234-5603", "tel": "02-555-0103",
-      "birth": "1988-11-02", "status": "재직", "image": "",
-      "memberSortOrder": 3
-    },
-    {
-      "id": 4, "name": "최유진", "deptId": 1, "dept": "경영지원본부", "team": "재무팀",
-      "position": "대리", "work": "회계", "phone": "010-1234-5604", "tel": "02-555-0104",
-      "birth": "1992-05-19", "status": "휴직", "image": "",
-      "memberSortOrder": 4
-    },
-    {
-      "id": 5, "name": "정민석", "deptId": 2, "dept": "영업본부", "team": "국내영업1팀",
-      "position": "본부장", "work": "총괄", "phone": "010-1234-5605", "tel": "02-555-0201",
-      "birth": "1975-09-30", "status": "재직", "image": "",
-      "memberSortOrder": 1
-    },
-    {
-      "id": 6, "name": "강하늘", "deptId": 2, "dept": "영업본부", "team": "국내영업1팀",
-      "position": "팀장", "work": "수도권", "phone": "010-1234-5606", "tel": "02-555-0202",
-      "birth": "1986-01-08", "status": "재직", "image": "",
-      "memberSortOrder": 2
-    },
-    {
-      "id": 7, "name": "윤서준", "deptId": 2, "dept": "영업본부", "team": "국내영업2팀",
-      "position": "과장", "work": "영남권", "phone": "010-1234-5607", "tel": "051-555-0203",
-      "birth": "1990-04-25", "status": "파견", "image": "",
-      "memberSortOrder": 3
-    },
-    {
-      "id": 8, "name": "임채원", "deptId": 2, "dept": "영업본부", "team": "해외영업팀",
-      "position": "대리", "work": "동남아", "phone": "010-1234-5608", "tel": "02-555-0204",
-      "birth": "1993-12-11", "status": "재직", "image": "",
-      "memberSortOrder": 4
-    },
-    {
-      "id": 9, "name": "오세훈", "deptId": 3, "dept": "기술연구소", "team": "연구개발팀",
-      "position": "소장", "work": "R&D 총괄", "phone": "010-1234-5609", "tel": "031-555-0301",
-      "birth": "1978-06-17", "status": "재직", "image": "",
-      "memberSortOrder": 1
-    },
-    {
-      "id": 10, "name": "한지민", "deptId": 3, "dept": "기술연구소", "team": "연구개발팀",
-      "position": "수석연구원", "work": "플랫폼", "phone": "010-1234-5610", "tel": "031-555-0302",
-      "birth": "1984-02-28", "status": "재직", "image": "",
-      "memberSortOrder": 2
-    },
-    {
-      "id": 11, "name": "신동욱", "deptId": 3, "dept": "기술연구소", "team": "품질팀",
-      "position": "책임연구원", "work": "QA", "phone": "010-1234-5611", "tel": "031-555-0303",
-      "birth": "1989-08-09", "status": "교육", "image": "",
-      "memberSortOrder": 3
-    },
-    {
-      "id": 12, "name": "조아라", "deptId": 3, "dept": "기술연구소", "team": "선행기술팀",
-      "position": "연구원", "work": "AI", "phone": "010-1234-5612", "tel": "031-555-0304",
-      "birth": "1995-10-03", "status": "재직", "image": "",
-      "memberSortOrder": 4
-    },
-    {
-      "id": 13, "name": "배준호", "deptId": 4, "dept": "생산본부", "team": "생산1팀",
-      "position": "본부장", "work": "총괄", "phone": "010-1234-5613", "tel": "041-555-0401",
-      "birth": "1970-12-01", "status": "재직", "image": "",
-      "memberSortOrder": 1
-    },
-    {
-      "id": 14, "name": "송미래", "deptId": 4, "dept": "생산본부", "team": "생산1팀",
-      "position": "팀장", "work": "조립", "phone": "010-1234-5614", "tel": "041-555-0402",
-      "birth": "1987-03-21", "status": "재직", "image": "",
-      "memberSortOrder": 2
-    },
-    {
-      "id": 15, "name": "권태양", "deptId": 4, "dept": "생산본부", "team": "설비팀",
-      "position": "기장", "work": "설비보전", "phone": "010-1234-5615", "tel": "041-555-0403",
-      "birth": "1982-07-14", "status": "재직", "image": "",
-      "memberSortOrder": 3
-    },
-    {
-      "id": 16, "name": "남궁민", "deptId": 4, "dept": "생산본부", "team": "안전관리팀",
-      "position": "과장", "work": "안전·환경", "phone": "010-1234-5616", "tel": "041-555-0404",
-      "birth": "1991-09-27", "status": "재직", "image": "",
-      "memberSortOrder": 4
-    }
+    { "id": 1,  "name": "김동구", "deptId": 1,  "dept": "구청장",     "team": "", "position": "구청장",   "work": "구정 총괄", "phone": "010-1000-0001", "tel": "062-608-2000", "birth": "1965-03-02", "status": "재직", "memberSortOrder": 1 },
+    { "id": 2,  "name": "이부구", "deptId": 2,  "dept": "부구청장",   "team": "", "position": "부구청장", "work": "행정 총괄", "phone": "010-1000-0002", "tel": "062-608-2010", "birth": "1968-07-19", "status": "재직", "memberSortOrder": 1 },
+
+    { "id": 10, "name": "박기획", "deptId": 10, "dept": "기획실",     "team": "", "position": "기획실장", "work": "기획 총괄", "phone": "010-1000-0010", "tel": "062-608-2100", "birth": "1972-01-11", "status": "재직", "memberSortOrder": 1 },
+    { "id": 11, "name": "최예산", "deptId": 11, "dept": "기획예산과", "team": "", "position": "과장",     "work": "예산", "phone": "010-1000-0011", "tel": "062-608-2110", "birth": "1976-05-08", "status": "재직", "memberSortOrder": 1 },
+    { "id": 12, "name": "정주무", "deptId": 11, "dept": "기획예산과", "team": "", "position": "주무관",   "work": "기획", "phone": "010-1000-0012", "tel": "062-608-2111", "birth": "1988-09-23", "status": "재직", "memberSortOrder": 2 },
+    { "id": 13, "name": "한감사", "deptId": 12, "dept": "감사담당관", "team": "", "position": "감사담당관", "work": "감사", "phone": "010-1000-0013", "tel": "062-608-2120", "birth": "1974-12-01", "status": "재직", "memberSortOrder": 1 },
+    { "id": 14, "name": "오청렴", "deptId": 12, "dept": "감사담당관", "team": "", "position": "주무관",   "work": "청렴", "phone": "010-1000-0014", "tel": "062-608-2121", "birth": "1990-02-14", "status": "재직", "memberSortOrder": 2 },
+
+    { "id": 20, "name": "강행정", "deptId": 20, "dept": "행정복지국", "team": "", "position": "국장",     "work": "행정복지 총괄", "phone": "010-1000-0020", "tel": "062-608-2200", "birth": "1969-04-30", "status": "재직", "memberSortOrder": 1 },
+    { "id": 21, "name": "윤자치", "deptId": 21, "dept": "자치행정과", "team": "", "position": "과장",     "work": "자치행정", "phone": "010-1000-0021", "tel": "062-608-2210", "birth": "1977-06-17", "status": "재직", "memberSortOrder": 1 },
+    { "id": 22, "name": "임총무", "deptId": 21, "dept": "자치행정과", "team": "", "position": "주무관",   "work": "총무", "phone": "010-1000-0022", "tel": "062-608-2211", "birth": "1991-11-05", "status": "재직", "memberSortOrder": 2 },
+    { "id": 23, "name": "신민원", "deptId": 22, "dept": "민원여권과", "team": "", "position": "과장",     "work": "민원", "phone": "010-1000-0023", "tel": "062-608-2220", "birth": "1978-02-28", "status": "재직", "memberSortOrder": 1 },
+    { "id": 24, "name": "조여권", "deptId": 22, "dept": "민원여권과", "team": "", "position": "주무관",   "work": "여권", "phone": "010-1000-0024", "tel": "062-608-2221", "birth": "1993-08-09", "status": "휴직", "memberSortOrder": 2 },
+    { "id": 25, "name": "배복지", "deptId": 23, "dept": "사회복지과", "team": "", "position": "과장",     "work": "복지", "phone": "010-1000-0025", "tel": "062-608-2230", "birth": "1975-10-03", "status": "재직", "memberSortOrder": 1 },
+    { "id": 26, "name": "송돌봄", "deptId": 23, "dept": "사회복지과", "team": "", "position": "주무관",   "work": "노인복지", "phone": "010-1000-0026", "tel": "062-608-2231", "birth": "1989-03-21", "status": "재직", "memberSortOrder": 2 },
+    { "id": 27, "name": "권세무", "deptId": 24, "dept": "세무과",     "team": "", "position": "과장",     "work": "세무", "phone": "010-1000-0027", "tel": "062-608-2240", "birth": "1976-07-14", "status": "재직", "memberSortOrder": 1 },
+    { "id": 28, "name": "남징수", "deptId": 24, "dept": "세무과",     "team": "", "position": "주무관",   "work": "징수", "phone": "010-1000-0028", "tel": "062-608-2241", "birth": "1992-09-27", "status": "파견", "memberSortOrder": 2 },
+
+    { "id": 30, "name": "황도시", "deptId": 30, "dept": "도시관리국", "team": "", "position": "국장",     "work": "도시관리 총괄", "phone": "010-1000-0030", "tel": "062-608-2300", "birth": "1970-08-12", "status": "재직", "memberSortOrder": 1 },
+    { "id": 31, "name": "유계획", "deptId": 31, "dept": "도시계획과", "team": "", "position": "과장",     "work": "도시계획", "phone": "010-1000-0031", "tel": "062-608-2310", "birth": "1979-01-25", "status": "재직", "memberSortOrder": 1 },
+    { "id": 32, "name": "문지구", "deptId": 31, "dept": "도시계획과", "team": "", "position": "주무관",   "work": "지구단위", "phone": "010-1000-0032", "tel": "062-608-2311", "birth": "1990-04-18", "status": "재직", "memberSortOrder": 2 },
+    { "id": 33, "name": "양건축", "deptId": 32, "dept": "건축과",     "team": "", "position": "과장",     "work": "건축", "phone": "010-1000-0033", "tel": "062-608-2320", "birth": "1977-12-09", "status": "재직", "memberSortOrder": 1 },
+    { "id": 34, "name": "구허가", "deptId": 32, "dept": "건축과",     "team": "", "position": "주무관",   "work": "허가", "phone": "010-1000-0034", "tel": "062-608-2321", "birth": "1991-05-30", "status": "교육", "memberSortOrder": 2 },
+    { "id": 35, "name": "노교통", "deptId": 33, "dept": "교통행정과", "team": "", "position": "과장",     "work": "교통", "phone": "010-1000-0035", "tel": "062-608-2330", "birth": "1978-09-02", "status": "재직", "memberSortOrder": 1 },
+    { "id": 36, "name": "도주차", "deptId": 33, "dept": "교통행정과", "team": "", "position": "주무관",   "work": "주차", "phone": "010-1000-0036", "tel": "062-608-2331", "birth": "1993-02-11", "status": "재직", "memberSortOrder": 2 },
+    { "id": 37, "name": "서환경", "deptId": 34, "dept": "환경과",     "team": "", "position": "과장",     "work": "환경", "phone": "010-1000-0037", "tel": "062-608-2340", "birth": "1976-11-22", "status": "재직", "memberSortOrder": 1 },
+    { "id": 38, "name": "백청소", "deptId": 34, "dept": "환경과",     "team": "", "position": "주무관",   "work": "청소행정", "phone": "010-1000-0038", "tel": "062-608-2341", "birth": "1990-06-06", "status": "재직", "memberSortOrder": 2 },
+
+    { "id": 40, "name": "차보건", "deptId": 40, "dept": "보건소",     "team": "", "position": "보건소장", "work": "보건 총괄", "phone": "010-1000-0040", "tel": "062-608-2400", "birth": "1971-03-15", "status": "재직", "memberSortOrder": 1 },
+    { "id": 41, "name": "표방역", "deptId": 40, "dept": "보건소",     "team": "", "position": "주무관",   "work": "감염병관리", "phone": "010-1000-0041", "tel": "062-608-2401", "birth": "1989-12-19", "status": "재직", "memberSortOrder": 2 },
+
+    { "id": 50, "name": "하의회", "deptId": 50, "dept": "의회사무국", "team": "", "position": "사무국장", "work": "의정 지원", "phone": "010-1000-0050", "tel": "062-608-2500", "birth": "1972-05-27", "status": "재직", "memberSortOrder": 1 },
+    { "id": 51, "name": "구전문", "deptId": 50, "dept": "의회사무국", "team": "", "position": "전문위원", "work": "입법지원", "phone": "010-1000-0051", "tel": "062-608-2501", "birth": "1980-08-08", "status": "재직", "memberSortOrder": 2 }
   ]
 }

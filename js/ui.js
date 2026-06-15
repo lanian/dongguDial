@@ -272,7 +272,7 @@
       container.appendChild(frag);
     },
 
-    /** 조직도: 부서(접기) → 팀 → 멤버. opts: onOpen,onFav,collapsed,onToggle */
+    /** 조직도: 국(접기) → 직속 인원 → 과 → 인원. opts: onOpen,onFav,collapsed,onToggle */
     renderOrgView: function (container, tree, opts) {
       container.textContent = "";
       if (!tree.length) {
@@ -294,12 +294,17 @@
         });
         frag.appendChild(header);
         if (collapsed) return;
-        node.teams.forEach(function (t) {
+        // 국 직속 인원
+        node.directMembers.forEach(function (c) {
+          frag.appendChild(renderRow(c, opts));
+        });
+        // 하위 과 → 인원
+        node.children.forEach(function (ch) {
           var th = el("div", "org-team");
-          th.appendChild(el("span", "org-team-name", t.name));
-          th.appendChild(el("span", "count", " (" + t.members.length + ")"));
+          th.appendChild(el("span", "org-team-name", ch.dept.name));
+          th.appendChild(el("span", "count", " (" + ch.members.length + ")"));
           frag.appendChild(th);
-          t.members.forEach(function (c) {
+          ch.members.forEach(function (c) {
             var row = renderRow(c, opts);
             row.classList.add("row--indent");
             frag.appendChild(row);

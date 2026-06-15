@@ -1,0 +1,24 @@
+# 부서 직제 구조 (2026-06-15)
+
+기관 행정전화부는 **직제순**으로 구성한다.
+
+## 모델 (2단)
+- **부서(최상위, level 0)**: 국 / 실 / 담당관(관) / 소 / 사무국 등은 **모두 같은 레벨**. `parentId = 0`.
+- **팀(하위, level 1)**: 과 / 팀. `parentId = 상위 부서 id`.
+- **직제 정렬**: `sortOrder`(작을수록 위). 목록·부서 칩·조직도 모두 이 순서를 따른다.
+- 인원의 `deptId`는 소속 말단 부서(과·팀) 또는 직속(국·실·관) id.
+
+## 렌더링
+- **부서순/전체**: `sortOrder`(직제) 순으로 섹션 표시.
+- **조직도**: 최상위 부서 → (직속 인원) → 하위 팀/과 → 인원. (`Data.groupedByOrg`, `UI.renderOrgView`)
+- 최상위 부서는 직속 인원만 있을 수도(예: 담당관), 하위 팀을 가질 수도 있다.
+
+## 데이터 예
+```jsonc
+{ "id": 10, "name": "기획실",     "parentId": 0,  "level": 0, "sortOrder": 200 }, // 실 = 부서 레벨
+{ "id": 11, "name": "기획예산과", "parentId": 10, "level": 1, "sortOrder": 210 }, // 과 = 팀 레벨
+{ "id": 12, "name": "감사담당관", "parentId": 0,  "level": 0, "sortOrder": 230 }  // 관 = 국과 동일 레벨
+```
+
+실제 명부/직제는 `tools/export_contacts.py`가 SQLite `Department`(parent_id/level/sort_order)에서
+이 형식으로 내보낸다.

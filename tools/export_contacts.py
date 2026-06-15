@@ -51,17 +51,29 @@ def column_names(conn, table):
 
 
 def export_departments(conn, include_inactive):
-    """Department 테이블에서 부서 목록 추출. 없으면 빈 리스트."""
+    """Department 테이블에서 부서 목록 추출(직제: parent_id/level/sort_order). 없으면 빈 리스트."""
     if not table_exists(conn, "Department"):
         return []
     cols = column_names(conn, "Department")
     has_active = "is_active" in cols
+    has_parent = "parent_id" in cols
+    has_level = "level" in cols
     where = "" if include_inactive or not has_active else "WHERE is_active=1"
     rows = conn.execute(
-        "SELECT _id, name, sort_order FROM Department %s ORDER BY sort_order, _id" % where
+        "SELECT _id, name, sort_order, %s, %s FROM Department %s ORDER BY sort_order, _id" % (
+            "parent_id" if has_parent else "NULL",
+            "level" if has_level else "0",
+            where,
+        )
     ).fetchall()
     return [
-        {"id": r[0], "name": r[1] or "", "sortOrder": r[2] if r[2] is not None else 0}
+        {
+            "id": r[0],
+            "name": r[1] or "",
+            "parentId": r[3] if r[3] is not None else 0,
+            "level": r[4] if r[4] is not None else 0,
+            "sortOrder": r[2] if r[2] is not None else 0,
+        }
         for r in rows
     ]
 
@@ -134,6 +146,8 @@ def synthesize_departments(contacts):
         seen[key] = {
             "id": c["deptId"] or (order // 10),
             "name": c["dept"] or "기타",
+            "parentId": 0,
+            "level": 0,
             "sortOrder": order,
         }
     return list(seen.values())

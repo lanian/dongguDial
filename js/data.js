@@ -127,32 +127,28 @@
       return groups;
     },
 
-    /** 조직도: 부서 → 팀 → 멤버 트리 */
+    /** 조직도: 직제순 국(상위) → 과(하위) → 인원 트리 */
     groupedByOrg: function () {
-      function teamsOf(members) {
-        var map = {}, order = [];
-        members.forEach(function (c) {
-          var t = c.team || "(팀 없음)";
-          if (!map[t]) { map[t] = []; order.push(t); }
-          map[t].push(c);
-        });
-        return order.map(function (t) {
-          return {
-            name: t,
-            members: map[t].sort(function (a, b) {
-              return (a.memberSortOrder || 0) - (b.memberSortOrder || 0);
-            }),
-          };
-        });
+      function membersOf(id) {
+        return state.contacts
+          .filter(function (c) { return c.deptId === id; })
+          .sort(function (a, b) { return (a.memberSortOrder || 0) - (b.memberSortOrder || 0); });
       }
+      var depts = state.departments; // sortOrder(직제) 정렬됨
+      var tops = depts.filter(function (d) { return !d.parentId; });
       var out = [];
-      state.departments.forEach(function (d) {
-        var members = state.contacts.filter(function (c) { return c.deptId === d.id; });
-        if (members.length) out.push({ dept: d, teams: teamsOf(members), count: members.length });
+      tops.forEach(function (top) {
+        var direct = membersOf(top.id);
+        var children = depts
+          .filter(function (d) { return d.parentId === top.id; })
+          .map(function (ch) { return { dept: ch, members: membersOf(ch.id) }; })
+          .filter(function (c) { return c.members.length; });
+        var count = direct.length + children.reduce(function (a, c) { return a + c.members.length; }, 0);
+        if (count) out.push({ dept: top, directMembers: direct, children: children, count: count });
       });
-      var orphans = state.contacts.filter(function (c) { return !state.deptById[c.deptId]; });
-      if (orphans.length) {
-        out.push({ dept: { id: 0, name: "기타" }, teams: teamsOf(orphans), count: orphans.length });
+      var orphan = state.contacts.filter(function (c) { return !state.deptById[c.deptId]; });
+      if (orphan.length) {
+        out.push({ dept: { id: 0, name: "기타" }, directMembers: orphan, children: [], count: orphan.length });
       }
       return out;
     },

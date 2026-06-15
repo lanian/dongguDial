@@ -319,6 +319,12 @@
       var totalPeople = tree.reduce(function (a, n) { return a + n.count; }, 0);
       var summary = el("div", "org-summary");
       summary.appendChild(el("span", null, "총 " + tree.length + "개 부서 · " + totalPeople + "명"));
+      if (opts.onManage) {
+        var mb = el("button", "org-manage-btn", "부서 관리");
+        mb.type = "button";
+        mb.addEventListener("click", opts.onManage);
+        summary.appendChild(mb);
+      }
       container.appendChild(summary);
 
       var frag = document.createDocumentFragment();
@@ -365,28 +371,47 @@
     },
 
     /** 부서 관리 목록: 직제순 + 레벨 들여쓰기, 각 행 탭 → onEdit(dept) */
-    renderDeptManager: function (container, departments, counts, onEdit) {
+    renderDeptManager: function (container, departments, counts, h) {
       container.textContent = "";
       if (!departments.length) {
         container.appendChild(UI.emptyState("부서가 없습니다. ‘부서 추가’로 만들어 보세요."));
         return;
       }
+      var byParent = {};
+      departments.forEach(function (d) {
+        var p = d.parentId || 0;
+        (byParent[p] = byParent[p] || []).push(d);
+      });
       var card = el("div", "info-card");
       departments.forEach(function (d) {
-        var row = el("button", "deptmgr-row");
-        row.type = "button";
-        row.style.paddingLeft = (16 + Data.depthOf(d.id) * 16) + "px";
-        var main = el("div", "info-text");
+        var sibs = byParent[d.parentId || 0];
+        var i = sibs.indexOf(d);
+        var row = el("div", "deptmgr-row");
+        row.style.paddingLeft = (12 + Data.depthOf(d.id) * 16) + "px";
+
+        var main = el("button", "deptmgr-main");
+        main.type = "button";
         var nm = el("div", "info-value");
         nm.appendChild(document.createTextNode(d.name));
         if (d._custom) nm.appendChild(el("span", "edit-chip edit-chip--inline", "추가"));
         main.appendChild(nm);
         var dc = (counts.direct[d.id] || 0), cc = (counts.child[d.id] || 0);
-        main.appendChild(el("div", "info-label",
-          "직속 " + dc + "명" + (cc ? " · 하위 " + cc + "개" : "")));
+        var subTxt = "직속 " + dc + "명" + (cc ? " · 하위 " + cc + "개" : "");
+        if (dc === 0 && cc === 0) subTxt += " · 빈 부서(조직도 미표시)";
+        main.appendChild(el("div", "info-label", subTxt));
+        main.addEventListener("click", function () { h.onEdit(d); });
         row.appendChild(main);
-        row.appendChild(icon("chevron", "info-chevron"));
-        row.addEventListener("click", function () { onEdit(d); });
+
+        var acts = el("div", "deptmgr-acts");
+        acts.appendChild(moveBtn("up", i === 0, function () { h.onMove(d, -1); }));
+        acts.appendChild(moveBtn("down", i === sibs.length - 1, function () { h.onMove(d, 1); }));
+        var addc = el("button", "mini-btn mini-btn--ghost");
+        addc.type = "button";
+        addc.setAttribute("aria-label", d.name + " 하위 부서 추가");
+        addc.appendChild(icon("plus"));
+        addc.addEventListener("click", function () { h.onAddChild(d); });
+        acts.appendChild(addc);
+        row.appendChild(acts);
         card.appendChild(row);
       });
       container.appendChild(card);
@@ -415,9 +440,9 @@
         sel.appendChild(o);
       });
       form.appendChild(field("상위 부서", sel));
-      form.appendChild(field("직제 순서 (작을수록 위)",
-        textInput("df-sort", dept.sortOrder != null ? String(dept.sortOrder) : "", "예: 300", "number")));
       container.appendChild(form);
+      var note = el("p", "settings-note", "순서(직제)는 부서 관리 목록에서 ▲▼ 버튼으로 조정합니다.");
+      container.appendChild(note);
     },
 
     renderSkeleton: function (container, n) {
@@ -534,6 +559,16 @@
     acts.appendChild(copy);
     row.appendChild(acts);
     card.appendChild(row);
+  }
+
+  function moveBtn(dir, disabled, fn) {
+    var b = el("button", "mini-btn mini-btn--ghost deptmgr-move");
+    b.type = "button";
+    b.setAttribute("aria-label", dir === "up" ? "위로 이동" : "아래로 이동");
+    if (disabled) b.disabled = true;
+    b.appendChild(icon("chevron", "chev-" + dir));
+    b.addEventListener("click", fn);
+    return b;
   }
 
   /** dept.id의 모든 하위(자손) id 집합 — 순환 부모 선택 방지용 */

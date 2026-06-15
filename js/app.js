@@ -185,6 +185,7 @@
         onOpen: openDetail, onFav: onFavChanged,
         collapsed: current.orgCollapsed,
         onToggle: function (id) { current.orgCollapsed[id] = !current.orgCollapsed[id]; render(); },
+        onManage: openDeptMgr,
       });
     } else if (current.tab === "favorites") {
       UI.renderFlat(listEl, Data.resolveIds(Storage.getFavorites()), {
@@ -493,7 +494,20 @@
   function renderDeptMgrList() {
     UI.renderDeptManager(deptMgrBody, Data.getDepartments(),
       { direct: Data.directCountByDept(), child: Data.childCountByParent() },
-      openDeptEditor);
+      { onEdit: openDeptEditor, onMove: moveDept, onAddChild: function (d) { openDeptEditor(null, d.id); } });
+  }
+  function moveDept(dept, dir) {
+    var sibs = Data.getDepartments().filter(function (d) { return (d.parentId || 0) === (dept.parentId || 0); });
+    var i = sibs.findIndex(function (d) { return d.id === dept.id; });
+    var j = i + dir;
+    if (j < 0 || j >= sibs.length) return;
+    var a = sibs[i], b = sibs[j];
+    var av = a.sortOrder || 0, bv = b.sortOrder || 0;
+    if (av === bv) bv = av + dir;
+    Storage.saveDept(a.id, { sortOrder: bv });
+    Storage.saveDept(b.id, { sortOrder: av });
+    Data.rebuild(); renderDeptMgrList(); render();
+    showSnack("순서를 변경했습니다");
   }
   function openDeptMgr() {
     renderDeptMgrList();
@@ -514,10 +528,11 @@
     Data.getDepartments().forEach(function (d) { if ((d.sortOrder || 0) > max) max = d.sortOrder || 0; });
     return max + 10;
   }
-  function openDeptEditor(dept) {
+  function openDeptEditor(dept, presetParentId) {
     deptEditId = dept ? dept.id : null;
     document.getElementById("dept-editor-bar-title").textContent = dept ? "부서 편집" : "부서 추가";
-    UI.renderDeptForm(deptEditorBody, dept || {}, Data.getDepartments());
+    var formDept = dept || (presetParentId != null ? { parentId: presetParentId } : {});
+    UI.renderDeptForm(deptEditorBody, formDept, Data.getDepartments());
     document.getElementById("dept-editor-delete").style.display = dept ? "" : "none";
     pushFocus(); deptEditorEl.hidden = false; syncInert(); updateFab();
     deptEditorBody.scrollTop = 0;
@@ -533,10 +548,8 @@
     if (!name) { window.alert("부서명을 입력하세요."); return; }
     var parentId = realDeptId(val("df-parent"));
     var level = parentId ? Data.depthOf(parentId) + 1 : 0;
-    var sortRaw = val("df-sort");
-    var sortOrder;
-    if (sortRaw === "") sortOrder = defaultDeptSort();
-    else { sortOrder = parseInt(sortRaw, 10); if (isNaN(sortOrder)) { window.alert("직제 순서는 숫자로 입력하세요."); return; } }
+    var existing = deptEditId != null ? Data.getDeptById(deptEditId) : null;
+    var sortOrder = (existing && existing.sortOrder != null) ? existing.sortOrder : defaultDeptSort();
     var fields = { name: name, parentId: parentId, level: level, sortOrder: sortOrder };
     if (deptEditId == null) Storage.addDept(fields);
     else Storage.saveDept(deptEditId, fields);
@@ -549,13 +562,22 @@
   }
   function deleteDeptEditor() {
     if (deptEditId == null) return;
+    var dept = Data.getDeptById(deptEditId);
     var dc = Data.directCountByDept()[deptEditId] || 0;
     var cc = Data.childCountByParent()[deptEditId] || 0;
     if (dc || cc) {
-      window.alert("소속 인원(" + dc + "명) 또는 하위 부서(" + cc + "개)가 있어 삭제할 수 없습니다.\n먼저 인원·하위부서를 옮기거나 삭제하세요.");
-      return;
+      var up = (dept && dept.parentId) || 0;
+      var upDept = up ? Data.getDeptById(up) : null;
+      var upName = upDept ? upDept.name : "최상위(미지정)";
+      if (!window.confirm("이 부서에 인원 " + dc + "명, 하위 부서 " + cc + "개가 있습니다.\n이들을 상위(" + upName + ")로 옮기고 삭제할까요?")) return;
+      Data.getDepartments().filter(function (d) { return d.parentId === deptEditId; })
+        .forEach(function (ch) { Storage.saveDept(ch.id, { parentId: up, level: up ? Data.depthOf(up) + 1 : 0 }); });
+      Data.membersOfDept(deptEditId).forEach(function (c) {
+        Storage.saveContact(c.id, { deptId: up, dept: upDept ? upDept.name : "" });
+      });
+    } else {
+      if (!window.confirm("이 부서를 삭제할까요?")) return;
     }
-    if (!window.confirm("이 부서를 삭제할까요?")) return;
     Storage.deleteDept(deptEditId);
     Data.rebuild();
     closeDeptEditor(false);

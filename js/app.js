@@ -439,13 +439,14 @@
     if (!fromPop && location.hash === "#edit") history.back();
   }
   function val(id) { var e = document.getElementById(id); return e ? e.value.trim() : ""; }
+  // select의 문자열 value를 실제 부서 id(숫자 base / 문자열 custom)로 복원
+  function realDeptId(raw) { if (!raw || raw === "0") return 0; var d = Data.getDeptById(raw); return d ? d.id : 0; }
   function saveEditor() {
     var name = val("ef-name");
     if (!name) { window.alert("이름을 입력하세요."); return; }
-    var depts = Data.getDepartments();
-    var deptId = parseInt(val("ef-dept"), 10);
-    var dept = "";
-    depts.forEach(function (d) { if (d.id === deptId) dept = d.name; });
+    var deptId = realDeptId(val("ef-dept"));
+    var d0 = Data.getDeptById(deptId);
+    var dept = d0 ? d0.name : "";
     var fields = {
       name: name, deptId: deptId, dept: dept,
       team: val("ef-team"), position: val("ef-position"), work: val("ef-work"),
@@ -530,11 +531,12 @@
   function saveDeptEditor() {
     var name = val("df-name");
     if (!name) { window.alert("부서명을 입력하세요."); return; }
-    var parentId = parseInt(val("df-parent"), 10) || 0;
-    var parent = parentId ? Data.getDeptById(parentId) : null;
-    var level = parent ? (parent.level || 0) + 1 : 0;
+    var parentId = realDeptId(val("df-parent"));
+    var level = parentId ? Data.depthOf(parentId) + 1 : 0;
     var sortRaw = val("df-sort");
-    var sortOrder = sortRaw === "" ? defaultDeptSort() : parseInt(sortRaw, 10);
+    var sortOrder;
+    if (sortRaw === "") sortOrder = defaultDeptSort();
+    else { sortOrder = parseInt(sortRaw, 10); if (isNaN(sortOrder)) { window.alert("직제 순서는 숫자로 입력하세요."); return; } }
     var fields = { name: name, parentId: parentId, level: level, sortOrder: sortOrder };
     if (deptEditId == null) Storage.addDept(fields);
     else Storage.saveDept(deptEditId, fields);

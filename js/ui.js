@@ -375,7 +375,7 @@
       departments.forEach(function (d) {
         var row = el("button", "deptmgr-row");
         row.type = "button";
-        row.style.paddingLeft = (16 + (d.level || 0) * 16) + "px";
+        row.style.paddingLeft = (16 + Data.depthOf(d.id) * 16) + "px";
         var main = el("div", "info-text");
         var nm = el("div", "info-value");
         nm.appendChild(document.createTextNode(d.name));
@@ -409,7 +409,7 @@
       if (dept.id) blocked[dept.id] = true; // 자기 자신은 상위로 선택 불가
       departments.forEach(function (d) {
         if (blocked[d.id]) return;
-        var o = el("option", null, "　".repeat(d.level || 0) + d.name);
+        var o = el("option", null, "　".repeat(Data.depthOf(d.id)) + d.name);
         o.value = String(d.id);
         if (String(dept.parentId || 0) === String(d.id)) o.selected = true;
         sel.appendChild(o);

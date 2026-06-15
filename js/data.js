@@ -92,23 +92,28 @@
       state.deptById = {};
       depts.forEach(function (d) { state.deptById[d.id] = d; });
 
-      // 2) 연락처: 오버레이 적용
+      // 2) 연락처: 오버레이 적용(항상 사본, 부서명은 deptById 단일 원천화)
       var edits = (S && S.getEdits) ? S.getEdits() : {};
       var customs = (S && S.getCustom) ? S.getCustom() : [];
       var eff = [];
-      function add(c) {
+      function add(c, isCustom) {
         var e = edits[c.id];
         if (e && e.__deleted) return;
-        var v = e ? Object.assign({}, c, e) : c;
-        if (e && !e.__deleted) v._edited = true;
+        var v = Object.assign({}, c, e || {});
+        if (e) v._edited = true;
+        if (isCustom) v._custom = true;
+        var d = state.deptById[v.deptId];
+        if (d) v.dept = d.name; // 부서명 변경이 연락처 표시·검색에 즉시 반영
         eff.push(v);
       }
-      if (!hideBase) state.base.forEach(add);
-      customs.forEach(function (c) { c._custom = true; add(c); });
+      if (!hideBase) state.base.forEach(function (c) { add(c, false); });
+      customs.forEach(function (c) { add(c, true); });
       state.contacts = eff;
       state.byId = {};
+      state.membersByDept = {};
       eff.forEach(function (c) {
         state.byId[c.id] = c;
+        (state.membersByDept[c.deptId] = state.membersByDept[c.deptId] || []).push(c);
         buildSearchIndex(c);
       });
     },
@@ -122,13 +127,30 @@
     },
 
     getDeptById: function (id) {
-      return state.deptById[id];
+      return state.deptById[id]; // 객체 키는 문자열 강제 → 숫자/문자 id 모두 조회
+    },
+
+    /** parentId 체인으로 계산한 표시용 깊이(0=최상위). level 비정규화 의존 제거 */
+    depthOf: function (id) {
+      var d = state.deptById[id], n = 0, guard = 0;
+      while (d && d.parentId && state.deptById[d.parentId] && guard++ < 64) {
+        d = state.deptById[d.parentId];
+        n++;
+      }
+      return n;
+    },
+
+    /** 부서 직속 인원(멤버순 정렬) */
+    membersOfDept: function (id) {
+      return (state.membersByDept[id] || []).slice().sort(function (a, b) {
+        return (a.memberSortOrder || 0) - (b.memberSortOrder || 0);
+      });
     },
 
     /** 부서별 직속 인원 수 맵 */
     directCountByDept: function () {
       var m = {};
-      state.contacts.forEach(function (c) { m[c.deptId] = (m[c.deptId] || 0) + 1; });
+      Object.keys(state.membersByDept || {}).forEach(function (k) { m[k] = state.membersByDept[k].length; });
       return m;
     },
 
@@ -145,35 +167,19 @@
     groupedByDept: function () {
       var groups = [];
       state.departments.forEach(function (d) {
-        var members = state.contacts
-          .filter(function (c) {
-            return c.deptId === d.id;
-          })
-          .sort(function (a, b) {
-            return (a.memberSortOrder || 0) - (b.memberSortOrder || 0);
-          });
+        var members = Data.membersOfDept(d.id);
         if (members.length) groups.push({ dept: d, members: members });
       });
-      // 부서 미지정 연락처
-      var orphans = state.contacts.filter(function (c) {
-        return !state.deptById[c.deptId];
-      });
-      if (orphans.length) {
-        groups.push({ dept: { id: 0, name: "기타" }, members: orphans });
-      }
+      var orphans = state.contacts.filter(function (c) { return !state.deptById[c.deptId]; });
+      if (orphans.length) groups.push({ dept: { id: 0, name: "기타" }, members: orphans });
       return groups;
     },
 
     /** 조직도: parentId 기반 재귀 트리(국→과→팀, 실/관→팀 등 임의 깊이) */
     groupedByOrg: function () {
-      function membersOf(id) {
-        return state.contacts
-          .filter(function (c) { return c.deptId === id; })
-          .sort(function (a, b) { return (a.memberSortOrder || 0) - (b.memberSortOrder || 0); });
-      }
       var depts = state.departments; // sortOrder(직제) 정렬됨
       function buildNode(dept) {
-        var members = membersOf(dept.id);
+        var members = Data.membersOfDept(dept.id);
         var children = depts
           .filter(function (d) { return d.parentId === dept.id; })
           .map(buildNode)
@@ -181,8 +187,9 @@
         var count = members.length + children.reduce(function (a, n) { return a + n.count; }, 0);
         return { dept: dept, members: members, children: children, count: count };
       }
+      // 부모가 사라진 부서(고아)도 루트로 끌어올려 조직도 누락 방지
       var roots = depts
-        .filter(function (d) { return !d.parentId; })
+        .filter(function (d) { return !d.parentId || !state.deptById[d.parentId]; })
         .map(buildNode)
         .filter(function (n) { return n.count > 0; });
       var orphan = state.contacts.filter(function (c) { return !state.deptById[c.deptId]; });

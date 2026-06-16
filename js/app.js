@@ -4,7 +4,7 @@
 (function () {
   "use strict";
 
-  var APP_VERSION = "47"; // SW 캐시(donggu-dial-vNN)와 함께 갱신
+  var APP_VERSION = "48"; // SW 캐시(donggu-dial-vNN)와 함께 갱신
   var listEl = document.getElementById("list");
   var scrollRegion = document.getElementById("scroll-region");
   var resultStatus = document.getElementById("result-status");
@@ -1187,6 +1187,9 @@
     });
     window.addEventListener("load", function () {
       navigator.serviceWorker.register("sw.js").then(function (reg) {
+        // 이미 설치돼 대기 중인 새 워커가 있으면 즉시 안내(이전 방문에서 updatefound가 이미 끝난 경우)
+        if (reg.waiting && navigator.serviceWorker.controller) showUpdateToast(reg);
+
         reg.addEventListener("updatefound", function () {
           var nw = reg.installing;
           if (!nw) return;
@@ -1196,6 +1199,16 @@
             }
           });
         });
+
+        // 새 배포 자동 감지 보강: 설치형 PWA는 내비게이션이 드물어 브라우저 자동
+        // 업데이트 확인이 약하다. 주기적 + 앱이 다시 보일 때 + 온라인 복귀 시 직접 확인.
+        function checkForUpdate() { if (reg.update) reg.update().catch(function () {}); }
+        setInterval(checkForUpdate, 30 * 60 * 1000); // 30분마다
+        document.addEventListener("visibilitychange", function () {
+          if (document.visibilityState === "visible") checkForUpdate();
+        });
+        window.addEventListener("online", checkForUpdate);
+        checkForUpdate(); // 로드 직후 1회
       }).catch(function () {});
     });
   }

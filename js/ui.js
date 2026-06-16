@@ -192,6 +192,18 @@
     });
     actions.appendChild(star);
 
+    if (opts.onAssign) {
+      var grp = el("button", "mini-btn");
+      grp.type = "button";
+      grp.setAttribute("aria-label", contact.name + " 그룹 지정");
+      grp.appendChild(icon("bookmark"));
+      grp.addEventListener("click", function (e) {
+        e.stopPropagation();
+        opts.onAssign(contact);
+      });
+      actions.appendChild(grp);
+    }
+
     if (contact.phone) {
       var call = el("a", "mini-btn");
       call.href = "tel:" + clean(contact.phone);
@@ -313,6 +325,109 @@
       var frag = document.createDocumentFragment();
       appendRows(frag, contacts, opts);
       container.appendChild(frag);
+    },
+
+    /** 즐겨찾기(그룹별). fs={sections:[{group,members}], ungrouped:[...], total}.
+     *  opts: onOpen,onFav,onAssign,collapsed,onToggle,onAddGroup,onRenameGroup,onRemoveGroup,onMoveGroup,
+     *        emptyMsg,actionLabel,onAction */
+    renderFavView: function (container, fs, opts) {
+      opts = opts || {};
+      container.textContent = "";
+      if (!fs.total) {
+        container.appendChild(UI.emptyState(opts.emptyMsg || "즐겨찾기한 연락처가 없습니다.",
+          opts.actionLabel, opts.onAction));
+        return;
+      }
+      // 상단 툴바: 그룹 추가
+      var bar = el("div", "fav-toolbar");
+      bar.appendChild(el("span", "fav-toolbar-info", "즐겨찾기 " + fs.total + "명 · 그룹 " + fs.sections.length + "개"));
+      if (opts.onAddGroup) {
+        var add = el("button", "fav-toolbar-btn");
+        add.type = "button";
+        add.appendChild(icon("plus"));
+        add.appendChild(document.createTextNode(" 그룹 추가"));
+        add.addEventListener("click", opts.onAddGroup);
+        bar.appendChild(add);
+      }
+      container.appendChild(bar);
+
+      var frag = document.createDocumentFragment();
+      fs.sections.forEach(function (sec, i) {
+        var gid = sec.group.id;
+        var collapsed = !!(opts.collapsed && opts.collapsed[gid]);
+        var header = el("div", "section-header fav-group-header");
+        var toggle = el("button", "section-toggle fav-group-toggle");
+        toggle.type = "button";
+        toggle.setAttribute("aria-expanded", collapsed ? "false" : "true");
+        toggle.appendChild(icon("chevron", "section-chevron"));
+        toggle.appendChild(el("span", "section-leaf", sec.group.name + " "));
+        toggle.appendChild(el("span", "count", "(" + sec.members.length + ")"));
+        if (opts.onToggle) toggle.addEventListener("click", function () { opts.onToggle(gid); });
+        header.appendChild(toggle);
+
+        var ctrls = el("div", "fav-group-ctrls");
+        function ctrl(ico, label, disabled, fn) {
+          var b = el("button", "fav-group-ctrl");
+          b.type = "button"; b.setAttribute("aria-label", label);
+          b.appendChild(icon(ico));
+          if (disabled) b.disabled = true;
+          else b.addEventListener("click", function (e) { e.stopPropagation(); fn(); });
+          ctrls.appendChild(b);
+        }
+        if (opts.onMoveGroup) {
+          ctrl("chevron", "위로", i === 0, function () { opts.onMoveGroup(sec.group, -1); });
+          ctrls.lastChild.classList.add("fav-ctrl-up");
+          ctrl("chevron", "아래로", i === fs.sections.length - 1, function () { opts.onMoveGroup(sec.group, 1); });
+          ctrls.lastChild.classList.add("fav-ctrl-down");
+        }
+        if (opts.onRenameGroup) ctrl("edit", "이름 변경", false, function () { opts.onRenameGroup(sec.group); });
+        if (opts.onRemoveGroup) ctrl("trash", "그룹 삭제", false, function () { opts.onRemoveGroup(sec.group); });
+        header.appendChild(ctrls);
+        frag.appendChild(header);
+
+        if (!collapsed) {
+          if (sec.members.length) appendRows(frag, sec.members, opts);
+          else frag.appendChild(el("div", "fav-group-empty", "이 그룹에 연락처가 없습니다. 연락처 행의 🔖 버튼으로 지정하세요."));
+        }
+      });
+
+      // 미분류
+      if (fs.ungrouped.length) {
+        var uh = el("div", "section-header fav-group-header");
+        uh.appendChild(el("span", "section-leaf section-muted", "미분류 "));
+        uh.appendChild(el("span", "count", "(" + fs.ungrouped.length + ")"));
+        frag.appendChild(uh);
+        appendRows(frag, fs.ungrouped, opts);
+      }
+      container.appendChild(frag);
+    },
+
+    /** 그룹 지정 오버레이 목록(다중 체크). opts: groups,selected(Set/obj),onToggle,onAddGroup */
+    renderFavGroupPicker: function (container, opts) {
+      container.textContent = "";
+      var card = el("div", "picker-card");
+      if (!opts.groups.length) {
+        card.appendChild(el("div", "picker-empty", "아직 그룹이 없습니다. 아래에서 새 그룹을 만드세요."));
+      }
+      opts.groups.forEach(function (g) {
+        var on = !!(opts.selected && opts.selected[g.id]);
+        var row = el("button", "pick-row fav-pick-row" + (on ? " is-sel" : ""));
+        row.type = "button";
+        row.setAttribute("aria-pressed", on ? "true" : "false");
+        var chk = el("span", "fav-pick-check");
+        if (on) chk.appendChild(icon("star"));
+        row.appendChild(chk);
+        row.appendChild(el("span", "pick-name", g.name));
+        row.addEventListener("click", function () { opts.onToggle(g.id); });
+        card.appendChild(row);
+      });
+      var addRow = el("button", "pick-row fav-pick-add");
+      addRow.type = "button";
+      addRow.appendChild(icon("plus"));
+      addRow.appendChild(el("span", "pick-name", "새 그룹 만들기"));
+      addRow.addEventListener("click", opts.onAddGroup);
+      card.appendChild(addRow);
+      container.appendChild(card);
     },
 
     /** 조직도(재귀 트리): 부서 → 과 → 팀 … 임의 깊이. 각 레벨 접기 + 리더 강조.

@@ -173,6 +173,19 @@
     <div id="dept-picker-list" class="detail-body"></div>
   </section>
 
+  <!-- 즐겨찾기 그룹 지정 (오버레이) -->
+  <section id="fav-group-picker" class="detail" role="dialog" aria-modal="true"
+           aria-labelledby="fav-group-picker-title" hidden>
+    <header class="detail-bar">
+      <button id="fav-group-picker-back" class="icon-btn" aria-label="뒤로">
+        <svg class="ic" aria-hidden="true"><use href="#ic-back"/></svg>
+      </button>
+      <span class="detail-bar-title" id="fav-group-picker-title">그룹 지정</span>
+    </header>
+    <p id="fav-group-picker-sub" class="fav-group-picker-sub"></p>
+    <div id="fav-group-picker-list" class="detail-body"></div>
+  </section>
+
   <!-- 사진 크게 보기 (오버레이) -->
   <section id="photo-viewer" class="photo-viewer" role="dialog" aria-modal="true" aria-label="사진 보기" hidden>
     <button id="photo-viewer-close" class="icon-btn photo-viewer-close" aria-label="닫기">

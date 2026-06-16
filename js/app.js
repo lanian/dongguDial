@@ -4,7 +4,7 @@
 (function () {
   "use strict";
 
-  var APP_VERSION = "31"; // SW 캐시(donggu-dial-vNN)와 함께 갱신
+  var APP_VERSION = "32"; // SW 캐시(donggu-dial-vNN)와 함께 갱신
   var listEl = document.getElementById("list");
   var resultStatus = document.getElementById("result-status");
   var searchInput = document.getElementById("search-input");
@@ -47,7 +47,9 @@
   var photoViewerEl = document.getElementById("photo-viewer");
   var deptPickerEl = document.getElementById("dept-picker");
   var deptPickerOpts = null;
-  var current = { tab: "all", query: "", detailId: null, sort: "dept", collapsed: {}, orgCollapsed: {} };
+  var favGroupPickerEl = document.getElementById("fav-group-picker");
+  var favGroupPickerContact = null;
+  var current = { tab: "all", query: "", detailId: null, sort: "dept", collapsed: {}, orgCollapsed: {}, favCollapsed: {} };
   var editId = null;
   var pendingPhoto; // undefined=변경없음, null=제거, string=새 dataURL
   var bgEls = [appBar, tabsNav, listEl];
@@ -62,6 +64,7 @@
   // 오버레이(중첩 가능) — topmost 우선 순서. close 함수는 hoisting됨.
   function overlayList() {
     return [
+      { el: favGroupPickerEl, close: closeFavGroupPicker },
       { el: deptPickerEl, close: closeDeptPicker },
       { el: photoViewerEl, close: closePhotoViewer },
       { el: deptEditorEl, close: closeDeptEditor },
@@ -224,8 +227,15 @@
         },
       });
     } else if (current.tab === "favorites") {
-      UI.renderFlat(listEl, Data.resolveIds(Storage.getFavorites()), {
-        onOpen: openDetail, onFav: onFavChanged,
+      showTools(false); showDeptNav(false); showAlphaRail(false);
+      UI.renderFavView(listEl, favSections(), {
+        onOpen: openDetail, onFav: onFavChanged, onAssign: openFavGroupPicker,
+        collapsed: current.favCollapsed,
+        onToggle: function (gid) { current.favCollapsed[gid] = !current.favCollapsed[gid]; render(); },
+        onAddGroup: addFavGroupPrompt,
+        onRenameGroup: renameFavGroupPrompt,
+        onRemoveGroup: removeFavGroupConfirm,
+        onMoveGroup: function (g, dir) { Storage.moveFavGroup(g.id, dir); render(); },
         emptyMsg: "즐겨찾기한 연락처가 없습니다.\n별 아이콘을 눌러 추가하세요.",
         actionLabel: "전체에서 찾기", onAction: function () { switchTab(tabs[0]); },
       });
@@ -368,6 +378,98 @@
     clearTimeout(deptPickSearchTimer);
     deptPickSearchTimer = setTimeout(function () { renderDeptPickerList(v); }, 120);
   });
+
+  // ---------- 즐겨찾기 그룹 ----------
+  // 즐겨찾기를 그룹별 섹션 + 미분류로 구성
+  function favSections() {
+    var favIds = Storage.getFavorites();
+    var resolved = Data.resolveIds(favIds);
+    var byId = {};
+    resolved.forEach(function (c) { byId[c.id] = c; });
+    var groups = Storage.getFavGroups();
+    var gidSet = {};
+    groups.forEach(function (g) { gidSet[g.id] = true; });
+    var map = Storage.getFavGroupMap();
+    function groupsOf(id) {
+      return (map[id] || []).filter(function (gid) { return gidSet[gid]; });
+    }
+    var sections = groups.map(function (g) {
+      var members = favIds
+        .filter(function (id) { return byId[id] && groupsOf(id).indexOf(g.id) !== -1; })
+        .map(function (id) { return byId[id]; });
+      return { group: g, members: members };
+    });
+    var ungrouped = favIds
+      .filter(function (id) { return byId[id] && groupsOf(id).length === 0; })
+      .map(function (id) { return byId[id]; });
+    return { sections: sections, ungrouped: ungrouped, total: resolved.length };
+  }
+  function addFavGroupPrompt() {
+    var name = window.prompt("새 그룹 이름");
+    if (name == null) return;
+    name = name.trim();
+    if (!name) return;
+    Storage.addFavGroup(name);
+    render();
+    showSnack("그룹 ‘" + name + "’ 추가됨");
+  }
+  function renameFavGroupPrompt(g) {
+    var name = window.prompt("그룹 이름 변경", g.name);
+    if (name == null) return;
+    name = name.trim();
+    if (!name) return;
+    Storage.renameFavGroup(g.id, name);
+    if (!favGroupPickerEl.hidden) renderFavGroupPickerList();
+    render();
+  }
+  function removeFavGroupConfirm(g) {
+    if (!window.confirm("‘" + g.name + "’ 그룹을 삭제할까요?\n그룹만 사라지고 연락처의 즐겨찾기는 유지됩니다.")) return;
+    Storage.removeFavGroup(g.id);
+    render();
+    showSnack("그룹 삭제됨");
+  }
+  function renderFavGroupPickerList() {
+    if (!favGroupPickerContact) return;
+    var sel = {};
+    Storage.getContactFavGroups(favGroupPickerContact.id).forEach(function (gid) { sel[gid] = true; });
+    UI.renderFavGroupPicker(document.getElementById("fav-group-picker-list"), {
+      groups: Storage.getFavGroups(),
+      selected: sel,
+      onToggle: function (gid) {
+        Storage.toggleContactFavGroup(favGroupPickerContact.id, gid);
+        renderFavGroupPickerList();
+        render(); // 뒤 목록 갱신
+      },
+      onAddGroup: function () {
+        var name = window.prompt("새 그룹 이름");
+        if (name == null) return;
+        name = name.trim();
+        if (!name) return;
+        var id = Storage.addFavGroup(name);
+        if (id) Storage.toggleContactFavGroup(favGroupPickerContact.id, id);
+        renderFavGroupPickerList();
+        render();
+      },
+    });
+  }
+  function openFavGroupPicker(contact) {
+    favGroupPickerContact = contact;
+    document.getElementById("fav-group-picker-sub").textContent =
+      (contact.name || "") + " 의 즐겨찾기 그룹";
+    renderFavGroupPickerList();
+    pushFocus();
+    favGroupPickerEl.hidden = false;
+    syncInert(); updateFab();
+    document.getElementById("fav-group-picker-list").scrollTop = 0;
+    history.pushState({ favgrouppick: true }, "", "#fav-group-pick");
+  }
+  function closeFavGroupPicker(fromPop) {
+    favGroupPickerEl.hidden = true;
+    favGroupPickerContact = null;
+    syncInert(); updateFab(); popFocus();
+    if (!fromPop && location.hash === "#fav-group-pick") history.back();
+  }
+  document.getElementById("fav-group-picker-back").addEventListener("click", function () { closeFavGroupPicker(false); });
 
   // 파일 → 256px 정사각 JPEG dataURL(중앙 크롭, 압축)
   function fileToAvatar(file) {

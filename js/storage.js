@@ -13,6 +13,8 @@
   var DEPT_EDITS_KEY = "dongguDial.deptEdits.v1";   // { [id]: {name,parentId,sortOrder,level,__deleted?} }
   var DEPT_CUSTOM_KEY = "dongguDial.deptCustom.v1"; // [ {id,name,parentId,level,sortOrder} ]
   var BASE_HIDDEN_KEY = "dongguDial.baseHidden.v1"; // true면 번들 샘플(기본) 데이터 숨김
+  var FAV_GROUPS_KEY = "dongguDial.favGroups.v1";    // [ {id,name,sortOrder} ]  (즐겨찾기 그룹 정의)
+  var FAV_GROUP_MAP_KEY = "dongguDial.favGroupMap.v1"; // { [contactId]: [groupId,...] }  (연락처별 소속 그룹, 다중)
   var RECENT_LIMIT = 30;
 
   // 고유 id 생성기 (같은 ms 에 여러 건 추가해도 충돌 없도록 카운터 결합)
@@ -82,7 +84,78 @@
       var idx = favs.indexOf(id);
       if (idx === -1) favs.push(id); else favs.splice(idx, 1);
       write(FAV_KEY, favs);
+      if (idx !== -1) {
+        // 즐겨찾기 해제 시 그룹 소속도 함께 제거
+        var map = read(FAV_GROUP_MAP_KEY, {});
+        if (map[id]) { delete map[id]; write(FAV_GROUP_MAP_KEY, map); }
+      }
       return idx === -1;
+    },
+
+    // ---------- 즐겨찾기 그룹 (다중 소속) ----------
+    getFavGroups: function () {
+      return read(FAV_GROUPS_KEY, []).slice().sort(function (a, b) {
+        return (a.sortOrder || 0) - (b.sortOrder || 0);
+      });
+    },
+    addFavGroup: function (name) {
+      name = (name || "").trim();
+      if (!name) return null;
+      var groups = read(FAV_GROUPS_KEY, []);
+      var max = groups.reduce(function (m, g) { return Math.max(m, g.sortOrder || 0); }, 0);
+      var id = uid("g");
+      groups.push({ id: id, name: name, sortOrder: max + 10 });
+      write(FAV_GROUPS_KEY, groups);
+      return id;
+    },
+    renameFavGroup: function (id, name) {
+      name = (name || "").trim();
+      if (!name) return;
+      var groups = read(FAV_GROUPS_KEY, []);
+      var g = groups.find(function (x) { return x.id === id; });
+      if (g) { g.name = name; write(FAV_GROUPS_KEY, groups); }
+    },
+    removeFavGroup: function (id) {
+      write(FAV_GROUPS_KEY, read(FAV_GROUPS_KEY, []).filter(function (g) { return g.id !== id; }));
+      var map = read(FAV_GROUP_MAP_KEY, {}), changed = false;
+      Object.keys(map).forEach(function (cid) {
+        var arr = map[cid].filter(function (gid) { return gid !== id; });
+        if (arr.length !== map[cid].length) changed = true;
+        if (arr.length) map[cid] = arr; else delete map[cid];
+      });
+      if (changed) write(FAV_GROUP_MAP_KEY, map);
+    },
+    /** dir<0 위로, dir>0 아래로 형제와 순서 교환 */
+    moveFavGroup: function (id, dir) {
+      var groups = read(FAV_GROUPS_KEY, []).slice().sort(function (a, b) {
+        return (a.sortOrder || 0) - (b.sortOrder || 0);
+      });
+      var i = groups.findIndex(function (g) { return g.id === id; });
+      var j = i + (dir < 0 ? -1 : 1);
+      if (i < 0 || j < 0 || j >= groups.length) return;
+      var a = groups[i].sortOrder || 0, b = groups[j].sortOrder || 0;
+      groups[i].sortOrder = b; groups[j].sortOrder = a;
+      write(FAV_GROUPS_KEY, groups);
+    },
+    getFavGroupMap: function () { return read(FAV_GROUP_MAP_KEY, {}); },
+    /** 해당 연락처가 속한 그룹 id 목록(삭제된 그룹은 제외) */
+    getContactFavGroups: function (contactId) {
+      var ids = read(FAV_GROUP_MAP_KEY, {})[contactId] || [];
+      var exist = {};
+      read(FAV_GROUPS_KEY, []).forEach(function (g) { exist[g.id] = true; });
+      return ids.filter(function (gid) { return exist[gid]; });
+    },
+    /** 연락처의 그룹 소속 토글. 그룹 지정 시 자동으로 즐겨찾기에 포함. 반환: 지정됨(true)/해제됨(false) */
+    toggleContactFavGroup: function (contactId, groupId) {
+      var favs = read(FAV_KEY, []);
+      if (favs.indexOf(contactId) === -1) { favs.push(contactId); write(FAV_KEY, favs); }
+      var map = read(FAV_GROUP_MAP_KEY, {});
+      var arr = map[contactId] ? map[contactId].slice() : [];
+      var idx = arr.indexOf(groupId), on;
+      if (idx === -1) { arr.push(groupId); on = true; } else { arr.splice(idx, 1); on = false; }
+      if (arr.length) map[contactId] = arr; else delete map[contactId];
+      write(FAV_GROUP_MAP_KEY, map);
+      return on;
     },
 
     // ---------- 최근 ----------
@@ -107,6 +180,8 @@
     deleteContact: function (id) {
       contactStore.remove(id);
       write(FAV_KEY, read(FAV_KEY, []).filter(function (x) { return x !== id; }));
+      var map = read(FAV_GROUP_MAP_KEY, {});
+      if (map[id]) { delete map[id]; write(FAV_GROUP_MAP_KEY, map); }
     },
     resetContact: function (id) {
       var edits = read(EDITS_KEY, {});
@@ -142,6 +217,7 @@
         custom: read(CUSTOM_KEY, []).length,
         deptEdits: Object.keys(read(DEPT_EDITS_KEY, {})).length,
         deptCustom: read(DEPT_CUSTOM_KEY, []).length,
+        favGroups: read(FAV_GROUPS_KEY, []).length,
       };
     },
 
@@ -149,7 +225,7 @@
       return {
         app: "dongguDial",
         type: "backup",
-        version: 3,
+        version: 4,
         exportedAt: new Date().toISOString(),
         favorites: read(FAV_KEY, []),
         recent: read(RECENT_KEY, []),
@@ -159,6 +235,8 @@
         deptEdits: read(DEPT_EDITS_KEY, {}),
         deptCustom: read(DEPT_CUSTOM_KEY, []),
         baseHidden: read(BASE_HIDDEN_KEY, false) === true,
+        favGroups: read(FAV_GROUPS_KEY, []),
+        favGroupMap: read(FAV_GROUP_MAP_KEY, {}),
       };
     },
 
@@ -172,8 +250,10 @@
       var inCustom = Array.isArray(data.custom) ? data.custom : [];
       var inDeptEdits = (data.deptEdits && typeof data.deptEdits === "object") ? data.deptEdits : {};
       var inDeptCustom = Array.isArray(data.deptCustom) ? data.deptCustom : [];
+      var inFavGroups = Array.isArray(data.favGroups) ? data.favGroups : [];
+      var inFavGroupMap = (data.favGroupMap && typeof data.favGroupMap === "object") ? data.favGroupMap : {};
 
-      var favs, recent, edits, custom, deptEdits, deptCustom;
+      var favs, recent, edits, custom, deptEdits, deptCustom, favGroups, favGroupMap;
       if (mode === "replace") {
         favs = inFav.slice();
         recent = inRecent.slice(0, RECENT_LIMIT);
@@ -181,6 +261,8 @@
         custom = inCustom;
         deptEdits = inDeptEdits;
         deptCustom = inDeptCustom;
+        favGroups = inFavGroups.slice();
+        favGroupMap = JSON.parse(JSON.stringify(inFavGroupMap));
       } else {
         var curFav = read(FAV_KEY, []);
         favs = curFav.slice();
@@ -199,6 +281,17 @@
         var dById = {};
         read(DEPT_CUSTOM_KEY, []).concat(inDeptCustom).forEach(function (d) { if (d && d.id) dById[d.id] = d; });
         deptCustom = Object.keys(dById).map(function (k) { return dById[k]; });
+        // 그룹: id 기준 병합(가져온 것이 이름·순서 우선)
+        var gById = {};
+        read(FAV_GROUPS_KEY, []).concat(inFavGroups).forEach(function (g) { if (g && g.id) gById[g.id] = g; });
+        favGroups = Object.keys(gById).map(function (k) { return gById[k]; });
+        // 소속 맵: 연락처별 그룹 id 합집합
+        favGroupMap = JSON.parse(JSON.stringify(read(FAV_GROUP_MAP_KEY, {})));
+        Object.keys(inFavGroupMap).forEach(function (cid) {
+          var cur = favGroupMap[cid] ? favGroupMap[cid].slice() : [];
+          (inFavGroupMap[cid] || []).forEach(function (gid) { if (cur.indexOf(gid) === -1) cur.push(gid); });
+          if (cur.length) favGroupMap[cid] = cur;
+        });
       }
       write(FAV_KEY, favs);
       write(RECENT_KEY, recent);
@@ -206,6 +299,8 @@
       write(CUSTOM_KEY, custom);
       write(DEPT_EDITS_KEY, deptEdits);
       write(DEPT_CUSTOM_KEY, deptCustom);
+      write(FAV_GROUPS_KEY, favGroups);
+      write(FAV_GROUP_MAP_KEY, favGroupMap);
       if (mode === "replace") write(BASE_HIDDEN_KEY, data.baseHidden === true);
       else if (data.baseHidden === true) write(BASE_HIDDEN_KEY, true);
       if (data.theme) write(THEME_KEY, data.theme);

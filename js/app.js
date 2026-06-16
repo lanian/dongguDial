@@ -4,7 +4,7 @@
 (function () {
   "use strict";
 
-  var APP_VERSION = "30"; // SW 캐시(donggu-dial-vNN)와 함께 갱신
+  var APP_VERSION = "31"; // SW 캐시(donggu-dial-vNN)와 함께 갱신
   var listEl = document.getElementById("list");
   var resultStatus = document.getElementById("result-status");
   var searchInput = document.getElementById("search-input");
@@ -27,6 +27,18 @@
   var fab = document.getElementById("fab-add");
   var listTools = document.getElementById("list-tools");
   var deptNav = document.getElementById("dept-nav");
+  // PC: 세로 마우스 휠을 부서 칩 바의 가로 스크롤로 변환(트랙패드 가로 스와이프는 그대로).
+  deptNav.addEventListener("wheel", function (e) {
+    if (e.deltaY === 0) return; // 이미 가로 스크롤(트랙패드 등)이면 개입 안 함
+    var max = deptNav.scrollWidth - deptNav.clientWidth;
+    if (max <= 0) return; // 넘칠 게 없으면 페이지 스크롤 유지
+    var atStart = deptNav.scrollLeft <= 0;
+    var atEnd = deptNav.scrollLeft >= max - 1;
+    // 끝에 닿았는데 더 진행하려는 휠은 페이지로 흘려보냄(스크롤 트랩 방지)
+    if ((e.deltaY < 0 && atStart) || (e.deltaY > 0 && atEnd)) return;
+    deptNav.scrollLeft += e.deltaY;
+    e.preventDefault();
+  }, { passive: false });
   var alphaRail = document.getElementById("alpha-rail");
   var snackbar = document.getElementById("snackbar");
   var sortBtns = Array.prototype.slice.call(document.querySelectorAll(".sort-seg .seg-btn"));

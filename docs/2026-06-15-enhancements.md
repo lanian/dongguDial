@@ -126,3 +126,12 @@ UX:
   오지 않을 경우를 대비한 3초 안전 폴백 포함. 대기 워커가 없으면 즉시 reload.
 - SW 캐시 v30. 검증: jsdom — 클릭 시 즉시 reload 안 함(0), controllerchange 1회에
   정확히 1회 reload, 2회째 controllerchange는 무동작(중복 reload 없음) 확인.
+
+## 15) PC 부서 칩 가로 스크롤 (세로 휠 → 가로 변환)
+- 문제: 부서순일 때 상단 부서 칩 바(`.dept-nav`)는 스크롤바가 숨겨져 있어(`scrollbar-width:none`),
+  마우스만 쓰는 PC에서 Shift+휠을 모르면 칩을 넘기기 어려웠다.
+- 해결: `deptNav`에 wheel 핸들러 추가 — 세로 휠(deltaY)을 가로 스크롤(scrollLeft)로 변환.
+  이미 가로 입력(트랙패드, deltaX)인 경우·넘칠 내용이 없는 경우는 개입하지 않고,
+  칩 바의 끝(좌/우)에 닿은 뒤의 휠은 페이지로 흘려보내 스크롤 트랩을 방지(`passive:false`).
+- SW 캐시 v31. 검증: jsdom — 중간 휠은 scrollLeft 증가+preventDefault, 양끝 경계는
+  통과(페이지 스크롤 유지) 확인.

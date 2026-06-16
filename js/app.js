@@ -4,7 +4,7 @@
 (function () {
   "use strict";
 
-  var APP_VERSION = "37"; // SW 캐시(donggu-dial-vNN)와 함께 갱신
+  var APP_VERSION = "38"; // SW 캐시(donggu-dial-vNN)와 함께 갱신
   var listEl = document.getElementById("list");
   var resultStatus = document.getElementById("result-status");
   var searchInput = document.getElementById("search-input");
@@ -593,6 +593,12 @@
     });
     current.tab = tab.dataset.tab;
     current.orgReorder = false; // 탭 전환 시 순서 편집 모드 해제
+    // 검색 중 탭 전환 시 검색을 종료하고 해당 탭 내용을 표시(검색 결과가 탭을 덮어쓰는 혼란 방지)
+    if (current.query) {
+      searchInput.value = "";
+      current.query = "";
+      searchClear.hidden = true;
+    }
     listEl.setAttribute("aria-labelledby", tab.id);
     render();
     window.scrollTo({ top: 0 });

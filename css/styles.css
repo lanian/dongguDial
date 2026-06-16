@@ -144,6 +144,9 @@ body.overlay-open { overflow: hidden; }
 }
 .search-input::placeholder { color: var(--on-surface-muted); }
 .search-input:focus { outline: none; box-shadow: 0 0 0 3px rgba(255, 255, 255, 0.5); }
+/* type=search 의 브라우저 기본 ✕ 제거(커스텀 #search-clear 와 중복 방지) */
+.search-input::-webkit-search-cancel-button,
+.search-input::-webkit-search-decoration { -webkit-appearance: none; appearance: none; display: none; }
 .search-clear {
   position: absolute;
   right: 4px;

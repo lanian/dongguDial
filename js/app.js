@@ -228,7 +228,15 @@
       UI.renderOrgView(listEl, Data.groupedByOrg(), {
         onOpen: openDetail, onFav: onFavChanged,
         collapsed: current.orgCollapsed,
-        onToggle: function (id) { current.orgCollapsed[id] = !current.orgCollapsed[id]; render(); },
+        onToggle: function (id) {
+          current.orgCollapsed[id] = !current.orgCollapsed[id];
+          render();
+          // 토글 시 render()가 DOM을 재생성해 포커스가 소실되므로 같은 헤더로 복원하고,
+          // 상태 변화를 aria-live(#result-status)로 알려 키보드·스크린리더 위치를 유지한다.
+          var h = document.getElementById("org-" + id);
+          if (h) h.focus();
+          if (resultStatus) resultStatus.textContent = current.orgCollapsed[id] ? "접음" : "펼침";
+        },
         onManage: openDeptMgr,
         allCollapsed: allCol,
         onToggleAll: function () {

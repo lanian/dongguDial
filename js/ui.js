@@ -257,7 +257,9 @@
     var collapsed = !opts.reorder && !!(opts.collapsed && opts.collapsed[node.dept.id]);
     var top = depth === 0;
     var wrap = el("div", "org-node" + (top ? "" : " org-sub"));
-    var header = el("button", top ? "section-header section-toggle org-dept" : "org-team-header");
+    var header = el("button",
+      (top ? "section-header section-toggle org-dept" : "org-team-header") +
+      " org-lvl-" + Math.min(depth, 2));
     header.type = "button";
     header.id = "org-" + node.dept.id;
     header.setAttribute("aria-expanded", collapsed ? "false" : "true");
@@ -265,7 +267,16 @@
     header.appendChild(el("span", "org-dept-name", node.dept.name));
     var lead = node.members.filter(isLead)[0];
     if (lead) header.appendChild(el("span", "org-lead", lead.name + " " + lead.position));
-    header.appendChild(el("span", "org-badge" + (top ? "" : " org-badge--sm"), String(node.count)));
+    // 배지: 직속 인원(주) + 하위 포함 누적(보조). 자손이 있을 때만 누적을 덧붙여
+    // "이 부서 자체에 몇 명, 산하 전체로 몇 명"이 한눈에 구분되게 한다.
+    var direct = node.members.length, total = node.count;
+    var badge = el("span", "org-badge" + (top ? "" : " org-badge--sm"), String(direct));
+    if (total > direct) badge.appendChild(el("span", "org-badge-total", "/" + total));
+    header.appendChild(badge);
+    header.setAttribute("aria-label",
+      node.dept.name + ", 직속 " + direct + "명" +
+      (total > direct ? ", 전체 " + total + "명" : "") +
+      ", " + (collapsed ? "접힘" : "펼침"));
     header.addEventListener("click", function () { if (opts.onToggle && !opts.reorder) opts.onToggle(node.dept.id); });
     wrap.appendChild(header);
     if (!collapsed) {
@@ -448,7 +459,8 @@
     renderOrgView: function (container, tree, opts) {
       container.textContent = "";
       if (!tree.length) {
-        container.appendChild(UI.emptyState("조직 정보가 없습니다."));
+        container.appendChild(UI.emptyState("조직 정보가 없습니다.",
+          opts.onManage ? "부서 관리" : null, opts.onManage));
         return;
       }
       var totalPeople = tree.reduce(function (a, n) { return a + n.count; }, 0);

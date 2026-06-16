@@ -661,20 +661,29 @@ html[data-theme="dark"] .info-card { box-shadow: none; border: 1px solid var(--d
 /* ---------- Org tree ---------- */
 .org-summary {
   display: flex;
+  flex-wrap: wrap;
   align-items: center;
   gap: var(--sp-2);
+  row-gap: var(--sp-2);
   padding: var(--sp-2) var(--sp-4);
   color: var(--on-surface-muted);
   font-size: var(--fs-sm);
 }
-.org-node { margin-bottom: var(--sp-2); }
+.org-node { margin-bottom: var(--sp-3); }
 
-.org-dept { gap: 6px; }
+/* 최상위(국/실/관) 헤더: surface 카드 캡 — sticky 시 본문과 경계가 또렷하고 겹쳐도 불투명 */
+.org-dept {
+  gap: 6px;
+  align-items: center;
+  padding: var(--sp-3) var(--sp-4);
+  background: var(--surface);
+  border-bottom: 1px solid var(--divider);
+}
 .org-dept .org-dept-name { font-weight: var(--fw-bold); }
 .org-lead {
-  color: var(--on-surface-muted);
+  color: var(--on-surface);
   font-size: var(--fs-sm);
-  font-weight: var(--fw-reg);
+  font-weight: var(--fw-med);
   margin-left: 6px;
   overflow: hidden;
   text-overflow: ellipsis;
@@ -696,13 +705,13 @@ html[data-theme="dark"] .info-card { box-shadow: none; border: 1px solid var(--d
   font-weight: var(--fw-bold);
 }
 .org-badge--sm { background: var(--divider); color: var(--on-surface-muted); }
+.org-badge-total { font-weight: var(--fw-reg); opacity: 0.6; margin-left: 1px; }
 
-.org-dept .org-dept-name { font-weight: var(--fw-bold); }
 .org-body { background: var(--surface); }
 
 /* 하위(과/팀…) 노드: 좌측 트리 라인 + 들여쓰기 (깊이마다 중첩되어 누적) */
 .org-sub {
-  margin-left: var(--sp-4);
+  margin-left: var(--sp-3);
   border-left: 2px solid var(--divider);
 }
 .org-team-header {
@@ -723,9 +732,13 @@ html[data-theme="dark"] .info-card { box-shadow: none; border: 1px solid var(--d
 .org-team-header .org-dept-name { font-weight: var(--fw-med); }
 .org-team-header:active { background: var(--divider); }
 .org-team-header .section-chevron { width: 0.9em; height: 0.9em; }
+/* 과/팀 헤더 셰브론도 접힘 상태를 회전으로 표시(.section-toggle 규칙이 안 걸리던 버그 보완) */
+.org-team-header[aria-expanded="false"] .section-chevron { transform: rotate(0); }
+/* 레벨별 위계: 과(med, 기본) · 팀 이하(reg+muted) — 부서순 뷰의 section-lvl-* 와 동일 결 */
+.org-team-header.org-lvl-2 .org-dept-name { font-weight: var(--fw-reg); color: var(--on-surface-muted); }
 .org-sub .row { padding-left: 14px; }
 .org-sub .row:last-child { border-bottom: none; }
-.row--lead { box-shadow: inset 3px 0 0 var(--brand); }
+.row--lead { box-shadow: inset 3px 0 0 var(--brand); background: rgba(var(--brand-rgb), 0.04); }
 .row--lead .row-name { font-weight: var(--fw-bold); }
 
 /* ---------- Theme segment ---------- */

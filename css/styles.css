@@ -136,9 +136,10 @@ body {
 /* 제목이 남는 공간을 채워 정렬 토글·설정 아이콘을 우측으로 밀어냄(정렬 숨김 시에도 동일) */
 .app-title { margin: 0; font-size: 20px; font-weight: var(--fw-bold); flex: 1 1 auto; min-width: 0; overflow: hidden; text-overflow: ellipsis; white-space: nowrap; }
 
-/* 앱바용 정렬 세그먼트. 트랙을 '단색 진한 파랑'으로 깔아 (반투명 오버레이가 아니라)
-   배경/테마와 무관하게 흰색 미선택 글자가 항상 또렷하게 보이도록 보장한다. */
-.sort-seg--bar {
+/* 앱바용 정렬 세그먼트. 트랙을 '단색 진한 파랑'으로 깔아 테마와 무관하게 흰 글자가 또렷.
+   ※ 특이도 주의: 베이스 `.sort-seg { background: var(--surface) }`가 파일 뒤쪽에 있어
+   동일 특이도면 그게 이긴다. `.sort-seg.sort-seg--bar`(0,2,0)로 올려 반드시 이기게 함. */
+.sort-seg.sort-seg--bar {
   flex: 0 0 auto;
   background: var(--brand-dark);
   border-color: transparent;

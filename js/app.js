@@ -4,7 +4,7 @@
 (function () {
   "use strict";
 
-  var APP_VERSION = "54"; // SW 캐시(donggu-dial-vNN)와 함께 갱신
+  var APP_VERSION = "55"; // SW 캐시(donggu-dial-vNN)와 함께 갱신
   var listEl = document.getElementById("list");
   var scrollRegion = document.getElementById("scroll-region");
   var resultStatus = document.getElementById("result-status");
@@ -179,21 +179,28 @@
     hideAlphaBubble();
     if (alphaActiveKey) { alphaActiveKey.classList.remove("is-active"); alphaActiveKey = null; }
   }
+  // 캡처 대신 document에 이동/종료를 걸어, 레일 밖에서 손을 떼도 항상 종료가 잡히게 한다.
+  // (setPointerCapture는 모바일에서 누락되면 scrubbing 상태가 멈춰 두 번째부터 먹통이 됨)
+  function onAlphaMove(e) {
+    if (!alphaScrubbing) return;
+    activateAlphaKey(alphaKeyAt(e.clientY));
+    if (e.cancelable) e.preventDefault();
+  }
+  function onAlphaEnd() {
+    endAlphaScrub();
+    document.removeEventListener("pointermove", onAlphaMove);
+    document.removeEventListener("pointerup", onAlphaEnd);
+    document.removeEventListener("pointercancel", onAlphaEnd);
+  }
   alphaRail.addEventListener("pointerdown", function (e) {
     if (alphaRail.hidden) return;
     alphaScrubbing = true;
-    if (alphaRail.setPointerCapture) { try { alphaRail.setPointerCapture(e.pointerId); } catch (x) {} }
     activateAlphaKey(alphaKeyAt(e.clientY));
-    e.preventDefault();
+    document.addEventListener("pointermove", onAlphaMove, { passive: false });
+    document.addEventListener("pointerup", onAlphaEnd);
+    document.addEventListener("pointercancel", onAlphaEnd);
+    if (e.cancelable) e.preventDefault();
   });
-  alphaRail.addEventListener("pointermove", function (e) {
-    if (!alphaScrubbing) return;
-    activateAlphaKey(alphaKeyAt(e.clientY));
-    e.preventDefault();
-  });
-  alphaRail.addEventListener("pointerup", endAlphaScrub);
-  alphaRail.addEventListener("pointercancel", endAlphaScrub);
-  alphaRail.addEventListener("lostpointercapture", endAlphaScrub);
 
   function scrollToEl(el, behavior) {
     if (!el) return;

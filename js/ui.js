@@ -317,7 +317,8 @@
         container.appendChild(UI.emptyState("표시할 연락처가 없습니다."));
         return;
       }
-      // 명부형: 접기/들여쓰기 없이 평면. 헤더에 부서 경로(국 › 과 › 팀) 표기
+      // 명부형: 접기/들여쓰기 없이 평면.
+      // 헤더 위계: 상위 경로(키커, 윗줄) → 부서명(굵게, 아랫줄) → 인원 배지 → 이동 셰브론
       var frag = document.createDocumentFragment();
       groups.forEach(function (g) {
         var jump = !!opts.onDeptJump;
@@ -327,12 +328,12 @@
         var txt = el("span", "section-dir-text");
         var path = (window.Data && Data.deptPath) ? Data.deptPath(g.dept.id) : [{ name: g.dept.name }];
         if (path.length > 1) {
-          txt.appendChild(el("span", "section-path-inline",
-            path.slice(0, -1).map(function (p) { return p.name; }).join(" › ") + " › "));
+          txt.appendChild(el("span", "section-kicker",
+            path.slice(0, -1).map(function (p) { return p.name; }).join(" › ")));
         }
         txt.appendChild(el("span", "section-leaf", g.dept.name));
-        txt.appendChild(el("span", "count", " (" + g.members.length + ")"));
         header.appendChild(txt);
+        header.appendChild(el("span", "section-count-badge", String(g.members.length)));
         if (jump) {
           header.type = "button";
           header.setAttribute("aria-label", g.dept.name + " 부서를 조직도에서 보기");

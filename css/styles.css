@@ -276,23 +276,50 @@ body {
 .section-toggle.section-lvl-2 .section-chevron { opacity: 0.7; }
 /* 명부/가나다 섹션 헤더: 그룹 경계를 또렷하게(조직도 헤더 제외 — 자체 스타일) */
 .section-header:not(.org-dept) { border-bottom: 1px solid var(--divider); }
-/* 전체(명부) 부서 헤더: 평면 + 경로(국 › 과 › 팀) */
-.section-dir { display: block; white-space: nowrap; overflow: hidden; text-overflow: ellipsis; }
-.section-path-inline { color: var(--on-surface-muted); font-weight: var(--fw-reg); }
-.section-leaf { font-weight: var(--fw-bold); color: var(--on-surface); }
 
-/* 부서 헤더 탭 → 조직도에서 해당 부서 보기. (font-size/weight 는 .section-header 유지) */
-.section-jump {
+/* 전체(명부) 부서 헤더: 상위경로(키커) + 부서명(굵게) + 인원 배지 + 이동 셰브론 */
+.section-dir {
   display: flex;
   align-items: center;
   gap: var(--sp-2);
+  padding: var(--sp-2) var(--sp-4);
+}
+.section-dir-text {
+  flex: 1; min-width: 0;
+  display: flex; flex-direction: column; gap: 1px;
+  overflow: hidden;
+}
+.section-kicker {
+  font-size: var(--fs-cap);
+  font-weight: var(--fw-reg);
+  color: var(--on-surface-muted);
+  letter-spacing: 0;
+  white-space: nowrap; overflow: hidden; text-overflow: ellipsis;
+}
+.section-leaf {
+  font-size: var(--fs-md);
+  font-weight: var(--fw-bold);
+  color: var(--on-surface);
+  letter-spacing: 0;
+  white-space: nowrap; overflow: hidden; text-overflow: ellipsis;
+}
+.section-count-badge {
+  flex: 0 0 auto;
+  display: inline-flex; align-items: center; justify-content: center;
+  min-width: 20px; height: 18px; padding: 0 6px;
+  border-radius: var(--r-pill);
+  background: var(--divider); color: var(--on-surface-muted);
+  font-size: var(--fs-cap); font-weight: var(--fw-med);
+}
+
+/* 부서 헤더 탭 → 조직도에서 해당 부서 보기(버튼 리셋만; 레이아웃은 .section-dir) */
+.section-jump {
   width: 100%;
   border: none;
   font-family: inherit;
   text-align: left;
   cursor: pointer;
 }
-.section-dir-text { flex: 1; min-width: 0; overflow: hidden; text-overflow: ellipsis; white-space: nowrap; }
 .section-jump-chev { flex: 0 0 auto; width: 1em; height: 1em; color: var(--on-surface-muted); }
 .section-jump:active { background: var(--divider); }
 .section-toggle {

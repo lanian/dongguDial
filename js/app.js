@@ -4,7 +4,7 @@
 (function () {
   "use strict";
 
-  var APP_VERSION = "33"; // SW 캐시(donggu-dial-vNN)와 함께 갱신
+  var APP_VERSION = "34"; // SW 캐시(donggu-dial-vNN)와 함께 갱신
   var listEl = document.getElementById("list");
   var resultStatus = document.getElementById("result-status");
   var searchInput = document.getElementById("search-input");
@@ -1114,6 +1114,8 @@
   }
 
   // ---------- sticky 오프셋 실측 ----------
+  // 앱바/탭의 실제 높이를 CSS 변수로 반영해 탭·섹션헤더 sticky 위치를 정확히 맞춘다.
+  // (고정 픽셀이면 폰트·safe-area·데스크톱 줌에 따라 어긋나 스크롤 시 헤더가 본문을 파고듦)
   function syncStickyOffsets() {
     var hb = appBar.offsetHeight;
     var ht = tabsNav.offsetHeight;
@@ -1121,6 +1123,14 @@
     document.documentElement.style.setProperty("--tabs-h", ht + "px");
   }
   window.addEventListener("resize", syncStickyOffsets);
+  window.addEventListener("orientationchange", syncStickyOffsets);
+  window.addEventListener("load", syncStickyOffsets);
+  // 창 리사이즈가 없어도 헤더 높이가 바뀌면(폰트 적용·동적 변화·줌) 즉시 재동기화
+  if (typeof ResizeObserver !== "undefined") {
+    var ro = new ResizeObserver(function () { syncStickyOffsets(); });
+    ro.observe(appBar);
+    ro.observe(tabsNav);
+  }
 
   // ---------- 부팅 ----------
   UI.renderSkeleton(listEl, 8);

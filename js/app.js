@@ -4,7 +4,7 @@
 (function () {
   "use strict";
 
-  var APP_VERSION = "44"; // SW 캐시(donggu-dial-vNN)와 함께 갱신
+  var APP_VERSION = "45"; // SW 캐시(donggu-dial-vNN)와 함께 갱신
   var listEl = document.getElementById("list");
   var scrollRegion = document.getElementById("scroll-region");
   var resultStatus = document.getElementById("result-status");
@@ -163,6 +163,22 @@
     resultStatus.textContent = "";
 
     if (current.tab === "all") {
+      var allGroups = Data.groupedByDept(); // 비어 있으면 = 연락처 0건
+      if (!allGroups.length) {
+        showTools(false); showAlphaRail(false);
+        listEl.textContent = "";
+        listEl.appendChild(UI.onboarding({
+          title: "연락처가 비어 있어요",
+          msg: "명부 파일(CSV·Excel)을 가져오거나\n오른쪽 아래 + 버튼으로 직접 추가할 수 있어요.",
+          actions: [
+            { label: "연락처 가져오기", primary: true, onClick: function () {
+              document.getElementById("import-contacts-btn").click();
+            } },
+            { label: "직접 추가", onClick: function () { openEditor(null); } },
+          ],
+        }));
+        return;
+      }
       showTools(true);
       if (current.sort === "name") {
         var ng = Data.groupedByName();
@@ -171,8 +187,7 @@
         showAlphaRail(true);
       } else {
         showAlphaRail(false);
-        var dg = Data.groupedByDept();
-        UI.renderDeptView(listEl, dg, {
+        UI.renderDeptView(listEl, allGroups, {
           onOpen: openDetail, onFav: onFavChanged,
           onDeptJump: showDeptInOrg,
         });

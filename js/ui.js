@@ -678,6 +678,30 @@
       return wrap;
     },
 
+    /** 온보딩 빈 상태: 제목 + 안내 + 액션 버튼 여러 개.
+     *  opts: { icon, title, msg, actions:[{label,onClick,primary}] } */
+    onboarding: function (opts) {
+      opts = opts || {};
+      var wrap = el("div", "empty empty--onboarding");
+      var ico = el("span", "empty-ico");
+      ico.appendChild(icon(opts.icon || "contacts"));
+      wrap.appendChild(ico);
+      if (opts.title) wrap.appendChild(el("div", "empty-title", opts.title));
+      if (opts.msg) wrap.appendChild(el("div", "empty-msg", opts.msg));
+      var actions = opts.actions || [];
+      if (actions.length) {
+        var row = el("div", "empty-actions");
+        actions.forEach(function (a) {
+          var b = el("button", "empty-action" + (a.primary ? " empty-action--primary" : ""), a.label);
+          b.type = "button";
+          b.addEventListener("click", a.onClick);
+          row.appendChild(b);
+        });
+        wrap.appendChild(row);
+      }
+      return wrap;
+    },
+
     /** 상세 본문 */
     renderDetail: function (container, contact, opts) {
       opts = opts || {};

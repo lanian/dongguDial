@@ -423,6 +423,11 @@ mark {
   border-radius: var(--r-pill);
   cursor: pointer;
 }
+/* 온보딩(빈 전체 탭): 제목 + 액션 버튼들 */
+.empty-title { font-size: var(--fs-lg); font-weight: var(--fw-bold); color: var(--on-surface); margin-bottom: var(--sp-2); }
+.empty-actions { margin-top: var(--sp-4); display: flex; flex-wrap: wrap; gap: var(--sp-2); justify-content: center; }
+.empty-actions .empty-action { margin-top: 0; }
+.empty-action--primary { background: var(--brand); color: #fff; border-color: var(--brand); }
 
 /* ---------- Skeleton ---------- */
 .skeleton-row {

@@ -634,10 +634,13 @@
 
   function refreshCounts() {
     var c = Storage.counts();
-    var t = "즐겨찾기 " + c.favorites + " · 최근 " + c.recent;
-    if (c.edits || c.custom) t += " · 편집 " + c.edits + " · 추가 " + c.custom;
-    if (c.deptEdits || c.deptCustom) t += " · 부서변경 " + (c.deptEdits + c.deptCustom);
-    settingsCounts.textContent = t;
+    var parts = [];
+    if (c.favorites) parts.push("즐겨찾기 " + c.favorites);
+    if (c.recent) parts.push("최근 " + c.recent);
+    if (c.edits) parts.push("편집 " + c.edits);
+    if (c.custom) parts.push("추가 " + c.custom);
+    if (c.deptEdits || c.deptCustom) parts.push("부서변경 " + (c.deptEdits + c.deptCustom));
+    settingsCounts.textContent = parts.length ? parts.join(" · ") : "저장된 개인 데이터 없음";
   }
   function openSettings() {
     refreshCounts();

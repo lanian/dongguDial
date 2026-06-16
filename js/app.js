@@ -4,7 +4,7 @@
 (function () {
   "use strict";
 
-  var APP_VERSION = "35"; // SW 캐시(donggu-dial-vNN)와 함께 갱신
+  var APP_VERSION = "36"; // SW 캐시(donggu-dial-vNN)와 함께 갱신
   var listEl = document.getElementById("list");
   var resultStatus = document.getElementById("result-status");
   var searchInput = document.getElementById("search-input");
@@ -697,7 +697,14 @@
     document.body.removeChild(a);
     setTimeout(function () { URL.revokeObjectURL(url); }, 1000);
   });
+  var backupImportMode = "merge"; // "merge" | "replace"
   document.getElementById("import-btn").addEventListener("click", function () {
+    backupImportMode = "merge";
+    importFile.value = "";
+    importFile.click();
+  });
+  document.getElementById("import-replace-backup-btn").addEventListener("click", function () {
+    backupImportMode = "replace";
     importFile.value = "";
     importFile.click();
   });
@@ -706,16 +713,26 @@
     if (!file) return;
     var reader = new FileReader();
     reader.onload = function () {
+      var data;
+      try { data = JSON.parse(String(reader.result)); }
+      catch (e) { window.alert("가져오기 실패: " + e.message); return; }
+      if (backupImportMode === "replace" &&
+          !window.confirm("초기화 후 복구: 기존 즐겨찾기·편집·추가·부서·사진을 모두 비우고 이 백업으로 대체합니다. 계속할까요?")) {
+        return;
+      }
       try {
-        var data = JSON.parse(String(reader.result));
-        var result = Storage.importData(data, "merge");
+        var result = Storage.importData(data, backupImportMode);
         Data.rebuild();
         applyTheme(Storage.getTheme());
         setThemeUI(Storage.getTheme());
         refreshCounts();
         render();
-        if (window.Photos && data.photos) Photos.importMap(data.photos, false).then(render);
-        window.alert("복구 완료: 즐겨찾기 " + result.favorites + ", 최근 " + result.recent +
+        if (window.Photos) {
+          if (backupImportMode === "replace") Photos.importMap(data.photos || {}, true).then(render);
+          else if (data.photos) Photos.importMap(data.photos, false).then(render);
+        }
+        window.alert((backupImportMode === "replace" ? "대체 복구 완료: " : "복구 완료: ") +
+          "즐겨찾기 " + result.favorites + ", 최근 " + result.recent +
           ", 편집 " + result.edits + ", 추가 " + result.custom);
       } catch (e) {
         window.alert("가져오기 실패: " + e.message);

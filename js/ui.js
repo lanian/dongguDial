@@ -155,7 +155,7 @@
     var row = el("div", "row");
     row.setAttribute("role", "button");
     row.tabIndex = 0;
-    var subParts = [contact.dept, contact.team, contact.position].filter(Boolean);
+    var subParts = [contact.dept, contact.position, contact.work].filter(Boolean);
     row.setAttribute("aria-label", (contact.name || "") + ", " + subParts.join(" ") + ", 상세 보기");
 
     row.appendChild(makeAvatar(contact));

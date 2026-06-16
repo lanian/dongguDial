@@ -4,7 +4,7 @@
 (function () {
   "use strict";
 
-  var APP_VERSION = "34"; // SW 캐시(donggu-dial-vNN)와 함께 갱신
+  var APP_VERSION = "35"; // SW 캐시(donggu-dial-vNN)와 함께 갱신
   var listEl = document.getElementById("list");
   var resultStatus = document.getElementById("result-status");
   var searchInput = document.getElementById("search-input");
@@ -1122,6 +1122,7 @@
     document.documentElement.style.setProperty("--header-h", hb + "px");
     document.documentElement.style.setProperty("--tabs-h", ht + "px");
   }
+  syncStickyOffsets(); // 첫 페인트부터 정확하도록 즉시 1회 실측
   window.addEventListener("resize", syncStickyOffsets);
   window.addEventListener("orientationchange", syncStickyOffsets);
   window.addEventListener("load", syncStickyOffsets);

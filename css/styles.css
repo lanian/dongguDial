@@ -136,11 +136,11 @@ body {
 /* 제목이 남는 공간을 채워 정렬 토글·설정 아이콘을 우측으로 밀어냄(정렬 숨김 시에도 동일) */
 .app-title { margin: 0; font-size: 20px; font-weight: var(--fw-bold); flex: 1 1 auto; min-width: 0; overflow: hidden; text-overflow: ellipsis; white-space: nowrap; }
 
-/* 앱바용 정렬 세그먼트(브랜드 배경 위).
-   트랙을 '어둡게' 깔아야 흰색 미선택 글자가 또렷함. (옅은 흰 트랙이면 흰 글자가 묻힘) */
+/* 앱바용 정렬 세그먼트. 트랙을 '단색 진한 파랑'으로 깔아 (반투명 오버레이가 아니라)
+   배경/테마와 무관하게 흰색 미선택 글자가 항상 또렷하게 보이도록 보장한다. */
 .sort-seg--bar {
   flex: 0 0 auto;
-  background: rgba(0, 0, 0, 0.2);
+  background: var(--brand-dark);
   border-color: transparent;
 }
 .sort-seg--bar .seg-btn { color: #fff; padding: 5px 12px; min-height: 32px; }

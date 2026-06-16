@@ -4,7 +4,7 @@
 (function () {
   "use strict";
 
-  var APP_VERSION = "36"; // SW 캐시(donggu-dial-vNN)와 함께 갱신
+  var APP_VERSION = "37"; // SW 캐시(donggu-dial-vNN)와 함께 갱신
   var listEl = document.getElementById("list");
   var resultStatus = document.getElementById("result-status");
   var searchInput = document.getElementById("search-input");
@@ -196,14 +196,13 @@
         showAlphaRail(true);
       } else {
         showAlphaRail(false);
+        showDeptNav(false); // 부서순: 상단 부서 칩 바 제거
         var dg = Data.groupedByDept();
         UI.renderDeptView(listEl, dg, {
           onOpen: openDetail, onFav: onFavChanged,
           collapsed: current.collapsed,
           onToggle: function (id) { current.collapsed[id] = !current.collapsed[id]; render(); },
         });
-        buildDeptNav(dg);
-        showDeptNav(true);
       }
       return;
     }

@@ -91,6 +91,9 @@ body {
   overflow-y: auto;
   overscroll-behavior: contain;
   -webkit-overflow-scrolling: touch;
+  /* content-visibility 행이 위로 스크롤 시 재렌더되며 크기가 바뀔 때, 스크롤 앵커링이
+     스크롤을 도로 끌어내려 인덱스바로 '위쪽 섹션' 점프가 막히는 것을 방지. */
+  overflow-anchor: none;
 }
 
 /* ---------- SVG icon ---------- */

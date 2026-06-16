@@ -15,6 +15,7 @@
   var BASE_HIDDEN_KEY = "dongguDial.baseHidden.v1"; // true면 번들 샘플(기본) 데이터 숨김
   var FAV_GROUPS_KEY = "dongguDial.favGroups.v1";    // [ {id,name,sortOrder} ]  (즐겨찾기 그룹 정의)
   var FAV_GROUP_MAP_KEY = "dongguDial.favGroupMap.v1"; // { [contactId]: [groupId,...] }  (연락처별 소속 그룹, 다중)
+  var MEMBER_ORDER_KEY = "dongguDial.memberOrder.v1"; // { [contactId]: N }  (부서 내 사원 표시 순서)
   var RECENT_LIMIT = 30;
 
   // 고유 id 생성기 (같은 ms 에 여러 건 추가해도 충돌 없도록 카운터 결합)
@@ -138,6 +139,14 @@
       write(FAV_GROUPS_KEY, groups);
     },
     getFavGroupMap: function () { return read(FAV_GROUP_MAP_KEY, {}); },
+
+    // ---------- 부서 내 사원 순서 ----------
+    getMemberOrder: function () { return read(MEMBER_ORDER_KEY, {}); },
+    setMemberOrder: function (id, n) {
+      var m = read(MEMBER_ORDER_KEY, {});
+      if (n == null) delete m[id]; else m[id] = n;
+      write(MEMBER_ORDER_KEY, m);
+    },
     /** 해당 연락처가 속한 그룹 id 목록(삭제된 그룹은 제외) */
     getContactFavGroups: function (contactId) {
       var ids = read(FAV_GROUP_MAP_KEY, {})[contactId] || [];
@@ -205,6 +214,7 @@
     resetAllEdits: function () {
       contactStore.clear();
       deptStore.clear();
+      write(MEMBER_ORDER_KEY, {});
       write(BASE_HIDDEN_KEY, false);
     },
 
@@ -237,6 +247,7 @@
         baseHidden: read(BASE_HIDDEN_KEY, false) === true,
         favGroups: read(FAV_GROUPS_KEY, []),
         favGroupMap: read(FAV_GROUP_MAP_KEY, {}),
+        memberOrder: read(MEMBER_ORDER_KEY, {}),
       };
     },
 
@@ -252,8 +263,9 @@
       var inDeptCustom = Array.isArray(data.deptCustom) ? data.deptCustom : [];
       var inFavGroups = Array.isArray(data.favGroups) ? data.favGroups : [];
       var inFavGroupMap = (data.favGroupMap && typeof data.favGroupMap === "object") ? data.favGroupMap : {};
+      var inMemberOrder = (data.memberOrder && typeof data.memberOrder === "object") ? data.memberOrder : {};
 
-      var favs, recent, edits, custom, deptEdits, deptCustom, favGroups, favGroupMap;
+      var favs, recent, edits, custom, deptEdits, deptCustom, favGroups, favGroupMap, memberOrder;
       if (mode === "replace") {
         favs = inFav.slice();
         recent = inRecent.slice(0, RECENT_LIMIT);
@@ -263,6 +275,7 @@
         deptCustom = inDeptCustom;
         favGroups = inFavGroups.slice();
         favGroupMap = JSON.parse(JSON.stringify(inFavGroupMap));
+        memberOrder = JSON.parse(JSON.stringify(inMemberOrder));
       } else {
         var curFav = read(FAV_KEY, []);
         favs = curFav.slice();
@@ -292,6 +305,8 @@
           (inFavGroupMap[cid] || []).forEach(function (gid) { if (cur.indexOf(gid) === -1) cur.push(gid); });
           if (cur.length) favGroupMap[cid] = cur;
         });
+        // 사원 순서: 가져온 것이 우선
+        memberOrder = Object.assign({}, read(MEMBER_ORDER_KEY, {}), inMemberOrder);
       }
       write(FAV_KEY, favs);
       write(RECENT_KEY, recent);
@@ -301,6 +316,7 @@
       write(DEPT_CUSTOM_KEY, deptCustom);
       write(FAV_GROUPS_KEY, favGroups);
       write(FAV_GROUP_MAP_KEY, favGroupMap);
+      write(MEMBER_ORDER_KEY, memberOrder);
       if (mode === "replace") write(BASE_HIDDEN_KEY, data.baseHidden === true);
       else if (data.baseHidden === true) write(BASE_HIDDEN_KEY, true);
       if (data.theme) write(THEME_KEY, data.theme);

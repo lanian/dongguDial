@@ -4,7 +4,7 @@
 (function () {
   "use strict";
 
-  var APP_VERSION = "32"; // SW 캐시(donggu-dial-vNN)와 함께 갱신
+  var APP_VERSION = "33"; // SW 캐시(donggu-dial-vNN)와 함께 갱신
   var listEl = document.getElementById("list");
   var resultStatus = document.getElementById("result-status");
   var searchInput = document.getElementById("search-input");
@@ -49,7 +49,7 @@
   var deptPickerOpts = null;
   var favGroupPickerEl = document.getElementById("fav-group-picker");
   var favGroupPickerContact = null;
-  var current = { tab: "all", query: "", detailId: null, sort: "dept", collapsed: {}, orgCollapsed: {}, favCollapsed: {} };
+  var current = { tab: "all", query: "", detailId: null, sort: "dept", collapsed: {}, orgCollapsed: {}, favCollapsed: {}, orgReorder: false };
   var editId = null;
   var pendingPhoto; // undefined=변경없음, null=제거, string=새 dataURL
   var bgEls = [appBar, tabsNav, listEl];
@@ -89,7 +89,7 @@
   }
   function syncInert() { setBgInert(anyOverlayOpen()); restack(); }
   function updateFab() {
-    var show = !anyOverlayOpen() && !current.query &&
+    var show = !anyOverlayOpen() && !current.query && !current.orgReorder &&
       (current.tab === "all" || current.tab === "org");
     fab.hidden = !show;
   }
@@ -225,6 +225,9 @@
           else current.orgCollapsed = {};
           render();
         },
+        reorder: current.orgReorder,
+        onToggleReorder: function () { current.orgReorder = !current.orgReorder; render(); },
+        onMove: moveMember,
       });
     } else if (current.tab === "favorites") {
       showTools(false); showDeptNav(false); showAlphaRail(false);
@@ -471,6 +474,22 @@
   }
   document.getElementById("fav-group-picker-back").addEventListener("click", function () { closeFavGroupPicker(false); });
 
+  // ---------- 사원 순서(부서 내) ----------
+  // 같은 부서 안에서 사원을 위/아래로 이동. 해당 부서 멤버 전체를 1..n 으로 재번호 부여해 저장.
+  function moveMember(contact, dir) {
+    var members = Data.membersOfDept(contact.deptId);
+    var i = members.map(function (m) { return m.id; }).indexOf(contact.id);
+    var j = i + dir;
+    if (i < 0 || j < 0 || j >= members.length) return;
+    var arr = members.slice();
+    var t = arr[i]; arr[i] = arr[j]; arr[j] = t;
+    arr.forEach(function (m, idx) {
+      if ((m.memberSortOrder || 0) !== idx + 1) Storage.setMemberOrder(m.id, idx + 1);
+    });
+    Data.rebuild();
+    render();
+  }
+
   // 파일 → 256px 정사각 JPEG dataURL(중앙 크롭, 압축)
   function fileToAvatar(file) {
     return new Promise(function (res, rej) {
@@ -574,6 +593,7 @@
       t.tabIndex = sel ? 0 : -1;
     });
     current.tab = tab.dataset.tab;
+    current.orgReorder = false; // 탭 전환 시 순서 편집 모드 해제
     listEl.setAttribute("aria-labelledby", tab.id);
     render();
     window.scrollTo({ top: 0 });

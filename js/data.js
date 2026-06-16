@@ -116,6 +116,7 @@
       // 2) 연락처: 오버레이 적용(항상 사본, 부서명은 deptById 단일 원천화)
       var edits = (S && S.getEdits) ? S.getEdits() : {};
       var customs = (S && S.getCustom) ? S.getCustom() : [];
+      var memberOrder = (S && S.getMemberOrder) ? S.getMemberOrder() : {};
       var eff = [];
       function add(c, isCustom) {
         var e = edits[c.id];
@@ -123,6 +124,8 @@
         var v = Object.assign({}, c, e || {});
         if (e) v._edited = true;
         if (isCustom) v._custom = true;
+        // 사용자 지정 사원 순서(별도 맵) — _edited 표시 없이 표시 순서만 덮어씀
+        if (memberOrder[v.id] != null) v.memberSortOrder = memberOrder[v.id];
         var d = state.deptById[v.deptId];
         if (d) v.dept = d.name; // 부서명 변경이 연락처 표시·검색에 즉시 반영
         eff.push(v);

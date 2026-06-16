@@ -175,45 +175,57 @@
 
     var actions = el("div", "row-actions");
 
-    var isFav = Storage.isFavorite(contact.id);
-    var star = el("button", "mini-btn mini-btn--star" + (isFav ? " is-on" : ""));
-    star.type = "button";
-    star.setAttribute("aria-label", isFav ? "즐겨찾기 해제" : "즐겨찾기 추가");
-    star.setAttribute("aria-pressed", isFav ? "true" : "false");
-    star.appendChild(icon("star"));
-    star.addEventListener("click", function (e) {
-      e.stopPropagation();
-      var nowFav = Storage.toggleFavorite(contact.id);
-      star.classList.toggle("is-on", nowFav);
-      star.setAttribute("aria-pressed", nowFav ? "true" : "false");
-      star.setAttribute("aria-label", nowFav ? "즐겨찾기 해제" : "즐겨찾기 추가");
-      if (navigator.vibrate) navigator.vibrate(10);
-      if (opts.onFav) opts.onFav();
-    });
-    actions.appendChild(star);
-
-    if (opts.onAssign) {
-      var grp = el("button", "mini-btn");
-      grp.type = "button";
-      grp.setAttribute("aria-label", contact.name + " 그룹 지정");
-      grp.appendChild(icon("bookmark"));
-      grp.addEventListener("click", function (e) {
+    if (opts.reorder && opts.onMove) {
+      // 순서 편집 모드: 같은 부서 안에서 위/아래 이동(별·전화 대신)
+      var sibs = (window.Data && Data.membersOfDept) ? Data.membersOfDept(contact.deptId) : [];
+      var pos = sibs.map(function (s) { return s.id; }).indexOf(contact.id);
+      actions.appendChild(moveBtn("up", pos <= 0, function (e) {
+        if (e) e.stopPropagation(); opts.onMove(contact, -1);
+      }));
+      actions.appendChild(moveBtn("down", pos < 0 || pos >= sibs.length - 1, function (e) {
+        if (e) e.stopPropagation(); opts.onMove(contact, 1);
+      }));
+    } else {
+      var isFav = Storage.isFavorite(contact.id);
+      var star = el("button", "mini-btn mini-btn--star" + (isFav ? " is-on" : ""));
+      star.type = "button";
+      star.setAttribute("aria-label", isFav ? "즐겨찾기 해제" : "즐겨찾기 추가");
+      star.setAttribute("aria-pressed", isFav ? "true" : "false");
+      star.appendChild(icon("star"));
+      star.addEventListener("click", function (e) {
         e.stopPropagation();
-        opts.onAssign(contact);
+        var nowFav = Storage.toggleFavorite(contact.id);
+        star.classList.toggle("is-on", nowFav);
+        star.setAttribute("aria-pressed", nowFav ? "true" : "false");
+        star.setAttribute("aria-label", nowFav ? "즐겨찾기 해제" : "즐겨찾기 추가");
+        if (navigator.vibrate) navigator.vibrate(10);
+        if (opts.onFav) opts.onFav();
       });
-      actions.appendChild(grp);
-    }
+      actions.appendChild(star);
 
-    if (contact.phone) {
-      var call = el("a", "mini-btn");
-      call.href = "tel:" + clean(contact.phone);
-      call.setAttribute("aria-label", contact.name + " 전화 걸기");
-      call.appendChild(icon("phone"));
-      call.addEventListener("click", function (e) {
-        e.stopPropagation();
-        Storage.pushRecent(contact.id);
-      });
-      actions.appendChild(call);
+      if (opts.onAssign) {
+        var grp = el("button", "mini-btn");
+        grp.type = "button";
+        grp.setAttribute("aria-label", contact.name + " 그룹 지정");
+        grp.appendChild(icon("bookmark"));
+        grp.addEventListener("click", function (e) {
+          e.stopPropagation();
+          opts.onAssign(contact);
+        });
+        actions.appendChild(grp);
+      }
+
+      if (contact.phone) {
+        var call = el("a", "mini-btn");
+        call.href = "tel:" + clean(contact.phone);
+        call.setAttribute("aria-label", contact.name + " 전화 걸기");
+        call.appendChild(icon("phone"));
+        call.addEventListener("click", function (e) {
+          e.stopPropagation();
+          Storage.pushRecent(contact.id);
+        });
+        actions.appendChild(call);
+      }
     }
     row.appendChild(actions);
 
@@ -241,7 +253,8 @@
 
   /** 조직 트리 노드 1개를 재귀 렌더 (depth 0 = 부서, 1+ = 과/팀…) */
   function orgNode(node, depth, opts) {
-    var collapsed = !!(opts.collapsed && opts.collapsed[node.dept.id]);
+    // 순서 편집 모드에서는 사원이 보이도록 항상 펼침
+    var collapsed = !opts.reorder && !!(opts.collapsed && opts.collapsed[node.dept.id]);
     var top = depth === 0;
     var wrap = el("div", "org-node" + (top ? "" : " org-sub"));
     var header = el("button", top ? "section-header section-toggle org-dept" : "org-team-header");
@@ -253,7 +266,7 @@
     var lead = node.members.filter(isLead)[0];
     if (lead) header.appendChild(el("span", "org-lead", lead.name + " " + lead.position));
     header.appendChild(el("span", "org-badge" + (top ? "" : " org-badge--sm"), String(node.count)));
-    header.addEventListener("click", function () { if (opts.onToggle) opts.onToggle(node.dept.id); });
+    header.addEventListener("click", function () { if (opts.onToggle && !opts.reorder) opts.onToggle(node.dept.id); });
     wrap.appendChild(header);
     if (!collapsed) {
       var body = el("div", "org-body");
@@ -431,7 +444,7 @@
     },
 
     /** 조직도(재귀 트리): 부서 → 과 → 팀 … 임의 깊이. 각 레벨 접기 + 리더 강조.
-     *  opts: onOpen,onFav,collapsed,onToggle */
+     *  opts: onOpen,onFav,collapsed,onToggle,reorder,onToggleReorder,onMove */
     renderOrgView: function (container, tree, opts) {
       container.textContent = "";
       if (!tree.length) {
@@ -441,19 +454,30 @@
       var totalPeople = tree.reduce(function (a, n) { return a + n.count; }, 0);
       var summary = el("div", "org-summary");
       summary.appendChild(el("span", null, "총 " + tree.length + "개 부서 · " + totalPeople + "명"));
-      if (opts.onToggleAll) {
+      if (opts.onToggleReorder) {
+        var rb = el("button", "org-summary-btn" + (opts.reorder ? " is-active" : ""),
+          opts.reorder ? "순서 편집 완료" : "사원 순서 편집");
+        rb.type = "button";
+        rb.addEventListener("click", opts.onToggleReorder);
+        summary.appendChild(rb);
+      }
+      if (opts.onToggleAll && !opts.reorder) {
         var ta = el("button", "org-summary-btn", opts.allCollapsed ? "모두 펼치기" : "모두 접기");
         ta.type = "button";
         ta.addEventListener("click", opts.onToggleAll);
         summary.appendChild(ta);
       }
-      if (opts.onManage) {
+      if (opts.onManage && !opts.reorder) {
         var mb = el("button", "org-summary-btn org-manage-btn", "부서 관리");
         mb.type = "button";
         mb.addEventListener("click", opts.onManage);
         summary.appendChild(mb);
       }
       container.appendChild(summary);
+      if (opts.reorder) {
+        container.appendChild(el("div", "org-reorder-hint",
+          "▲▼ 로 같은 부서 안에서 사원 순서를 바꿉니다. 완료를 누르면 적용됩니다."));
+      }
 
       var frag = document.createDocumentFragment();
       tree.forEach(function (n) { frag.appendChild(orgNode(n, 0, opts)); });

@@ -6,6 +6,7 @@
   --brand-link: #1657c0;            /* 라이트 링크 대비 보강 */
   --bg: #f5f6f8;
   --surface: #ffffff;
+  --gutter: #d3d6db;                 /* 데스크톱 폰 프레임 양옆 배경 */
   --inverse-surface: #2b2d31;
   --on-inverse: #ffffff;
   --on-inverse-muted: #c7cad0;
@@ -44,6 +45,7 @@ html[data-theme="dark"] {
   --brand-link: #6ea8ff;
   --bg: #121316;
   --surface: #1e2024;
+  --gutter: #050608;
   --inverse-surface: #33363b;
   --on-surface: #e3e3e5;
   --on-surface-muted: #a3a7ad;
@@ -55,6 +57,7 @@ html[data-theme="dark"] {
     --brand-link: #6ea8ff;
     --bg: #121316;
     --surface: #1e2024;
+    --gutter: #050608;
     --inverse-surface: #33363b;
     --on-surface: #e3e3e5;
     --on-surface-muted: #a3a7ad;
@@ -1013,6 +1016,40 @@ select.ef-input { appearance: none; }
 .fav-pick-row.is-sel { background: rgba(var(--brand-rgb), 0.07); }
 .fav-pick-add { color: var(--brand); font-weight: var(--fw-med); }
 .fav-pick-add .ic { width: 1em; height: 1em; }
+
+/* ---------- 데스크톱: 폰 프레임(중앙 정렬 컬럼) ----------
+   넓은 창에서 명부가 가로로 늘어지지 않도록 ~480px 컬럼으로 고정.
+   고정요소(오버레이/FAB/레일/토스트)도 컬럼에 맞춰 정렬.
+   (centering은 transform 미사용 — .detail 의 slide-in 트랜스폼과 충돌 방지) */
+@media (min-width: 600px) {
+  :root { --app-w: 480px; }
+  html { background: var(--gutter); }
+  body {
+    max-width: var(--app-w);
+    margin: 0 auto;
+    min-height: 100vh;
+    background: var(--bg);
+    box-shadow: 0 0 0 1px var(--divider);
+  }
+  /* 전체화면 오버레이를 컬럼 폭으로(좌우 0 + width + margin auto = 중앙) */
+  .detail {
+    left: 0; right: 0;
+    width: var(--app-w); max-width: 100%;
+    margin-left: auto; margin-right: auto;
+  }
+  /* 컬럼 우측 가장자리 기준 고정요소 */
+  .fab { right: calc((100% - var(--app-w)) / 2 + var(--sp-4)); }
+  .alpha-rail { right: calc((100% - var(--app-w)) / 2 + 2px); }
+  /* 좌우 여백형 토스트를 컬럼 폭으로 */
+  .toast {
+    left: 0; right: 0;
+    width: calc(var(--app-w) - 2 * var(--sp-3));
+    max-width: calc(100% - 2 * var(--sp-3));
+    margin-left: auto; margin-right: auto;
+  }
+  /* 스낵바는 left:50%(=컬럼 중앙) 유지, 폭만 컬럼 안으로 제한 */
+  .snackbar { max-width: calc(var(--app-w) - 2 * var(--sp-4)); }
+}
 
 /* ---------- Motion preferences ---------- */
 @media (prefers-reduced-motion: reduce) {

@@ -740,6 +740,13 @@ html[data-theme="dark"] .info-card { box-shadow: none; border: 1px solid var(--d
 .row--lead { box-shadow: inset 3px 0 0 var(--brand); background: rgba(var(--brand-rgb), 0.04); }
 .row--lead .row-name { font-weight: var(--fw-bold); }
 
+/* 부서 이동 도착 강조: 배경/레이아웃을 건드리지 않는 inset 오버레이가 페이드아웃 */
+@keyframes org-flash {
+  from { box-shadow: inset 0 0 0 9999px rgba(var(--brand-rgb), 0.18); }
+  to   { box-shadow: inset 0 0 0 9999px rgba(var(--brand-rgb), 0); }
+}
+.is-flash { animation: org-flash 1.3s ease-out; }
+
 /* ---------- Theme segment ---------- */
 .theme-seg { display: flex; padding: var(--sp-2); gap: var(--sp-2); }
 .theme-seg .seg-btn {

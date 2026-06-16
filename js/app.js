@@ -286,13 +286,22 @@
   window.showSnack = showSnack;
 
   // ---------- 상세 ----------
-  // 조직도 탭으로 이동 + 해당 부서 경로를 펼치고 스크롤. (상세/리스트 공용)
+  // 조직도 탭으로 이동 + 해당 부서 경로를 펼치고 스크롤 + 도착 강조. (상세/리스트 공용)
   function showDeptInOrg(deptId) {
     switchTab(tabs[3]); // 조직도
     Data.deptPath(deptId).forEach(function (p) { current.orgCollapsed[p.id] = false; });
     current.orgCollapsed[deptId] = false; // 대상 부서 자체도 펼침
     render();
-    setTimeout(function () { scrollToEl(document.getElementById("org-" + deptId)); }, 60);
+    setTimeout(function () {
+      var elH = document.getElementById("org-" + deptId);
+      if (!elH) return;
+      scrollToEl(elH);
+      // 도착한 부서를 잠깐 강조해 "여기로 왔다"를 시각적으로 알림
+      elH.classList.remove("is-flash"); // 연속 점프 시 애니메이션 재시작
+      void elH.offsetWidth;             // reflow 강제 → 애니메이션 재트리거
+      elH.classList.add("is-flash");
+      setTimeout(function () { elH.classList.remove("is-flash"); }, 1300);
+    }, 60);
   }
   function goToOrg(deptId) { closeDetail(false); showDeptInOrg(deptId); }
 

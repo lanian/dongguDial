@@ -197,9 +197,11 @@ body {
 .tab.is-active { color: var(--brand); border-bottom-color: var(--brand); }
 
 /* ---------- List tools (정렬 + 부서칩) ---------- */
+/* 앱바·탭과 함께 고정되는 정렬 도구 바(스크롤 영역 밖). 전체 탭에서만 표시 */
 .list-tools {
+  flex: 0 0 auto;
   background: var(--bg);
-  padding: var(--sp-2) var(--sp-4) 0;
+  padding: var(--sp-2) var(--sp-4);
 }
 .sort-seg {
   display: inline-flex;

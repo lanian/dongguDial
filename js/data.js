@@ -64,10 +64,99 @@
   }
 
   function buildSearchIndex(c) {
-    var parts = [c.name, c.dept, c.team, c.position, c.work].filter(Boolean);
+    // 재직상태도 일반어 검색 대상(예: '파견', '-교육'). 기본값 '미설정'은 잡음이라 제외.
+    var st = (c.status && c.status !== "미설정") ? c.status : null;
+    var parts = [c.name, c.dept, c.team, c.position, c.work, st].filter(Boolean);
     c._haystack = parts.join(" ").toLowerCase();
     c._choName = chosung(c.name || "");
     c._phoneDigits = normalizeDigits(c.phone) + " " + normalizeDigits(c.tel);
+    // 필드 필터(부서:·직책: 등)용 필드별 소문자 인덱스
+    c._fields = {
+      name: (c.name || "").toLowerCase(),
+      dept: (c.dept || "").toLowerCase(),
+      team: (c.team || "").toLowerCase(),
+      position: (c.position || "").toLowerCase(),
+      work: (c.work || "").toLowerCase(),
+      status: (c.status || "").toLowerCase(),
+      birth: (c.birth || "").toLowerCase(),
+      phone: c._phoneDigits,
+    };
+  }
+
+  // ---------- 검색 쿼리 파서 (연산자) ----------
+  // 지원: 공백=AND, -단어=제외, 필드:값(부서:·직책: 등), "구"=따옴표, |=OR.
+  // 의미: OR로 나뉜 그룹들 중 하나라도 만족(some) + 각 그룹 안의 절은 모두 만족(every).
+  var FIELD_ALIASES = {
+    "이름": "name", "성명": "name", "name": "name",
+    "부서": "dept", "소속": "dept", "dept": "dept",
+    "팀": "team", "team": "team",
+    "직책": "position", "직급": "position", "position": "position",
+    "업무": "work", "담당": "work", "담당업무": "work", "work": "work",
+    "전화": "phone", "번호": "phone", "연락처": "phone", "휴대폰": "phone",
+    "휴대전화": "phone", "내선": "phone", "행정번호": "phone", "phone": "phone", "tel": "phone",
+    "상태": "status", "재직상태": "status", "status": "status",
+    "생일": "birth", "생년": "birth", "생년월일": "birth", "birth": "birth",
+  };
+
+  // 따옴표 안의 공백은 한 토큰으로 보존하고, | 는 독립 토큰으로 분리.
+  function tokenizeQuery(q) {
+    var out = [], i = 0, n = q.length, buf = "", inQuote = false;
+    function flush() { if (buf) { out.push(buf); buf = ""; } }
+    while (i < n) {
+      var ch = q.charAt(i);
+      if (inQuote) {
+        if (ch === '"') inQuote = false; else buf += ch;
+      } else if (ch === '"') { inQuote = true; }
+      else if (ch === " " || ch === "\t") { flush(); }
+      else if (ch === "|") { flush(); out.push("|"); }
+      else { buf += ch; }
+      i++;
+    }
+    flush();
+    return out;
+  }
+
+  // 토큰 1개 → {neg, field, value}. 매칭에 무의미한 토큰은 null.
+  function parseClause(tok) {
+    var neg = false;
+    if (tok.charAt(0) === "-" && tok.length > 1) { neg = true; tok = tok.slice(1); }
+    var field = null, value = tok, colon = tok.indexOf(":");
+    if (colon > 0) {
+      var f = FIELD_ALIASES[tok.slice(0, colon).toLowerCase()];
+      if (f) { field = f; value = tok.slice(colon + 1); }
+    }
+    value = value.toLowerCase().trim();
+    if (!value) return null;
+    return { neg: neg, field: field, value: value };
+  }
+
+  // 쿼리 → [[clause…AND] …OR] 또는 null(빈 쿼리)
+  function parseQuery(query) {
+    var q = (query || "").trim();
+    if (!q) return null;
+    var groups = [[]];
+    tokenizeQuery(q).forEach(function (t) {
+      if (t === "|") { groups.push([]); return; }
+      var cl = parseClause(t);
+      if (cl) groups[groups.length - 1].push(cl);
+    });
+    groups = groups.filter(function (g) { return g.length; });
+    return groups.length ? groups : null;
+  }
+
+  function matchClause(c, cl) {
+    var hit;
+    if (cl.field === "phone") {
+      var d = normalizeDigits(cl.value);
+      hit = d ? c._fields.phone.indexOf(d) !== -1 : false;
+    } else if (cl.field) {
+      hit = (c._fields[cl.field] || "").indexOf(cl.value) !== -1;
+      if (!hit && cl.field === "name") hit = c._choName.indexOf(cl.value) !== -1;
+    } else {
+      hit = c._haystack.indexOf(cl.value) !== -1 || c._choName.indexOf(cl.value) !== -1;
+      if (!hit) { var pd = normalizeDigits(cl.value); if (pd) hit = c._phoneDigits.indexOf(pd) !== -1; }
+    }
+    return cl.neg ? !hit : hit;
   }
 
   var Data = {
@@ -290,17 +379,30 @@
         .filter(Boolean);
     },
 
-    /** 통합 검색: 이름/부서/팀/직책/업무 + 초성 + 전화번호 */
+    /** 통합 검색(연산자 지원): 공백=AND · -제외 · 필드:값 · "구" · |=OR.
+     *  기본 토큰은 이름/부서/팀/직책/업무 + 초성 + 전화번호에서 부분일치. */
     search: function (query) {
-      var q = (query || "").trim().toLowerCase();
-      if (!q) return [];
-      var qDigits = normalizeDigits(q);
+      var groups = parseQuery(query);
+      if (!groups) return [];
       return state.contacts.filter(function (c) {
-        if (c._haystack.indexOf(q) !== -1) return true;
-        if (c._choName.indexOf(q) !== -1) return true;
-        if (qDigits && c._phoneDigits.indexOf(qDigits) !== -1) return true;
-        return false;
+        return groups.some(function (g) {
+          return g.every(function (cl) { return matchClause(c, cl); });
+        });
       });
+    },
+
+    /** 결과 하이라이트용 긍정 검색어 목록(제외·전화 토큰 제외, 중복 제거) */
+    highlightTerms: function (query) {
+      var groups = parseQuery(query);
+      if (!groups) return [];
+      var terms = [], seen = {};
+      groups.forEach(function (g) {
+        g.forEach(function (cl) {
+          if (cl.neg || cl.field === "phone" || !cl.value || seen[cl.value]) return;
+          seen[cl.value] = true; terms.push(cl.value);
+        });
+      });
+      return terms;
     },
   };
 

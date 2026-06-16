@@ -52,18 +52,34 @@
     return n;
   }
 
-  /** text 안의 q 일치 부분을 <mark>로 강조하여 parent 에 추가 */
-  function highlightInto(parent, text, q) {
+  /** text 안의 검색어 일치 부분을 <mark>로 강조하여 parent 에 추가.
+   *  terms 는 문자열 또는 문자열 배열(연산자 검색의 다중 긍정어). 겹치는 구간은 병합. */
+  function highlightInto(parent, text, terms) {
     text = text || "";
-    if (!q) { parent.appendChild(document.createTextNode(text)); return; }
-    var lower = text.toLowerCase(), ql = q.toLowerCase(), idx = 0, pos;
-    while ((pos = lower.indexOf(ql, idx)) !== -1) {
-      if (pos > idx) parent.appendChild(document.createTextNode(text.slice(idx, pos)));
-      var m = el("mark", null, text.slice(pos, pos + ql.length));
-      parent.appendChild(m);
-      idx = pos + ql.length;
+    if (typeof terms === "string") terms = terms ? [terms] : [];
+    terms = (terms || []).filter(Boolean);
+    if (!terms.length) { parent.appendChild(document.createTextNode(text)); return; }
+    var lower = text.toLowerCase(), ranges = [];
+    terms.forEach(function (t) {
+      var ql = ("" + t).toLowerCase(), idx = 0, pos;
+      if (!ql) return;
+      while ((pos = lower.indexOf(ql, idx)) !== -1) { ranges.push([pos, pos + ql.length]); idx = pos + ql.length; }
+    });
+    if (!ranges.length) { parent.appendChild(document.createTextNode(text)); return; }
+    ranges.sort(function (a, b) { return a[0] - b[0] || a[1] - b[1]; });
+    var merged = [ranges[0].slice()];
+    for (var i = 1; i < ranges.length; i++) {
+      var last = merged[merged.length - 1];
+      if (ranges[i][0] <= last[1]) last[1] = Math.max(last[1], ranges[i][1]);
+      else merged.push(ranges[i].slice());
     }
-    if (idx < text.length) parent.appendChild(document.createTextNode(text.slice(idx)));
+    var cur = 0;
+    merged.forEach(function (r) {
+      if (r[0] > cur) parent.appendChild(document.createTextNode(text.slice(cur, r[0])));
+      parent.appendChild(el("mark", null, text.slice(r[0], r[1])));
+      cur = r[1];
+    });
+    if (cur < text.length) parent.appendChild(document.createTextNode(text.slice(cur)));
   }
 
   function statusBadge(status) {

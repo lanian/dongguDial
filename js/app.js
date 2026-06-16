@@ -180,15 +180,17 @@
     if (q) {
       showTools(false); showDeptNav(false); showAlphaRail(false);
       var results = Data.search(q);
+      var hlTerms = Data.highlightTerms(q);
       if (results.length && current.sort === "dept") {
         // 부서순일 때는 검색 결과도 부서 섹션으로 묶어서 표시
         UI.renderDeptView(listEl, Data.groupContactsByDept(results), {
-          onOpen: openDetail, onFav: onFavChanged, query: q,
+          onOpen: openDetail, onFav: onFavChanged, query: hlTerms,
         });
       } else {
         UI.renderFlat(listEl, results, {
-          onOpen: openDetail, onFav: onFavChanged, query: q,
-          emptyMsg: "‘" + q + "’ 검색 결과가 없습니다.",
+          onOpen: openDetail, onFav: onFavChanged, query: hlTerms,
+          emptyMsg: "‘" + q + "’ 검색 결과가 없습니다.\n" +
+            "연산자: 공백=모두포함 · -제외 · 부서:·직책:·상태: · \"구\" · |=또는",
         });
       }
       resultStatus.textContent = results.length + "건 검색됨";

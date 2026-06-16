@@ -35,6 +35,18 @@
   }
   function write(key, value) {
     try { localStorage.setItem(key, JSON.stringify(value)); } catch (e) {}
+    if (key === FAV_KEY) _favSet = null; // 즐겨찾기 변경 시 캐시 무효화
+  }
+
+  // 즐겨찾기 메모리 캐시: isFavorite 가 행마다 호출되므로(목록 렌더) localStorage
+  // 읽기·파싱을 매번 하지 않도록 Set(객체 맵)으로 캐싱. write(FAV_KEY) 시 무효화.
+  var _favSet = null;
+  function favSet() {
+    if (!_favSet) {
+      _favSet = Object.create(null);
+      read(FAV_KEY, []).forEach(function (id) { _favSet[id] = true; });
+    }
+    return _favSet;
   }
 
   /** 연락처/부서 공통 오버레이 스토어(편집=edits 오버레이, 추가=custom 배열) */
@@ -79,7 +91,7 @@
   var Storage = {
     // ---------- 즐겨찾기 ----------
     getFavorites: function () { return read(FAV_KEY, []); },
-    isFavorite: function (id) { return read(FAV_KEY, []).indexOf(id) !== -1; },
+    isFavorite: function (id) { return favSet()[id] === true; },
     toggleFavorite: function (id) {
       var favs = read(FAV_KEY, []);
       var idx = favs.indexOf(id);

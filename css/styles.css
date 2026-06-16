@@ -356,6 +356,10 @@ mark {
   padding: 10px var(--sp-4);
   background: var(--surface);
   cursor: pointer;
+  /* 대용량 목록(수백~수천 명) 성능: 화면 밖 행은 렌더/레이아웃을 건너뜀.
+     contain-intrinsic-size 로 placeholder 높이를 줘 스크롤 위치를 안정화. */
+  content-visibility: auto;
+  contain-intrinsic-size: auto 64px;
 }
 .row:not(:last-child) {
   border-bottom: 1px solid var(--divider);

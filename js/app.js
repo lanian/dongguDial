@@ -4,7 +4,7 @@
 (function () {
   "use strict";
 
-  var APP_VERSION = "55"; // SW 캐시(donggu-dial-vNN)와 함께 갱신
+  var APP_VERSION = "56"; // SW 캐시(donggu-dial-vNN)와 함께 갱신
   var listEl = document.getElementById("list");
   var scrollRegion = document.getElementById("scroll-region");
   var resultStatus = document.getElementById("result-status");
@@ -179,27 +179,36 @@
     hideAlphaBubble();
     if (alphaActiveKey) { alphaActiveKey.classList.remove("is-active"); alphaActiveKey = null; }
   }
-  // 캡처 대신 document에 이동/종료를 걸어, 레일 밖에서 손을 떼도 항상 종료가 잡히게 한다.
-  // (setPointerCapture는 모바일에서 누락되면 scrubbing 상태가 멈춰 두 번째부터 먹통이 됨)
-  function onAlphaMove(e) {
-    if (!alphaScrubbing) return;
-    activateAlphaKey(alphaKeyAt(e.clientY));
-    if (e.cancelable) e.preventDefault();
-  }
-  function onAlphaEnd() {
+  function alphaScrubTo(clientY) { activateAlphaKey(alphaKeyAt(clientY)); }
+  // 모바일: Touch Events. 터치는 touchstart 대상(레일)으로 move/end가 암묵 캡처되어
+  // 손가락이 레일 밖으로 나가거나 어디서 떼든 항상 잡힌다(Pointer 캡처 불필요·더 안정적).
+  alphaRail.addEventListener("touchstart", function (e) {
+    if (alphaRail.hidden || !e.touches[0]) return;
+    alphaScrubbing = true;
+    alphaScrubTo(e.touches[0].clientY);
+    e.preventDefault(); // 페이지 스크롤 및 합성 click(중복 점프) 방지
+  }, { passive: false });
+  alphaRail.addEventListener("touchmove", function (e) {
+    if (!alphaScrubbing || !e.touches[0]) return;
+    alphaScrubTo(e.touches[0].clientY);
+    e.preventDefault();
+  }, { passive: false });
+  alphaRail.addEventListener("touchend", endAlphaScrub);
+  alphaRail.addEventListener("touchcancel", endAlphaScrub);
+  // 데스크톱: 마우스 드래그(터치 기기에선 touchstart preventDefault로 합성 마우스가 안 옴)
+  function onAlphaMouseMove(e) { if (alphaScrubbing) alphaScrubTo(e.clientY); }
+  function onAlphaMouseUp() {
     endAlphaScrub();
-    document.removeEventListener("pointermove", onAlphaMove);
-    document.removeEventListener("pointerup", onAlphaEnd);
-    document.removeEventListener("pointercancel", onAlphaEnd);
+    document.removeEventListener("mousemove", onAlphaMouseMove);
+    document.removeEventListener("mouseup", onAlphaMouseUp);
   }
-  alphaRail.addEventListener("pointerdown", function (e) {
+  alphaRail.addEventListener("mousedown", function (e) {
     if (alphaRail.hidden) return;
     alphaScrubbing = true;
-    activateAlphaKey(alphaKeyAt(e.clientY));
-    document.addEventListener("pointermove", onAlphaMove, { passive: false });
-    document.addEventListener("pointerup", onAlphaEnd);
-    document.addEventListener("pointercancel", onAlphaEnd);
-    if (e.cancelable) e.preventDefault();
+    alphaScrubTo(e.clientY);
+    document.addEventListener("mousemove", onAlphaMouseMove);
+    document.addEventListener("mouseup", onAlphaMouseUp);
+    e.preventDefault();
   });
 
   function scrollToEl(el, behavior) {

@@ -254,7 +254,6 @@ body {
   line-height: 1;
   padding: 2px 4px;
   border-radius: var(--r-pill);
-  pointer-events: none; /* 포인터는 레일 컨테이너가 처리(탭·드래그) */
 }
 .alpha-key.is-active { color: #fff; background: var(--brand); }
 

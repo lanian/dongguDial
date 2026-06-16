@@ -90,10 +90,7 @@ body {
   min-height: 0; /* flex column 안에서 콘텐츠 높이로 늘어나지 않고 실제로 스크롤되도록 */
   overflow-y: auto;
   overscroll-behavior: contain;
-  -webkit-overflow-scrolling: touch;
-  /* content-visibility 행이 위로 스크롤 시 재렌더되며 크기가 바뀔 때, 스크롤 앵커링이
-     스크롤을 도로 끌어내려 인덱스바로 '위쪽 섹션' 점프가 막히는 것을 방지. */
-  overflow-anchor: none;
+  -webkit-overflow-scrolling: touch; /* iOS 관성 스크롤(드래그 위·아래 이동 부드럽게) */
 }
 
 /* ---------- SVG icon ---------- */
@@ -383,10 +380,6 @@ mark {
   padding: 10px var(--sp-4);
   background: var(--surface);
   cursor: pointer;
-  /* 대용량 목록(수백~수천 명) 성능: 화면 밖 행은 렌더/레이아웃을 건너뜀.
-     contain-intrinsic-size 로 placeholder 높이를 줘 스크롤 위치를 안정화. */
-  content-visibility: auto;
-  contain-intrinsic-size: auto 64px;
 }
 .row:not(:last-child) {
   border-bottom: 1px solid var(--divider);

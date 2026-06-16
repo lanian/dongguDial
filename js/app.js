@@ -4,7 +4,7 @@
 (function () {
   "use strict";
 
-  var APP_VERSION = "51"; // SW 캐시(donggu-dial-vNN)와 함께 갱신
+  var APP_VERSION = "52"; // SW 캐시(donggu-dial-vNN)와 함께 갱신
   var listEl = document.getElementById("list");
   var scrollRegion = document.getElementById("scroll-region");
   var resultStatus = document.getElementById("result-status");
@@ -660,11 +660,20 @@
   function refreshCounts() {
     var c = Storage.counts();
     var parts = [];
-    if (c.favorites) parts.push("즐겨찾기 " + c.favorites);
-    if (c.recent) parts.push("최근 " + c.recent);
-    if (c.edits) parts.push("편집 " + c.edits);
-    if (c.custom) parts.push("추가 " + c.custom);
-    if (c.deptEdits || c.deptCustom) parts.push("부서변경 " + (c.deptEdits + c.deptCustom));
+    if (window.Data && Data.hasBaseData && Data.hasBaseData()) {
+      // 번들 명부가 있을 때: 내가 바꾼/추가한 것만 구분 표시
+      if (c.favorites) parts.push("즐겨찾기 " + c.favorites);
+      if (c.recent) parts.push("최근 " + c.recent);
+      if (c.edits) parts.push("편집 " + c.edits);
+      if (c.custom) parts.push("추가 " + c.custom);
+      if (c.deptEdits || c.deptCustom) parts.push("부서변경 " + (c.deptEdits + c.deptCustom));
+    } else {
+      // 번들 명부가 없으면 전부 내 데이터 → 총량으로 표시(custom=전체 연락처/부서)
+      if (c.custom) parts.push("연락처 " + c.custom + "명");
+      if (c.deptCustom) parts.push("부서 " + c.deptCustom + "개");
+      if (c.favorites) parts.push("즐겨찾기 " + c.favorites);
+      if (c.recent) parts.push("최근 " + c.recent);
+    }
     settingsCounts.textContent = parts.length ? parts.join(" · ") : "저장된 개인 데이터 없음";
   }
   function openSettings() {

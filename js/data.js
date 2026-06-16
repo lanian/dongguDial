@@ -179,6 +179,10 @@
     rebuild: function () {
       var S = global.Storage;
       var hideBase = !!(S && S.getBaseHidden && S.getBaseHidden());
+      // 번들(초기) 명부가 실제로 존재하고 표시되는지. 없으면 모든 데이터가 사용자
+      // 데이터이므로 '추가/수정됨' 구분 표시가 무의미 → UI에서 숨기는 데 사용.
+      state.hasBase = !hideBase &&
+        (((state.base || []).length > 0) || ((state.baseDepartments || []).length > 0));
 
       // 1) 부서: 오버레이 적용 → sortOrder(직제) 정렬
       var deptEdits = (S && S.getDeptEdits) ? S.getDeptEdits() : {};
@@ -238,6 +242,9 @@
     getDepartments: function () {
       return state.departmentsTree || state.departments;
     },
+
+    /** 번들 명부가 존재/표시되는지. false면 모든 항목이 사용자 데이터(추가/수정 구분 무의미) */
+    hasBaseData: function () { return !!state.hasBase; },
 
     getDeptById: function (id) {
       return state.deptById[id]; // 객체 키는 문자열 강제 → 숫자/문자 id 모두 조회

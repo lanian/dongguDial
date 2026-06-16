@@ -591,7 +591,7 @@
         main.type = "button";
         var nm = el("div", "info-value");
         nm.appendChild(document.createTextNode(d.name));
-        if (d._custom) nm.appendChild(el("span", "edit-chip edit-chip--inline", "추가"));
+        if (d._custom && window.Data && Data.hasBaseData()) nm.appendChild(el("span", "edit-chip edit-chip--inline", "추가"));
         main.appendChild(nm);
         var dc = (counts.direct[d.id] || 0), cc = (counts.child[d.id] || 0);
         var subTxt = "직속 " + dc + "명" + (cc ? " · 하위 " + cc + "개" : "");
@@ -726,8 +726,11 @@
       var chips = el("div", "detail-chips");
       var sb = statusBadge(contact.status);
       if (sb) chips.appendChild(sb);
-      if (contact._custom) chips.appendChild(el("span", "edit-chip", "추가한 연락처"));
-      else if (contact._edited) chips.appendChild(el("span", "edit-chip", "수정됨"));
+      // 번들 명부가 있을 때만 '추가/수정' 구분이 의미. 없으면(전부 사용자 데이터) 숨김.
+      if (window.Data && Data.hasBaseData()) {
+        if (contact._custom) chips.appendChild(el("span", "edit-chip", "추가한 연락처"));
+        else if (contact._edited) chips.appendChild(el("span", "edit-chip", "수정됨"));
+      }
       if (chips.childNodes.length) hero.appendChild(chips);
       container.appendChild(hero);
 

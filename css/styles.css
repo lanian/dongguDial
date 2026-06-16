@@ -139,10 +139,11 @@ body {
 /* 앱바용 정렬 세그먼트(브랜드 배경 위) */
 .sort-seg--bar {
   flex: 0 0 auto;
-  background: rgba(255, 255, 255, 0.18);
+  background: rgba(255, 255, 255, 0.22);
   border-color: transparent;
 }
-.sort-seg--bar .seg-btn { color: rgba(255, 255, 255, 0.9); padding: 5px 12px; min-height: 32px; }
+/* 미선택 글자는 브랜드(파랑) 배경 위에서 또렷하도록 불투명 흰색 */
+.sort-seg--bar .seg-btn { color: #fff; padding: 5px 12px; min-height: 32px; }
 .sort-seg--bar .seg-btn.is-active { background: #fff; color: var(--brand); }
 .icon-btn--bar {
   width: 40px; height: 40px;

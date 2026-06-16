@@ -241,7 +241,9 @@ body {
   flex-direction: column;
   align-items: center;
   gap: 1px;
-  padding: var(--sp-1) 2px;
+  padding: var(--sp-1) 4px;
+  touch-action: none; /* 드래그 스크럽 시 페이지 스크롤 방지 */
+  cursor: pointer;
 }
 .alpha-key {
   border: none;
@@ -250,10 +252,33 @@ body {
   font-size: 10px;
   font-weight: var(--fw-bold);
   line-height: 1;
-  padding: 1px 4px;
-  cursor: pointer;
+  padding: 2px 4px;
+  border-radius: var(--r-pill);
+  pointer-events: none; /* 포인터는 레일 컨테이너가 처리(탭·드래그) */
 }
-.alpha-key:active { color: var(--brand-dark); }
+.alpha-key.is-active { color: #fff; background: var(--brand); }
+
+/* 스크럽 중 현재 글자 큰 미리보기 버블 */
+.alpha-bubble {
+  position: fixed;
+  right: 52px;
+  top: 50%;
+  transform: translateY(-50%) scale(0.85);
+  z-index: var(--z-toast);
+  width: 60px; height: 60px;
+  display: grid;
+  place-items: center;
+  background: var(--brand);
+  color: #fff;
+  font-size: 30px;
+  font-weight: var(--fw-bold);
+  border-radius: var(--r-lg);
+  box-shadow: var(--elev-2);
+  pointer-events: none;
+  opacity: 0;
+  transition: opacity 0.12s, transform 0.12s;
+}
+.alpha-bubble.is-on { opacity: 1; transform: translateY(-50%) scale(1); }
 
 /* ---------- List ---------- */
 .list { padding: var(--sp-2) 0 calc(var(--sp-6) + var(--safe-bottom)); }
@@ -1106,6 +1131,7 @@ select.ef-input { appearance: none; }
   /* 컬럼 우측 가장자리 기준 고정요소 */
   .fab { right: calc((100% - var(--app-w)) / 2 + var(--sp-4)); }
   .alpha-rail { right: calc((100% - var(--app-w)) / 2 + 2px); }
+  .alpha-bubble { right: calc((100% - var(--app-w)) / 2 + 52px); }
   /* 좌우 여백형 토스트를 컬럼 폭으로 */
   .toast {
     left: 0; right: 0;

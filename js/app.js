@@ -4,7 +4,7 @@
 (function () {
   "use strict";
 
-  var APP_VERSION = "53"; // SW 캐시(donggu-dial-vNN)와 함께 갱신
+  var APP_VERSION = "54"; // SW 캐시(donggu-dial-vNN)와 함께 갱신
   var listEl = document.getElementById("list");
   var scrollRegion = document.getElementById("scroll-region");
   var resultStatus = document.getElementById("result-status");
@@ -129,21 +129,78 @@
       b.type = "button";
       b.className = "alpha-key";
       b.textContent = g.key;
+      b.dataset.key = g.key;
       b.setAttribute("aria-label", g.key + "로 이동");
+      // 포인터(탭·드래그)는 레일 컨테이너가 처리(아래). 클릭은 키보드(Enter)용으로 유지.
       b.addEventListener("click", function () {
-        scrollToEl(document.getElementById("grp-" + g.key));
+        scrollToEl(document.getElementById("grp-" + g.key), "auto");
       });
       frag.appendChild(b);
     });
     alphaRail.appendChild(frag);
   }
 
-  function scrollToEl(el) {
+  // ---------- 가나다 인덱스 바: 드래그 스크럽 + 현재 글자 버블 + 햅틱 ----------
+  var alphaBubble = null, alphaActiveKey = null, alphaScrubbing = false;
+  function showAlphaBubble(k) {
+    if (!alphaBubble) {
+      alphaBubble = document.createElement("div");
+      alphaBubble.className = "alpha-bubble";
+      alphaBubble.setAttribute("aria-hidden", "true");
+      document.body.appendChild(alphaBubble);
+    }
+    alphaBubble.textContent = k;
+    alphaBubble.classList.add("is-on");
+  }
+  function hideAlphaBubble() { if (alphaBubble) alphaBubble.classList.remove("is-on"); }
+  // clientY 위치의 인덱스 키(글자)를 찾는다. 위/아래 경계는 첫/마지막 키로 클램프.
+  function alphaKeyAt(clientY) {
+    var keys = alphaRail.querySelectorAll(".alpha-key");
+    if (!keys.length) return null;
+    for (var i = 0; i < keys.length; i++) {
+      if (clientY <= keys[i].getBoundingClientRect().bottom) return keys[i];
+    }
+    return keys[keys.length - 1];
+  }
+  function activateAlphaKey(key) {
+    if (!key) return;
+    if (key !== alphaActiveKey) {
+      if (alphaActiveKey) alphaActiveKey.classList.remove("is-active");
+      alphaActiveKey = key;
+      key.classList.add("is-active");
+      if (navigator.vibrate) navigator.vibrate(3); // 글자 바뀔 때만 짧은 햅틱
+    }
+    showAlphaBubble(key.dataset.key);
+    scrollToEl(document.getElementById("grp-" + key.dataset.key), "auto");
+  }
+  function endAlphaScrub() {
+    if (!alphaScrubbing) return;
+    alphaScrubbing = false;
+    hideAlphaBubble();
+    if (alphaActiveKey) { alphaActiveKey.classList.remove("is-active"); alphaActiveKey = null; }
+  }
+  alphaRail.addEventListener("pointerdown", function (e) {
+    if (alphaRail.hidden) return;
+    alphaScrubbing = true;
+    if (alphaRail.setPointerCapture) { try { alphaRail.setPointerCapture(e.pointerId); } catch (x) {} }
+    activateAlphaKey(alphaKeyAt(e.clientY));
+    e.preventDefault();
+  });
+  alphaRail.addEventListener("pointermove", function (e) {
+    if (!alphaScrubbing) return;
+    activateAlphaKey(alphaKeyAt(e.clientY));
+    e.preventDefault();
+  });
+  alphaRail.addEventListener("pointerup", endAlphaScrub);
+  alphaRail.addEventListener("pointercancel", endAlphaScrub);
+  alphaRail.addEventListener("lostpointercapture", endAlphaScrub);
+
+  function scrollToEl(el, behavior) {
     if (!el) return;
     // 앱바·탭은 #scroll-region 바깥(고정)이라 별도 오프셋 없이 컨테이너 기준으로 이동.
     var y = el.getBoundingClientRect().top - scrollRegion.getBoundingClientRect().top
       + scrollRegion.scrollTop;
-    scrollRegion.scrollTo({ top: y, behavior: "smooth" });
+    scrollRegion.scrollTo({ top: y, behavior: behavior || "smooth" });
   }
 
   function render() { renderBody(); updateFab(); }

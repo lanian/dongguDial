@@ -320,15 +320,25 @@
       // 명부형: 접기/들여쓰기 없이 평면. 헤더에 부서 경로(국 › 과 › 팀) 표기
       var frag = document.createDocumentFragment();
       groups.forEach(function (g) {
-        var header = el("div", "section-header section-dir");
+        var jump = !!opts.onDeptJump;
+        var header = el(jump ? "button" : "div",
+          "section-header section-dir" + (jump ? " section-jump" : ""));
         header.id = "dept-" + g.dept.id;
+        var txt = el("span", "section-dir-text");
         var path = (window.Data && Data.deptPath) ? Data.deptPath(g.dept.id) : [{ name: g.dept.name }];
         if (path.length > 1) {
-          header.appendChild(el("span", "section-path-inline",
+          txt.appendChild(el("span", "section-path-inline",
             path.slice(0, -1).map(function (p) { return p.name; }).join(" › ") + " › "));
         }
-        header.appendChild(el("span", "section-leaf", g.dept.name + " "));
-        header.appendChild(el("span", "count", "(" + g.members.length + ")"));
+        txt.appendChild(el("span", "section-leaf", g.dept.name));
+        txt.appendChild(el("span", "count", " (" + g.members.length + ")"));
+        header.appendChild(txt);
+        if (jump) {
+          header.type = "button";
+          header.setAttribute("aria-label", g.dept.name + " 부서를 조직도에서 보기");
+          header.appendChild(icon("chevron", "section-jump-chev"));
+          header.addEventListener("click", function () { opts.onDeptJump(g.dept.id); });
+        }
         frag.appendChild(header);
         appendRows(frag, g.members, opts);
       });

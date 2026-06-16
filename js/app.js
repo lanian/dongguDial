@@ -26,20 +26,7 @@
   var deptEditorBody = document.getElementById("dept-editor-body");
   var deptEditId = null;
   var fab = document.getElementById("fab-add");
-  var listTools = document.getElementById("list-tools");
-  var deptNav = document.getElementById("dept-nav");
-  // PC: 세로 마우스 휠을 부서 칩 바의 가로 스크롤로 변환(트랙패드 가로 스와이프는 그대로).
-  deptNav.addEventListener("wheel", function (e) {
-    if (e.deltaY === 0) return; // 이미 가로 스크롤(트랙패드 등)이면 개입 안 함
-    var max = deptNav.scrollWidth - deptNav.clientWidth;
-    if (max <= 0) return; // 넘칠 게 없으면 페이지 스크롤 유지
-    var atStart = deptNav.scrollLeft <= 0;
-    var atEnd = deptNav.scrollLeft >= max - 1;
-    // 끝에 닿았는데 더 진행하려는 휠은 페이지로 흘려보냄(스크롤 트랩 방지)
-    if ((e.deltaY < 0 && atStart) || (e.deltaY > 0 && atEnd)) return;
-    deptNav.scrollLeft += e.deltaY;
-    e.preventDefault();
-  }, { passive: false });
+  var sortSeg = document.getElementById("sort-seg");
   var alphaRail = document.getElementById("alpha-rail");
   var snackbar = document.getElementById("snackbar");
   var sortBtns = Array.prototype.slice.call(document.querySelectorAll(".sort-seg .seg-btn"));
@@ -116,36 +103,12 @@
     if (!current.query && current.tab === "favorites") render();
   }
 
+  // 정렬 세그먼트(앱바)는 전체 탭에서만 노출
   function showTools(on) {
-    listTools.hidden = !on;
-  }
-  function showDeptNav(on) {
-    deptNav.hidden = !on;
-    deptNav.style.display = on ? "" : "none";
+    sortSeg.hidden = !on;
   }
   function showAlphaRail(on) {
     alphaRail.hidden = !on;
-  }
-
-  function buildDeptNav(groups) {
-    deptNav.textContent = "";
-    var frag = document.createDocumentFragment();
-    // 최상위(국/실/관)만 칩으로 — 클릭 시 해당 부서 섹션으로 이동
-    groups.filter(function (g) {
-      return (window.Data && Data.depthOf) ? Data.depthOf(g.dept.id) === 0 : true;
-    }).forEach(function (g) {
-      var chip = document.createElement("button");
-      chip.type = "button";
-      chip.className = "dept-chip";
-      chip.textContent = g.dept.name;
-      chip.addEventListener("click", function () {
-        current.collapsed[g.dept.id] = false;
-        render();
-        scrollToEl(document.getElementById("dept-" + g.dept.id));
-      });
-      frag.appendChild(chip);
-    });
-    deptNav.appendChild(frag);
   }
 
   function buildAlphaRail(groups) {
@@ -178,13 +141,14 @@
   function renderBody() {
     var q = current.query.trim();
     if (q) {
-      showTools(false); showDeptNav(false); showAlphaRail(false);
+      showTools(false); showAlphaRail(false);
       var results = Data.search(q);
       var hlTerms = Data.highlightTerms(q);
       if (results.length && current.sort === "dept") {
         // 부서순일 때는 검색 결과도 부서 섹션으로 묶어서 표시
         UI.renderDeptView(listEl, Data.groupContactsByDept(results), {
           onOpen: openDetail, onFav: onFavChanged, query: hlTerms,
+          onDeptJump: showDeptInOrg,
         });
       } else {
         UI.renderFlat(listEl, results, {
@@ -201,25 +165,22 @@
     if (current.tab === "all") {
       showTools(true);
       if (current.sort === "name") {
-        showDeptNav(false);
         var ng = Data.groupedByName();
         UI.renderNameView(listEl, ng, { onOpen: openDetail, onFav: onFavChanged });
         buildAlphaRail(ng);
         showAlphaRail(true);
       } else {
         showAlphaRail(false);
-        showDeptNav(false); // 부서순: 상단 부서 칩 바 제거
         var dg = Data.groupedByDept();
         UI.renderDeptView(listEl, dg, {
           onOpen: openDetail, onFav: onFavChanged,
-          collapsed: current.collapsed,
-          onToggle: function (id) { current.collapsed[id] = !current.collapsed[id]; render(); },
+          onDeptJump: showDeptInOrg,
         });
       }
       return;
     }
 
-    showTools(false); showDeptNav(false); showAlphaRail(false);
+    showTools(false); showAlphaRail(false);
     if (current.tab === "org") {
       var depts = Data.getDepartments();
       if (!orgInit) { // 처음 조직도 진입 시 모두 접힌 상태로 시작
@@ -253,7 +214,7 @@
         onMove: moveMember,
       });
     } else if (current.tab === "favorites") {
-      showTools(false); showDeptNav(false); showAlphaRail(false);
+      showTools(false); showAlphaRail(false);
       UI.renderFavView(listEl, favSections(), {
         onOpen: openDetail, onFav: onFavChanged, onAssign: openFavGroupPicker,
         collapsed: current.favCollapsed,
@@ -325,13 +286,15 @@
   window.showSnack = showSnack;
 
   // ---------- 상세 ----------
-  function goToOrg(deptId) {
-    closeDetail(false);
+  // 조직도 탭으로 이동 + 해당 부서 경로를 펼치고 스크롤. (상세/리스트 공용)
+  function showDeptInOrg(deptId) {
     switchTab(tabs[3]); // 조직도
     Data.deptPath(deptId).forEach(function (p) { current.orgCollapsed[p.id] = false; });
+    current.orgCollapsed[deptId] = false; // 대상 부서 자체도 펼침
     render();
     setTimeout(function () { scrollToEl(document.getElementById("org-" + deptId)); }, 60);
   }
+  function goToOrg(deptId) { closeDetail(false); showDeptInOrg(deptId); }
 
   // ---------- 사진 뷰어 / 압축 ----------
   function openPhotoViewer(dataURL, name) {

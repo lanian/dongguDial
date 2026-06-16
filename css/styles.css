@@ -130,10 +130,20 @@ body {
 .app-bar-top {
   display: flex;
   align-items: center;
-  justify-content: space-between;
+  gap: var(--sp-2);
   margin-bottom: var(--sp-3);
 }
-.app-title { margin: 0; font-size: 20px; font-weight: var(--fw-bold); }
+/* 제목이 남는 공간을 채워 정렬 토글·설정 아이콘을 우측으로 밀어냄(정렬 숨김 시에도 동일) */
+.app-title { margin: 0; font-size: 20px; font-weight: var(--fw-bold); flex: 1 1 auto; min-width: 0; overflow: hidden; text-overflow: ellipsis; white-space: nowrap; }
+
+/* 앱바용 정렬 세그먼트(브랜드 배경 위) */
+.sort-seg--bar {
+  flex: 0 0 auto;
+  background: rgba(255, 255, 255, 0.18);
+  border-color: transparent;
+}
+.sort-seg--bar .seg-btn { color: rgba(255, 255, 255, 0.9); padding: 5px 12px; min-height: 32px; }
+.sort-seg--bar .seg-btn.is-active { background: #fff; color: var(--brand); }
 .icon-btn--bar {
   width: 40px; height: 40px;
   font-size: 20px;
@@ -196,13 +206,7 @@ body {
 }
 .tab.is-active { color: var(--brand); border-bottom-color: var(--brand); }
 
-/* ---------- List tools (정렬 + 부서칩) ---------- */
-/* 앱바·탭과 함께 고정되는 정렬 도구 바(스크롤 영역 밖). 전체 탭에서만 표시 */
-.list-tools {
-  flex: 0 0 auto;
-  background: var(--bg);
-  padding: var(--sp-2) var(--sp-4);
-}
+/* ---------- Segmented control (정렬: 부서순/가나다순) ---------- */
 .sort-seg {
   display: inline-flex;
   background: var(--surface);
@@ -223,30 +227,6 @@ body {
   cursor: pointer;
 }
 .seg-btn.is-active { background: var(--brand); color: #fff; }
-
-.dept-nav {
-  display: flex;
-  gap: var(--sp-2);
-  overflow-x: auto;
-  padding: var(--sp-2) 0 var(--sp-1);
-  -webkit-overflow-scrolling: touch;
-  scrollbar-width: none;
-}
-.dept-nav::-webkit-scrollbar { display: none; }
-.dept-chip {
-  flex: 0 0 auto;
-  border: 1px solid var(--divider);
-  background: var(--surface);
-  color: var(--on-surface);
-  font: inherit;
-  font-size: var(--fs-sm);
-  padding: 6px 12px;
-  min-height: 34px;
-  border-radius: var(--r-pill);
-  white-space: nowrap;
-  cursor: pointer;
-}
-.dept-chip:active { background: var(--divider); }
 
 /* ---------- Alpha rail (가나다 바로가기) ---------- */
 .alpha-rail {
@@ -293,10 +273,27 @@ body {
 .section-lvl-2 { font-weight: var(--fw-reg); color: var(--on-surface-muted); }
 .section-toggle.section-lvl-1 .section-chevron,
 .section-toggle.section-lvl-2 .section-chevron { opacity: 0.7; }
+/* 명부/가나다 섹션 헤더: 그룹 경계를 또렷하게(조직도 헤더 제외 — 자체 스타일) */
+.section-header:not(.org-dept) { border-bottom: 1px solid var(--divider); }
 /* 전체(명부) 부서 헤더: 평면 + 경로(국 › 과 › 팀) */
 .section-dir { display: block; white-space: nowrap; overflow: hidden; text-overflow: ellipsis; }
 .section-path-inline { color: var(--on-surface-muted); font-weight: var(--fw-reg); }
-.section-leaf { font-weight: var(--fw-bold); }
+.section-leaf { font-weight: var(--fw-bold); color: var(--on-surface); }
+
+/* 부서 헤더 탭 → 조직도에서 해당 부서 보기. (font-size/weight 는 .section-header 유지) */
+.section-jump {
+  display: flex;
+  align-items: center;
+  gap: var(--sp-2);
+  width: 100%;
+  border: none;
+  font-family: inherit;
+  text-align: left;
+  cursor: pointer;
+}
+.section-dir-text { flex: 1; min-width: 0; overflow: hidden; text-overflow: ellipsis; white-space: nowrap; }
+.section-jump-chev { flex: 0 0 auto; width: 1em; height: 1em; color: var(--on-surface-muted); }
+.section-jump:active { background: var(--divider); }
 .section-toggle {
   display: flex;
   align-items: center;

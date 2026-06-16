@@ -49,6 +49,10 @@
   <header class="app-bar">
     <div class="app-bar-top">
       <h1 class="app-title">행정전화부</h1>
+      <div id="sort-seg" class="sort-seg sort-seg--bar" role="group" aria-label="정렬 방식">
+        <button class="seg-btn is-active" data-sort="dept" aria-pressed="true">부서순</button>
+        <button class="seg-btn" data-sort="name" aria-pressed="false">가나다순</button>
+      </div>
       <button id="settings-btn" class="icon-btn icon-btn--bar" aria-label="설정 및 백업">
         <svg class="ic" aria-hidden="true"><use href="#ic-settings"/></svg>
       </button>
@@ -75,16 +79,7 @@
             aria-selected="false" aria-controls="list" tabindex="-1">조직도</button>
   </nav>
 
-  <!-- 정렬 도구: 앱바·탭처럼 고정(스크롤 영역 밖) — 전체 탭에서만 표시 -->
-  <div id="list-tools" class="list-tools">
-    <div class="sort-seg" role="group" aria-label="정렬 방식">
-      <button class="seg-btn is-active" data-sort="dept" aria-pressed="true">부서순</button>
-      <button class="seg-btn" data-sort="name" aria-pressed="false">가나다순</button>
-    </div>
-    <div id="dept-nav" class="dept-nav" role="group" aria-label="부서 바로가기"></div>
-  </div>
-
-  <!-- 스크롤 영역: 앱바·탭·정렬바는 고정, 이 안만 스크롤(설정 오버레이와 동일한 패턴) -->
+  <!-- 스크롤 영역: 앱바·탭은 고정, 이 안만 스크롤(설정 오버레이와 동일한 패턴) -->
   <div id="scroll-region" class="scroll-region">
     <main id="list" class="list" role="tabpanel" tabindex="0" aria-labelledby="tab-all"></main>
   </div>

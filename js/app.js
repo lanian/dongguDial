@@ -4,7 +4,7 @@
 (function () {
   "use strict";
 
-  var APP_VERSION = "39"; // SW 캐시(donggu-dial-vNN)와 함께 갱신
+  var APP_VERSION = "40"; // SW 캐시(donggu-dial-vNN)와 함께 갱신
   var listEl = document.getElementById("list");
   var resultStatus = document.getElementById("result-status");
   var searchInput = document.getElementById("search-input");
@@ -51,6 +51,7 @@
   var favGroupPickerContact = null;
   var current = { tab: "all", query: "", detailId: null, sort: "dept", collapsed: {}, orgCollapsed: {}, favCollapsed: {}, orgReorder: false };
   var editId = null;
+  var orgInit = false; // 조직도 첫 진입 시 모두 접기 1회 적용 플래그
   var pendingPhoto; // undefined=변경없음, null=제거, string=새 dataURL
   var bgEls = [appBar, tabsNav, listEl];
   var focusStack = [];
@@ -217,6 +218,10 @@
     showTools(false); showDeptNav(false); showAlphaRail(false);
     if (current.tab === "org") {
       var depts = Data.getDepartments();
+      if (!orgInit) { // 처음 조직도 진입 시 모두 접힌 상태로 시작
+        depts.forEach(function (d) { current.orgCollapsed[d.id] = true; });
+        orgInit = true;
+      }
       var allCol = depts.length > 0 && depts.every(function (d) { return current.orgCollapsed[d.id]; });
       UI.renderOrgView(listEl, Data.groupedByOrg(), {
         onOpen: openDetail, onFav: onFavChanged,

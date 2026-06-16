@@ -4,7 +4,7 @@
 (function () {
   "use strict";
 
-  var APP_VERSION = "38"; // SW 캐시(donggu-dial-vNN)와 함께 갱신
+  var APP_VERSION = "39"; // SW 캐시(donggu-dial-vNN)와 함께 갱신
   var listEl = document.getElementById("list");
   var resultStatus = document.getElementById("result-status");
   var searchInput = document.getElementById("search-input");
@@ -177,10 +177,17 @@
     if (q) {
       showTools(false); showDeptNav(false); showAlphaRail(false);
       var results = Data.search(q);
-      UI.renderFlat(listEl, results, {
-        onOpen: openDetail, onFav: onFavChanged, query: q,
-        emptyMsg: "‘" + q + "’ 검색 결과가 없습니다.",
-      });
+      if (results.length && current.sort === "dept") {
+        // 부서순일 때는 검색 결과도 부서 섹션으로 묶어서 표시
+        UI.renderDeptView(listEl, Data.groupContactsByDept(results), {
+          onOpen: openDetail, onFav: onFavChanged, query: q,
+        });
+      } else {
+        UI.renderFlat(listEl, results, {
+          onOpen: openDetail, onFav: onFavChanged, query: q,
+          emptyMsg: "‘" + q + "’ 검색 결과가 없습니다.",
+        });
+      }
       resultStatus.textContent = results.length + "건 검색됨";
       return;
     }

@@ -209,6 +209,27 @@
       return groups;
     },
 
+    /** 임의 연락처 목록(예: 검색 결과)을 부서 트리 순서로 그룹화 */
+    groupContactsByDept: function (contacts) {
+      var byDept = {};
+      contacts.forEach(function (c) {
+        (byDept[c.deptId] = byDept[c.deptId] || []).push(c);
+      });
+      function sortMembers(arr) {
+        return arr.slice().sort(function (a, b) {
+          return (a.memberSortOrder || 0) - (b.memberSortOrder || 0);
+        });
+      }
+      var groups = [];
+      (state.departmentsTree || state.departments).forEach(function (d) {
+        var members = byDept[d.id];
+        if (members && members.length) groups.push({ dept: d, members: sortMembers(members) });
+      });
+      var orphans = contacts.filter(function (c) { return !state.deptById[c.deptId]; });
+      if (orphans.length) groups.push({ dept: { id: 0, name: "기타" }, members: sortMembers(orphans) });
+      return groups;
+    },
+
     /** 조직도: parentId 기반 재귀 트리(국→과→팀, 실/관→팀 등 임의 깊이) */
     groupedByOrg: function () {
       var depts = state.departments; // sortOrder(직제) 정렬됨

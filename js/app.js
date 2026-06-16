@@ -4,7 +4,7 @@
 (function () {
   "use strict";
 
-  var APP_VERSION = "58"; // SW 캐시(donggu-dial-vNN)와 함께 갱신
+  var APP_VERSION = "59"; // SW 캐시(donggu-dial-vNN)와 함께 갱신
   var listEl = document.getElementById("list");
   var scrollRegion = document.getElementById("scroll-region");
   var resultStatus = document.getElementById("result-status");
@@ -213,10 +213,12 @@
 
   function scrollToEl(el, behavior) {
     if (!el) return;
-    // 앱바·탭은 #scroll-region 바깥(고정)이라 별도 오프셋 없이 컨테이너 기준으로 이동.
-    var y = el.getBoundingClientRect().top - scrollRegion.getBoundingClientRect().top
-      + scrollRegion.scrollTop;
-    scrollRegion.scrollTo({ top: y, behavior: behavior || "smooth" });
+    // sticky 헤더는 getBoundingClientRect().top 이 화면 상단에 '쌓인' 위치로 나와
+    // 위쪽 점프가 망가진다. offsetTop(레이아웃 위치, sticky 영향 없음)을 scrollRegion
+    // 기준으로 누적해 정확히 스크롤한다.
+    var top = 0, node = el;
+    while (node && node !== scrollRegion) { top += node.offsetTop; node = node.offsetParent; }
+    scrollRegion.scrollTo({ top: top, behavior: behavior || "smooth" });
   }
 
   function render() { renderBody(); updateFab(); }

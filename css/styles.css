@@ -87,6 +87,7 @@ body {
 }
 .scroll-region {
   flex: 1 1 auto;
+  position: relative; /* 내부 헤더의 offsetParent → scrollToEl 의 offsetTop 누적 기준 */
   min-height: 0; /* flex column 안에서 콘텐츠 높이로 늘어나지 않고 실제로 스크롤되도록 */
   overflow-y: auto;
   overscroll-behavior: contain;

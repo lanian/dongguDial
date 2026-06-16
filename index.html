@@ -74,15 +74,18 @@
             aria-selected="false" aria-controls="list" tabindex="-1">조직도</button>
   </nav>
 
-  <div id="list-tools" class="list-tools">
-    <div class="sort-seg" role="group" aria-label="정렬 방식">
-      <button class="seg-btn is-active" data-sort="dept" aria-pressed="true">부서순</button>
-      <button class="seg-btn" data-sort="name" aria-pressed="false">가나다순</button>
+  <!-- 스크롤 영역: 앱바·탭은 고정, 이 안만 스크롤(설정 오버레이와 동일한 패턴) -->
+  <div id="scroll-region" class="scroll-region">
+    <div id="list-tools" class="list-tools">
+      <div class="sort-seg" role="group" aria-label="정렬 방식">
+        <button class="seg-btn is-active" data-sort="dept" aria-pressed="true">부서순</button>
+        <button class="seg-btn" data-sort="name" aria-pressed="false">가나다순</button>
+      </div>
+      <div id="dept-nav" class="dept-nav" role="group" aria-label="부서 바로가기"></div>
     </div>
-    <div id="dept-nav" class="dept-nav" role="group" aria-label="부서 바로가기"></div>
-  </div>
 
-  <main id="list" class="list" role="tabpanel" tabindex="0" aria-labelledby="tab-all"></main>
+    <main id="list" class="list" role="tabpanel" tabindex="0" aria-labelledby="tab-all"></main>
+  </div>
   <nav id="alpha-rail" class="alpha-rail" aria-label="가나다 바로가기" hidden></nav>
   <p id="result-status" class="sr-only" role="status" aria-live="polite"></p>
   <div id="snackbar" class="snackbar" role="status" aria-live="polite" hidden></div>

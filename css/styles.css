@@ -33,9 +33,6 @@
   --disabled-opacity: 0.35;
   --z-bar: 10; --z-tabs: 9; --z-detail: 20; --z-toast: 30;
 
-  /* 레이아웃(런타임에 app.js가 실측값으로 갱신) */
-  --header-h: 104px;
-  --tabs-h: 45px;
   --safe-top: env(safe-area-inset-top, 0px);
   --safe-bottom: env(safe-area-inset-bottom, 0px);
 }
@@ -79,7 +76,22 @@ html, body {
   -webkit-font-smoothing: antialiased;
   overscroll-behavior-y: none;
 }
-body.overlay-open { overflow: hidden; }
+/* 메인 화면: 앱바·탭은 고정하고 #scroll-region 안에서만 스크롤한다.
+   (문서 전체 스크롤이 아니라 컨테이너 스크롤이라 스크롤바가 앱바 아래부터 — 설정 오버레이와 동일) */
+body {
+  display: flex;
+  flex-direction: column;
+  height: 100vh;
+  height: 100dvh;
+  overflow: hidden;
+}
+.scroll-region {
+  flex: 1 1 auto;
+  min-height: 0; /* flex column 안에서 콘텐츠 높이로 늘어나지 않고 실제로 스크롤되도록 */
+  overflow-y: auto;
+  overscroll-behavior: contain;
+  -webkit-overflow-scrolling: touch;
+}
 
 /* ---------- SVG icon ---------- */
 .ic {
@@ -109,8 +121,7 @@ body.overlay-open { overflow: hidden; }
 
 /* ---------- App bar ---------- */
 .app-bar {
-  position: sticky;
-  top: 0;
+  flex: 0 0 auto;
   z-index: var(--z-bar);
   background: var(--brand);
   color: #fff;
@@ -164,8 +175,7 @@ body.overlay-open { overflow: hidden; }
 
 /* ---------- Tabs ---------- */
 .tabs {
-  position: sticky;
-  top: var(--header-h);
+  flex: 0 0 auto;
   z-index: var(--z-tabs);
   display: flex;
   background: var(--surface);
@@ -267,7 +277,7 @@ body.overlay-open { overflow: hidden; }
 
 .section-header {
   position: sticky;
-  top: calc(var(--header-h) + var(--tabs-h));
+  top: 0;
   background: var(--bg);
   color: var(--on-surface-muted);
   font-size: var(--fs-sm);
@@ -1027,7 +1037,6 @@ select.ef-input { appearance: none; }
   body {
     max-width: var(--app-w);
     margin: 0 auto;
-    min-height: 100vh;
     background: var(--bg);
     box-shadow: 0 0 0 1px var(--divider);
   }

@@ -6,6 +6,7 @@
 
   var APP_VERSION = "42"; // SW 캐시(donggu-dial-vNN)와 함께 갱신
   var listEl = document.getElementById("list");
+  var scrollRegion = document.getElementById("scroll-region");
   var resultStatus = document.getElementById("result-status");
   var searchInput = document.getElementById("search-input");
   var searchClear = document.getElementById("search-clear");
@@ -166,9 +167,10 @@
 
   function scrollToEl(el) {
     if (!el) return;
-    var off = appBar.offsetHeight + tabsNav.offsetHeight + 4;
-    var y = el.getBoundingClientRect().top + window.scrollY - off;
-    window.scrollTo({ top: y, behavior: "smooth" });
+    // 앱바·탭은 #scroll-region 바깥(고정)이라 별도 오프셋 없이 컨테이너 기준으로 이동.
+    var y = el.getBoundingClientRect().top - scrollRegion.getBoundingClientRect().top
+      + scrollRegion.scrollTop;
+    scrollRegion.scrollTo({ top: y, behavior: "smooth" });
   }
 
   function render() { renderBody(); updateFab(); }
@@ -613,7 +615,7 @@
     }
     listEl.setAttribute("aria-labelledby", tab.id);
     render();
-    window.scrollTo({ top: 0 });
+    scrollRegion.scrollTo({ top: 0 });
   }
 
   tabs.forEach(function (tab) {
@@ -1147,26 +1149,6 @@
     }
   }
 
-  // ---------- sticky 오프셋 실측 ----------
-  // 앱바/탭의 실제 높이를 CSS 변수로 반영해 탭·섹션헤더 sticky 위치를 정확히 맞춘다.
-  // (고정 픽셀이면 폰트·safe-area·데스크톱 줌에 따라 어긋나 스크롤 시 헤더가 본문을 파고듦)
-  function syncStickyOffsets() {
-    var hb = appBar.offsetHeight;
-    var ht = tabsNav.offsetHeight;
-    document.documentElement.style.setProperty("--header-h", hb + "px");
-    document.documentElement.style.setProperty("--tabs-h", ht + "px");
-  }
-  syncStickyOffsets(); // 첫 페인트부터 정확하도록 즉시 1회 실측
-  window.addEventListener("resize", syncStickyOffsets);
-  window.addEventListener("orientationchange", syncStickyOffsets);
-  window.addEventListener("load", syncStickyOffsets);
-  // 창 리사이즈가 없어도 헤더 높이가 바뀌면(폰트 적용·동적 변화·줌) 즉시 재동기화
-  if (typeof ResizeObserver !== "undefined") {
-    var ro = new ResizeObserver(function () { syncStickyOffsets(); });
-    ro.observe(appBar);
-    ro.observe(tabsNav);
-  }
-
   // ---------- 부팅 ----------
   UI.renderSkeleton(listEl, 8);
   var photosReady = (window.Photos && Photos.loadAll) ? Photos.loadAll() : Promise.resolve();
@@ -1174,7 +1156,6 @@
     .then(function () { return photosReady; })
     .then(function () {
       render();
-      syncStickyOffsets();
       openFromHash();
     })
     .catch(function (err) {
@@ -1184,7 +1165,7 @@
         "다시 시도",
         function () {
           UI.renderSkeleton(listEl, 8);
-          Data.load().then(function () { render(); syncStickyOffsets(); })
+          Data.load().then(function () { render(); })
             .catch(function (e2) {
               listEl.textContent = "";
               listEl.appendChild(UI.emptyState("여전히 실패했습니다.\n" + e2.message,

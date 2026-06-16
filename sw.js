@@ -2,7 +2,7 @@
  * Service Worker — 오프라인 캐싱.
  * 앱 셸은 캐시 우선, 연락처 데이터는 네트워크 우선(오프라인 시 캐시 폴백).
  */
-var CACHE = "donggu-dial-v50";
+var CACHE = "donggu-dial-v51";
 
 var APP_SHELL = [
   "./",
@@ -26,6 +26,8 @@ self.addEventListener("install", function (event) {
   event.waitUntil(
     caches.open(CACHE).then(function (cache) {
       return cache.addAll(APP_SHELL);
+    }).then(function () {
+      return self.skipWaiting(); // 새 워커가 대기하지 않고 곧바로 활성화되도록
     })
   );
 });

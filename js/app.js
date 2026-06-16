@@ -4,7 +4,7 @@
 (function () {
   "use strict";
 
-  var APP_VERSION = "50"; // SW 캐시(donggu-dial-vNN)와 함께 갱신
+  var APP_VERSION = "51"; // SW 캐시(donggu-dial-vNN)와 함께 갱신
   var listEl = document.getElementById("list");
   var scrollRegion = document.getElementById("scroll-region");
   var resultStatus = document.getElementById("result-status");
@@ -76,7 +76,17 @@
     var open = overlayList().filter(function (o) { return !o.el.hidden; });
     open.forEach(function (o, i) { o.el.style.zIndex = String(20 + open.length - i); });
   }
-  function syncInert() { setBgInert(anyOverlayOpen()); restack(); }
+  function syncInert() { setBgInert(anyOverlayOpen()); restack(); maybeReloadForUpdate(); }
+
+  // 새 SW가 제어권을 잡았을 때(controllerchange) 보류해 둔 자동 새로고침을, 작업 중이
+  // 아닐 때(오버레이/편집기 닫힘) 수행한다. 편집 중 강제 reload로 인한 데이터 손실 방지.
+  var swPendingReload = false, swRefreshing = false;
+  function maybeReloadForUpdate() {
+    if (!swPendingReload || swRefreshing) return;
+    if (anyOverlayOpen()) return; // 편집 등 작업 중 — 닫힐 때 다시 시도
+    swRefreshing = true;
+    window.location.reload();
+  }
   function updateFab() {
     var show = !anyOverlayOpen() && !current.query && !current.orgReorder &&
       (current.tab === "all" || current.tab === "org");
@@ -682,16 +692,9 @@
     navigator.serviceWorker.getRegistration().then(function (reg) {
       if (!reg) { showSnack("설치된 서비스워커가 없습니다"); return; }
       return reg.update().then(function () {
-        if (reg.waiting) { showUpdateToast(reg); showSnack("새 버전이 있습니다 — 새로고침하세요"); return; }
-        var sw = reg.installing;
-        if (sw) {
-          showSnack("새 버전을 받는 중…");
-          sw.addEventListener("statechange", function () {
-            if (sw.state === "installed") { showUpdateToast(reg); showSnack("새 버전 준비됨 — 새로고침하세요"); }
-          });
-          return;
-        }
-        showSnack("최신 버전입니다 (v" + APP_VERSION + ")");
+        // 새 버전이 있으면 자동으로 설치→활성→새로고침된다(controllerchange 처리).
+        if (reg.installing || reg.waiting) showSnack("새 버전을 적용하는 중…");
+        else showSnack("최신 버전입니다 (v" + APP_VERSION + ")");
       });
     }).catch(function () { showSnack("업데이트 확인 실패"); });
   });
@@ -1175,74 +1178,33 @@
       ));
     });
 
-  // ---------- PWA: 서비스워커 + 업데이트 ----------
-  // 사용자가 "새로고침"을 눌렀을 때만 true. 새 워커가 제어권을 잡는
-  // controllerchange 시점에 reload 해야 즉시(한 번에) 반영된다.
-  var awaitingActivation = false;
+  // ---------- PWA: 서비스워커 + 자동 업데이트 ----------
+  // SW가 install 시 skipWaiting → activate 에서 clients.claim 하므로 새 버전이 곧바로
+  // 제어권을 잡는다. controllerchange 가 오면 자동으로 한 번 새로고침해 최신 코드를 반영.
+  // (작업 중이면 maybeReloadForUpdate 가 오버레이 닫힐 때까지 미룸)
   if ("serviceWorker" in navigator) {
+    var hadController = !!navigator.serviceWorker.controller;
     navigator.serviceWorker.addEventListener("controllerchange", function () {
-      if (!awaitingActivation) return; // 최초 설치(컨트롤러 최초 획득) 때는 무시
-      awaitingActivation = false;
-      window.location.reload();
+      if (!hadController) return; // 최초 설치(처음 제어권 획득)에는 새로고침하지 않음
+      swPendingReload = true;
+      maybeReloadForUpdate();
+    });
+    document.addEventListener("visibilitychange", function () {
+      if (document.visibilityState === "visible") maybeReloadForUpdate();
     });
     window.addEventListener("load", function () {
       navigator.serviceWorker.register("sw.js").then(function (reg) {
-        // 이미 설치돼 대기 중인 새 워커가 있으면 즉시 안내(이전 방문에서 updatefound가 이미 끝난 경우)
-        if (reg.waiting && navigator.serviceWorker.controller) showUpdateToast(reg);
-
-        reg.addEventListener("updatefound", function () {
-          var nw = reg.installing;
-          if (!nw) return;
-          nw.addEventListener("statechange", function () {
-            if (nw.state === "installed" && navigator.serviceWorker.controller) {
-              showUpdateToast(reg);
-            }
-          });
-        });
-
-        // 새 배포 자동 감지 보강: 설치형 PWA는 내비게이션이 드물어 브라우저 자동
-        // 업데이트 확인이 약하다. 주기적 + 앱이 다시 보일 때 + 온라인 복귀 시 직접 확인.
+        // 새 배포 자동 감지: 설치형 PWA는 내비게이션이 드물어 브라우저 자동 확인이 약하다.
+        // 로드 직후 + 주기적 + 앱이 다시 보일 때 + 온라인 복귀 시 직접 확인 → 자동 적용.
         function checkForUpdate() { if (reg.update) reg.update().catch(function () {}); }
-        setInterval(checkForUpdate, 30 * 60 * 1000); // 30분마다
+        checkForUpdate();
+        setInterval(checkForUpdate, 15 * 60 * 1000); // 15분마다
         document.addEventListener("visibilitychange", function () {
           if (document.visibilityState === "visible") checkForUpdate();
         });
         window.addEventListener("online", checkForUpdate);
-        checkForUpdate(); // 로드 직후 1회
       }).catch(function () {});
     });
-  }
-
-  function activateUpdate(reg) {
-    // 대기 중인 새 워커에게 즉시 활성화를 요청. 실제 reload 는
-    // controllerchange 리스너가 새 워커가 제어권을 잡은 뒤에 수행한다.
-    awaitingActivation = true;
-    if (reg && reg.waiting) {
-      reg.waiting.postMessage({ type: "SKIP_WAITING" });
-    } else {
-      // 대기 워커가 없으면(이미 활성/예외) 안전하게 즉시 reload
-      awaitingActivation = false;
-      window.location.reload();
-      return;
-    }
-    // controllerchange 가 끝내 오지 않을 때를 대비한 안전 폴백
-    setTimeout(function () {
-      if (awaitingActivation) {
-        awaitingActivation = false;
-        window.location.reload();
-      }
-    }, 3000);
-  }
-
-  function showUpdateToast(reg) {
-    var toast = document.getElementById("update-toast");
-    toast.hidden = false;
-    document.getElementById("update-btn").onclick = function () {
-      activateUpdate(reg);
-    };
-    document.getElementById("update-dismiss").onclick = function () {
-      toast.hidden = true;
-    };
   }
 
   // ---------- PWA: 설치 프롬프트 ----------

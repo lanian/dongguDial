@@ -140,7 +140,7 @@
     var parts = [c.name];
     if (c.position || c.dept) parts.push([c.dept, c.team, c.position].filter(Boolean).join(" "));
     if (c.phone) parts.push("휴대전화 " + formatPhone(c.phone));
-    if (c.tel) parts.push("사내번호 " + formatPhone(c.tel));
+    if (c.tel) parts.push("행정번호 " + formatPhone(c.tel));
     var text = parts.join("\n");
     if (navigator.share) {
       navigator.share({ title: c.name, text: text }).catch(function () {});
@@ -513,7 +513,7 @@
       form.appendChild(field("직책", textInput("ef-position", contact.position, "팀장")));
       form.appendChild(field("담당업무", textInput("ef-work", contact.work, "채용")));
       form.appendChild(field("휴대전화", textInput("ef-phone", contact.phone, "010-0000-0000", "tel")));
-      form.appendChild(field("사내번호", textInput("ef-tel", contact.tel, "02-000-0000", "tel")));
+      form.appendChild(field("행정번호", textInput("ef-tel", contact.tel, "02-000-0000", "tel")));
       form.appendChild(field("생년월일", textInput("ef-birth", contact.birth, "1990-01-01")));
 
       var statusSel = el("select", "ef-input");
@@ -671,7 +671,7 @@
       var qa = el("div", "quick-actions");
       qa.appendChild(quickComm("phone", "전화", contact.phone ? "tel:" + clean(contact.phone) : null, "전화 걸기"));
       qa.appendChild(quickComm("message", "문자", contact.phone ? "sms:" + clean(contact.phone) : null, "문자 보내기"));
-      qa.appendChild(quickComm("building", "사내전화", contact.tel ? "tel:" + clean(contact.tel) : null, "사내번호로 전화"));
+      qa.appendChild(quickComm("building", "행정전화", contact.tel ? "tel:" + clean(contact.tel) : null, "행정번호로 전화"));
       qa.appendChild(quickBtn("share", "공유", function () { shareContact(contact); }, "연락처 공유", true));
       qa.appendChild(quickBtn("download", "저장", function () { downloadVCard(contact); }, "연락처 파일로 저장", true));
       container.appendChild(qa);
@@ -679,7 +679,7 @@
       // 연락처 섹션
       var c1 = el("div", "info-card");
       addPhoneRow(c1, "mobile", "휴대전화", contact.phone);
-      addPhoneRow(c1, "building", "사내번호", contact.tel);
+      addPhoneRow(c1, "building", "행정번호", contact.tel);
       var rep = deptRep(contact);
       if (rep) addPhoneRow(c1, "users", "부서 대표(" + rep.name + ")", rep.tel);
       addInfo(c1, "cake", "생년월일", contact.birth);
@@ -702,7 +702,7 @@
 
   function sectionTitle(text) { return el("div", "info-section-title", text); }
 
-  // 통신 quick(전화/문자/사내): 값 없으면 disabled 버튼(접근 가능·시각적 비활성)
+  // 통신 quick(전화/문자/행정): 값 없으면 disabled 버튼(접근 가능·시각적 비활성)
   function quickComm(iconName, label, href, aria) {
     var node;
     if (href) { node = el("a", "quick"); node.href = href; node.setAttribute("aria-label", aria); }
@@ -726,7 +726,7 @@
     return node;
   }
 
-  /** 같은 부서 리더(장)의 사내번호 — 본인과 다르면 '부서 대표'로 노출 */
+  /** 같은 부서 리더(장)의 행정번호 — 본인과 다르면 '부서 대표'로 노출 */
   function deptRep(contact) {
     if (!(window.Data && Data.membersOfDept)) return null;
     var mem = Data.membersOfDept(contact.deptId);

@@ -4,7 +4,7 @@
 (function () {
   "use strict";
 
-  var APP_VERSION = "40"; // SW 캐시(donggu-dial-vNN)와 함께 갱신
+  var APP_VERSION = "41"; // SW 캐시(donggu-dial-vNN)와 함께 갱신
   var listEl = document.getElementById("list");
   var resultStatus = document.getElementById("result-status");
   var searchInput = document.getElementById("search-input");
@@ -968,7 +968,7 @@
     position: ["직책", "직위", "직급", "position"],
     work: ["담당업무", "업무", "담당", "work"],
     phone: ["휴대전화", "휴대폰", "핸드폰", "휴대", "개인전화", "연락처", "hp", "mobile", "phone"],
-    tel: ["사내번호", "내선", "내선번호", "사무실", "직통", "전화", "tel"],
+    tel: ["행정번호", "사내번호", "내선", "내선번호", "사무실", "직통", "전화", "tel"],
     birth: ["생년월일", "생일", "출생", "birth"],
     status: ["재직상태", "상태", "재직", "status"],
   };
@@ -1089,7 +1089,7 @@
     reader.readAsArrayBuffer(file); // CSV/XLSX 모두 ArrayBuffer로 읽어 인코딩 자동 판별
   });
   document.getElementById("import-template-btn").addEventListener("click", function () {
-    var csv = "이름,상위부서,부서,팀,직책,담당업무,휴대전화,사내번호,생년월일,재직상태\n" +
+    var csv = "이름,상위부서,부서,팀,직책,담당업무,휴대전화,행정번호,생년월일,재직상태\n" +
       "홍길동,행정복지국,자치행정과,총무팀,팀장,총무,010-1234-5678,062-608-0000,1980-01-01,재직\n" +
       "김영희,행정복지국,자치행정과,,과장,자치행정,010-2222-3333,062-608-0001,1978-05-05,재직\n";
     var blob = new Blob(["﻿" + csv], { type: "text/csv;charset=utf-8" });

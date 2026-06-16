@@ -114,3 +114,15 @@ UX:
 - 트리 들여쓰기 + 부서 경로(상위 muted) 표시, 실시간 검색(경로/이름), 현재 선택 ✓, (미지정)/최상위 옵션.
 - 상위부서 선택 시 자기·자손 제외(순환 방지). SW 캐시 v29.
 - 검증: jsdom picker(검색/선택/라벨/저장/제외) + 회귀(정합성9·UX8·상세9·가져오기·트리) 통과.
+
+## 14) 업데이트 즉시 반영 (controllerchange 기반 새로고침)
+- 문제: "업데이트 확인 → 새로고침"을 눌러도 바로 반영되지 않고 한 번 더 새로고침해야 했다.
+  원인은 전형적인 SW 업데이트 레이스 — 버튼이 `SKIP_WAITING`을 보내자마자 곧장
+  `location.reload()` 하는데, 이 시점엔 **이전 워커가 아직 페이지를 제어** 중이라 옛 캐시가
+  그대로 서빙됨(두 번째 새로고침에야 새 워커 적용).
+- 해결: 즉시 reload 제거. `awaitingActivation` 플래그를 세우고 `SKIP_WAITING`만 전송한 뒤,
+  **새 워커가 제어권을 잡는 `controllerchange` 시점에 한 번만 reload**. 최초 설치
+  (컨트롤러 최초 획득) 때는 플래그가 false라 reload 하지 않음. controllerchange가 끝내
+  오지 않을 경우를 대비한 3초 안전 폴백 포함. 대기 워커가 없으면 즉시 reload.
+- SW 캐시 v30. 검증: jsdom — 클릭 시 즉시 reload 안 함(0), controllerchange 1회에
+  정확히 1회 reload, 2회째 controllerchange는 무동작(중복 reload 없음) 확인.

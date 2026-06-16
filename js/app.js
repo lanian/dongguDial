@@ -4,7 +4,7 @@
 (function () {
   "use strict";
 
-  var APP_VERSION = "29"; // SW 캐시(donggu-dial-vNN)와 함께 갱신
+  var APP_VERSION = "30"; // SW 캐시(donggu-dial-vNN)와 함께 갱신
   var listEl = document.getElementById("list");
   var resultStatus = document.getElementById("result-status");
   var searchInput = document.getElementById("search-input");
@@ -1016,7 +1016,15 @@
     });
 
   // ---------- PWA: 서비스워커 + 업데이트 ----------
+  // 사용자가 "새로고침"을 눌렀을 때만 true. 새 워커가 제어권을 잡는
+  // controllerchange 시점에 reload 해야 즉시(한 번에) 반영된다.
+  var awaitingActivation = false;
   if ("serviceWorker" in navigator) {
+    navigator.serviceWorker.addEventListener("controllerchange", function () {
+      if (!awaitingActivation) return; // 최초 설치(컨트롤러 최초 획득) 때는 무시
+      awaitingActivation = false;
+      window.location.reload();
+    });
     window.addEventListener("load", function () {
       navigator.serviceWorker.register("sw.js").then(function (reg) {
         reg.addEventListener("updatefound", function () {
@@ -1032,12 +1040,32 @@
     });
   }
 
+  function activateUpdate(reg) {
+    // 대기 중인 새 워커에게 즉시 활성화를 요청. 실제 reload 는
+    // controllerchange 리스너가 새 워커가 제어권을 잡은 뒤에 수행한다.
+    awaitingActivation = true;
+    if (reg && reg.waiting) {
+      reg.waiting.postMessage({ type: "SKIP_WAITING" });
+    } else {
+      // 대기 워커가 없으면(이미 활성/예외) 안전하게 즉시 reload
+      awaitingActivation = false;
+      window.location.reload();
+      return;
+    }
+    // controllerchange 가 끝내 오지 않을 때를 대비한 안전 폴백
+    setTimeout(function () {
+      if (awaitingActivation) {
+        awaitingActivation = false;
+        window.location.reload();
+      }
+    }, 3000);
+  }
+
   function showUpdateToast(reg) {
     var toast = document.getElementById("update-toast");
     toast.hidden = false;
     document.getElementById("update-btn").onclick = function () {
-      if (reg.waiting) reg.waiting.postMessage({ type: "SKIP_WAITING" });
-      window.location.reload();
+      activateUpdate(reg);
     };
     document.getElementById("update-dismiss").onclick = function () {
       toast.hidden = true;

@@ -4,7 +4,7 @@
 (function () {
   "use strict";
 
-  var APP_VERSION = "68"; // SW 캐시(donggu-dial-vNN)와 함께 갱신
+  var APP_VERSION = "69"; // SW 캐시(donggu-dial-vNN)와 함께 갱신
   var ORG_HDR_H = 44;     // 조직도 헤더 높이(CSS --org-hdr-h 와 동기화) — 계단식 sticky 점프 보정용
   var listEl = document.getElementById("list");
   var scrollRegion = document.getElementById("scroll-region");
@@ -89,8 +89,8 @@
     window.location.reload();
   }
   function updateFab() {
-    var show = !anyOverlayOpen() && !current.query && !current.orgReorder &&
-      (current.tab === "all" || current.tab === "org");
+    // FAB(사원 추가)는 '전체' 탭에서만. 조직도는 보기/구조 전용이라 노출하지 않음
+    var show = !anyOverlayOpen() && !current.query && current.tab === "all";
     fab.hidden = !show;
   }
 

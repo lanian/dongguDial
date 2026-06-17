@@ -2,7 +2,7 @@
  * Service Worker — 오프라인 캐싱.
  * 앱 셸은 캐시 우선, 연락처 데이터는 네트워크 우선(오프라인 시 캐시 폴백).
  */
-var CACHE = "donggu-dial-v80";
+var CACHE = "donggu-dial-v79";
 
 var APP_SHELL = [
   "./",
@@ -17,7 +17,6 @@ var APP_SHELL = [
   "./js/app.js",
   "./data/contacts.json",
   "./icons/icon-192.png",
-  "./icons/icon-mask.png",
   "./icons/icon-512.png",
   "./icons/icon-maskable-512.png",
   "./icons/apple-touch-icon.png",

@@ -360,8 +360,11 @@
           header.appendChild(icon("chevron", "section-jump-chev"));
           header.addEventListener("click", function () { opts.onDeptJump(g.dept.id); });
         }
-        frag.appendChild(header);
-        appendRows(frag, g.members, opts);
+        // 섹션 래퍼: sticky 헤더의 범위를 자기 섹션으로 한정해 헤더가 누적(겹침)되지 않게 함
+        var section = el("div", "list-section");
+        section.appendChild(header);
+        appendRows(section, g.members, opts);
+        frag.appendChild(section);
       });
       container.appendChild(frag);
     },
@@ -379,8 +382,11 @@
         header.id = "grp-" + g.key;
         header.appendChild(document.createTextNode(g.key + " "));
         header.appendChild(el("span", "count", "(" + g.members.length + ")"));
-        frag.appendChild(header);
-        appendRows(frag, g.members, opts);
+        // 섹션 래퍼: sticky 헤더 누적(겹침) 방지 — 헤더 범위를 자기 섹션으로 한정
+        var section = el("div", "list-section");
+        section.appendChild(header);
+        appendRows(section, g.members, opts);
+        frag.appendChild(section);
       });
       container.appendChild(frag);
     },
@@ -427,8 +433,10 @@
         var header = el("div", "section-header");
         header.appendChild(document.createTextNode(g.label + " "));
         header.appendChild(el("span", "count", "(" + g.members.length + ")"));
-        frag.appendChild(header);
-        appendRows(frag, g.members, opts);
+        var section = el("div", "list-section"); // sticky 헤더 누적(겹침) 방지
+        section.appendChild(header);
+        appendRows(section, g.members, opts);
+        frag.appendChild(section);
       });
       container.appendChild(frag);
     },
@@ -489,12 +497,13 @@
         if (opts.onRenameGroup) ctrl("edit", "이름 변경", false, function () { opts.onRenameGroup(sec.group); });
         if (opts.onRemoveGroup) ctrl("trash", "그룹 삭제", false, function () { opts.onRemoveGroup(sec.group); });
         header.appendChild(ctrls);
-        frag.appendChild(header);
-
+        var section = el("div", "list-section"); // sticky 헤더 누적(겹침) 방지
+        section.appendChild(header);
         if (!collapsed) {
-          if (sec.members.length) appendRows(frag, sec.members, opts);
-          else frag.appendChild(el("div", "fav-group-empty", "이 그룹에 연락처가 없습니다. 연락처 행의 🔖 버튼으로 지정하세요."));
+          if (sec.members.length) appendRows(section, sec.members, opts);
+          else section.appendChild(el("div", "fav-group-empty", "이 그룹에 연락처가 없습니다. 연락처 행의 🔖 버튼으로 지정하세요."));
         }
+        frag.appendChild(section);
       });
 
       // 미분류
@@ -502,8 +511,10 @@
         var uh = el("div", "section-header fav-group-header");
         uh.appendChild(el("span", "section-leaf section-muted", "미분류 "));
         uh.appendChild(el("span", "count", "(" + fs.ungrouped.length + ")"));
-        frag.appendChild(uh);
-        appendRows(frag, fs.ungrouped, opts);
+        var us = el("div", "list-section");
+        us.appendChild(uh);
+        appendRows(us, fs.ungrouped, opts);
+        frag.appendChild(us);
       }
       container.appendChild(frag);
     },

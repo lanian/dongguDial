@@ -4,7 +4,7 @@
 (function () {
   "use strict";
 
-  var APP_VERSION = "71"; // SW 캐시(donggu-dial-vNN)와 함께 갱신
+  var APP_VERSION = "72"; // SW 캐시(donggu-dial-vNN)와 함께 갱신
   var ORG_HDR_H = 44;     // 조직도 헤더 높이(CSS --org-hdr-h 와 동기화) — 계단식 sticky 점프 보정용
   var listEl = document.getElementById("list");
   var scrollRegion = document.getElementById("scroll-region");

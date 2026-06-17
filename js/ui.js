@@ -191,18 +191,24 @@
 
     var actions = el("div", "row-actions");
 
-    if (opts.reorder) {
-      // 순서 편집 모드: 드래그 핸들(별·전화 대신). 같은 부서 안 정렬 + 다른 부서로 이동 모두 드래그로.
-      row.setAttribute("data-dnd", "");
-      row.setAttribute("data-id", String(contact.id));
-      row.setAttribute("data-dept", contact.deptId == null ? "" : String(contact.deptId));
-      row.classList.add("row--reorder");
-      var grip = el("button", "mini-btn mini-btn--ghost dnd-handle");
-      grip.type = "button";
-      grip.setAttribute("aria-label", (contact.name || "") + " 끌어서 순서·부서 이동");
-      grip.appendChild(icon("grip"));
-      grip.addEventListener("click", function (e) { e.stopPropagation(); e.preventDefault(); });
-      actions.appendChild(grip);
+    if (opts.reorder && opts.onMove) {
+      // 순서 편집 모드: 같은 부서 안에서 ▲▼ 이동 + '다른 부서로' 이동(별·전화 대신)
+      var sibs = (window.Data && Data.membersOfDept) ? Data.membersOfDept(contact.deptId) : [];
+      var pos = sibs.map(function (s) { return s.id; }).indexOf(contact.id);
+      actions.appendChild(moveBtn("up", pos <= 0, function (e) {
+        if (e) e.stopPropagation(); opts.onMove(contact, -1);
+      }));
+      actions.appendChild(moveBtn("down", pos < 0 || pos >= sibs.length - 1, function (e) {
+        if (e) e.stopPropagation(); opts.onMove(contact, 1);
+      }));
+      if (opts.onMoveDept) {
+        var md = el("button", "mini-btn mini-btn--ghost");
+        md.type = "button";
+        md.setAttribute("aria-label", (contact.name || "") + " 다른 부서로 이동");
+        md.appendChild(icon("building"));
+        md.addEventListener("click", function (e) { e.stopPropagation(); opts.onMoveDept(contact); });
+        actions.appendChild(md);
+      }
     } else {
       var isFav = Storage.isFavorite(contact.id);
       var star = el("button", "mini-btn mini-btn--star" + (isFav ? " is-on" : ""));
@@ -247,14 +253,10 @@
     }
     row.appendChild(actions);
 
-    if (opts.onOpen && !opts.reorder) {
-      row.addEventListener("click", function () { opts.onOpen(contact); });
-      row.addEventListener("keydown", function (e) {
-        if (e.key === "Enter" || e.key === " ") { e.preventDefault(); opts.onOpen(contact); }
-      });
-    } else if (opts.reorder) {
-      row.tabIndex = -1; // 순서 편집 중에는 행 자체로 진입하지 않음(핸들만 조작)
-    }
+    row.addEventListener("click", function () { opts.onOpen(contact); });
+    row.addEventListener("keydown", function (e) {
+      if (e.key === "Enter" || e.key === " ") { e.preventDefault(); opts.onOpen(contact); }
+    });
     return row;
   }
 
@@ -284,8 +286,6 @@
       " org-lvl-" + Math.min(depth, 2));
     header.type = "button";
     header.id = "org-" + node.dept.id;
-    // 순서 편집 모드: 헤더를 드롭 앵커로 표시(빈 부서/섹션 첫 자리로의 이동 지원)
-    if (opts.reorder && node.dept.id) header.setAttribute("data-dept-anchor", String(node.dept.id));
     // 과/팀 헤더의 계단식 sticky top/z-index 계산용 깊이(최대 2단까지 쌓음)
     if (!top) header.style.setProperty("--depth", Math.min(depth, 2));
     header.setAttribute("aria-expanded", collapsed ? "false" : "true");
@@ -495,8 +495,6 @@
      *  opts: onOpen,onFav,collapsed,onToggle,reorder,onToggleReorder,onMove */
     renderOrgView: function (container, tree, opts) {
       container.textContent = "";
-      // 순서 편집 중에는 sticky 헤더를 끈다(드래그 좌표 계산이 정확해지고 편집 화면이 차분해짐)
-      container.classList.toggle("org-reordering", !!opts.reorder);
       if (!tree.length) {
         container.appendChild(UI.emptyState("조직 정보가 없습니다.",
           opts.onManage ? "부서 관리" : null, opts.onManage));
@@ -532,7 +530,7 @@
       container.appendChild(summary);
       if (opts.reorder) {
         container.appendChild(el("div", "org-reorder-hint",
-          "≡ 핸들을 끌어 순서를 바꾸세요. 다른 부서 영역으로 끌면 소속도 바뀝니다."));
+          "▲▼ 로 같은 부서 안에서 순서를 바꾸고, 🏢 버튼으로 다른 부서로 옮깁니다."));
       }
 
       var frag = document.createDocumentFragment();
@@ -586,7 +584,7 @@
     },
 
     /** 부서 관리 목록: 직제순 + 레벨 들여쓰기 트리(상위 접기/펼치기).
-     *  드래그 핸들로 순서·상위 변경, 각 행 탭 → onEdit. h: onEdit,onAddChild,onDelete,onToggle,collapsed */
+     *  ▲▼ 로 순서 변경, 각 행 탭 → onEdit. h: onEdit,onMove,onAddChild,onDelete,onToggle,collapsed */
     renderDeptManager: function (container, departments, counts, h) {
       container.textContent = "";
       if (!departments.length) {
@@ -607,19 +605,11 @@
         cutoff = null;
         var kids = !!(byParent[d.id] && byParent[d.id].length);
         var isCol = !!collapsed[d.id];
+        var sibs = byParent[d.parentId || 0];
+        var sidx = sibs.indexOf(d);
 
         var row = el("div", "deptmgr-row");
-        row.setAttribute("data-dnd", "");
-        row.setAttribute("data-id", String(d.id));
-        row.setAttribute("data-parent", String(d.parentId || 0));
-        row.setAttribute("data-depth", String(depth));
         row.style.paddingLeft = (8 + depth * 16) + "px";
-
-        var grip = el("button", "mini-btn mini-btn--ghost dnd-handle deptmgr-grip");
-        grip.type = "button";
-        grip.setAttribute("aria-label", d.name + " 끌어서 순서·상위 변경");
-        grip.appendChild(icon("grip"));
-        row.appendChild(grip);
 
         if (kids) {
           var tg = el("button", "deptmgr-toggle" + (isCol ? " is-collapsed" : ""));
@@ -647,6 +637,10 @@
         row.appendChild(main);
 
         var acts = el("div", "deptmgr-acts");
+        if (h.onMove) {
+          acts.appendChild(moveBtn("up", sidx <= 0, function () { h.onMove(d, -1); }));
+          acts.appendChild(moveBtn("down", sidx < 0 || sidx >= sibs.length - 1, function () { h.onMove(d, 1); }));
+        }
         var addc = el("button", "mini-btn mini-btn--ghost");
         addc.type = "button";
         addc.setAttribute("aria-label", d.name + " 하위 부서 추가");
@@ -680,7 +674,7 @@
         String(dept.parentId || 0),
         dept.parentId ? deptLabel(dept.parentId) : "최상위 (국·실·관)"));
       container.appendChild(form);
-      var note = el("p", "settings-note", "순서(직제)와 상위 부서는 부서 관리 목록에서 ≡ 핸들을 끌어 조정할 수도 있습니다.");
+      var note = el("p", "settings-note", "순서(직제)는 부서 관리 목록에서 ▲▼ 버튼으로 조정합니다.");
       container.appendChild(note);
     },
 
@@ -928,6 +922,15 @@
     return row;
   }
 
+  function moveBtn(dir, disabled, fn) {
+    var b = el("button", "mini-btn mini-btn--ghost deptmgr-move");
+    b.type = "button";
+    b.setAttribute("aria-label", dir === "up" ? "위로 이동" : "아래로 이동");
+    if (disabled) b.disabled = true;
+    b.appendChild(icon("chevron", "chev-" + dir));
+    b.addEventListener("click", fn);
+    return b;
+  }
 
   /** dept.id의 모든 하위(자손) id 집합 — 순환 부모 선택 방지용 */
   function descendantsOf(id, depts) {

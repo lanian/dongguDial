@@ -977,6 +977,9 @@ select.ef-input { appearance: none; }
 .deptmgr-main:active { background: var(--divider); }
 .deptmgr-acts { display: flex; align-items: center; gap: 2px; flex: 0 0 auto; }
 .deptmgr-acts .mini-btn { width: 38px; height: 38px; }
+.deptmgr-move[disabled] { opacity: 0.25; pointer-events: none; }
+.chev-up { transform: rotate(-90deg); }
+.chev-down { transform: rotate(90deg); }
 .org-reorder-hint {
   margin: 0 var(--sp-4) var(--sp-2);
   padding: var(--sp-2) var(--sp-3);
@@ -1008,8 +1011,7 @@ select.ef-input { appearance: none; }
 .org-tbtn:active { background: var(--divider); }
 .org-tbtn--done.is-active { background: var(--brand); color: #fff; border-color: var(--brand); }
 
-/* 부서 관리: 드래그 핸들 · 접기 토글 · 삭제 */
-.deptmgr-grip { width: 34px; height: 38px; flex: 0 0 auto; cursor: grab; touch-action: none; }
+/* 부서 관리: 접기 토글 · 삭제 */
 .deptmgr-toggle {
   flex: 0 0 auto;
   width: 26px; height: 38px;
@@ -1020,49 +1022,6 @@ select.ef-input { appearance: none; }
 .deptmgr-toggle-spacer { width: 26px; flex: 0 0 auto; }
 .deptmgr-del { color: var(--danger); }
 .deptmgr-del:active { background: rgba(217, 48, 37, 0.14); }
-
-/* 순서 편집 모드: sticky 해제(좌표 계산 안정 + 차분한 편집 화면) */
-.org-reordering .org-dept,
-.org-reordering .org-team-header {
-  position: static;
-  box-shadow: none;
-}
-
-/* ---------- 드래그 정렬 엔진 ---------- */
-.dnd-handle { touch-action: none; cursor: grab; }
-.dnd-handle:active { cursor: grabbing; }
-body.dnd-active { cursor: grabbing; user-select: none; -webkit-user-select: none; }
-.dnd-source { opacity: 0.4; }
-.dnd-clone {
-  position: fixed;
-  top: 0; left: 0;
-  margin: 0;
-  z-index: 9999;
-  pointer-events: none;
-  background: var(--surface);
-  box-shadow: 0 8px 24px -6px rgba(0, 0, 0, 0.35);
-  border-radius: var(--r-md);
-  opacity: 0.96;
-  will-change: transform;
-}
-.dnd-indicator {
-  position: fixed;
-  top: 0; left: 0;
-  height: 0;
-  border-top: 2px solid var(--brand);
-  border-radius: 2px;
-  z-index: 9998;
-  pointer-events: none;
-  will-change: transform;
-}
-.dnd-indicator::before {
-  content: "";
-  position: absolute;
-  left: -3px; top: -4px;
-  width: 7px; height: 7px;
-  border-radius: 50%;
-  background: var(--brand);
-}
 
 /* ---------- FAB ---------- */
 .fab {

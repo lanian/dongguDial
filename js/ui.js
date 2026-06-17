@@ -7,15 +7,9 @@
 
   var SVG_NS = "http://www.w3.org/2000/svg";
 
-  var AVATAR_COLORS = [
-    "#1f6feb", "#7c3aed", "#0e7490", "#be185d",
-    "#15803d", "#b45309", "#0f766e", "#7e22ce",
-  ];
-
+  // 이름 글자 아바타 배경색 — 이전엔 이름별 랜덤 팔레트라 산만했음. 브랜드 색으로 통일.
   function avatarColor(name) {
-    var sum = 0;
-    for (var i = 0; i < name.length; i++) sum += name.charCodeAt(i);
-    return AVATAR_COLORS[sum % AVATAR_COLORS.length];
+    return "#1f6feb"; // var(--brand)
   }
 
   function initial(name) { return name ? name.trim().charAt(0) : "?"; }

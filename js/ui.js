@@ -544,6 +544,7 @@
     /** 그룹 지정 오버레이 목록(다중 체크). opts: groups,selected(Set/obj),onToggle,onAddGroup */
     renderFavGroupPicker: function (container, opts) {
       container.textContent = "";
+      var counts = opts.counts || {};
       var card = el("div", "picker-card");
       if (!opts.groups.length) {
         card.appendChild(el("div", "picker-empty", "아직 그룹이 없습니다. 아래에서 새 그룹을 만드세요."));
@@ -557,15 +558,28 @@
         if (on) chk.appendChild(icon("star"));
         row.appendChild(chk);
         row.appendChild(el("span", "pick-name", g.name));
+        row.appendChild(el("span", "fav-pick-count", (counts[g.id] || 0) + "명"));
         row.addEventListener("click", function () { opts.onToggle(g.id); });
         card.appendChild(row);
       });
-      var addRow = el("button", "pick-row fav-pick-add");
-      addRow.type = "button";
-      addRow.appendChild(icon("plus"));
-      addRow.appendChild(el("span", "pick-name", "새 그룹 만들기"));
-      addRow.addEventListener("click", opts.onAddGroup);
-      card.appendChild(addRow);
+      // 새 그룹 만들기 — 모달 내 입력칸(이전 window.prompt 대체)
+      var form = el("form", "fav-pick-addform");
+      var input = el("input", "fav-pick-input");
+      input.type = "text"; input.placeholder = "새 그룹 이름"; input.maxLength = 30;
+      input.setAttribute("aria-label", "새 그룹 이름");
+      var addBtn = el("button", "fav-pick-addbtn");
+      addBtn.type = "submit";
+      addBtn.appendChild(icon("plus"));
+      addBtn.appendChild(el("span", null, "추가"));
+      form.appendChild(input);
+      form.appendChild(addBtn);
+      form.addEventListener("submit", function (e) {
+        e.preventDefault();
+        var v = input.value.trim();
+        if (!v) { input.focus(); return; }
+        opts.onAddGroup(v);
+      });
+      card.appendChild(form);
       container.appendChild(card);
     },
 

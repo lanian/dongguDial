@@ -4,7 +4,7 @@
 (function () {
   "use strict";
 
-  var APP_VERSION = "82"; // SW 캐시(donggu-dial-vNN)와 함께 갱신
+  var APP_VERSION = "83"; // SW 캐시(donggu-dial-vNN)와 함께 갱신
   var ORG_HDR_H = 44;     // 조직도 헤더 높이(CSS --org-hdr-h 와 동기화) — 계단식 sticky 점프 보정용
   var listEl = document.getElementById("list");
   var scrollRegion = document.getElementById("scroll-region");
@@ -682,51 +682,132 @@
     return buckets.filter(function (b) { return b.members.length; });
   }
 
+  // 인앱 모달 다이얼로그(네이티브 prompt/confirm/alert 대체).
+  // opts.value 가 있으면 입력형(확인 시 trim 문자열 반환), 없으면 확인형(true 반환). 취소·Esc·배경클릭 → null.
+  function appDialog(opts) {
+    opts = opts || {};
+    var prevFocus = document.activeElement;
+    function mk(tag, cls, text) {
+      var n = document.createElement(tag);
+      if (cls) n.className = cls;
+      if (text != null) n.textContent = text;
+      return n;
+    }
+    return new Promise(function (resolve) {
+      var backdrop = mk("div", "app-dialog-backdrop");
+      var card = mk("div", "app-dialog");
+      card.setAttribute("role", "dialog");
+      card.setAttribute("aria-modal", "true");
+      if (opts.title) {
+        var h = mk("h2", "app-dialog-title", opts.title);
+        h.id = "app-dialog-title";
+        card.setAttribute("aria-labelledby", h.id);
+        card.appendChild(h);
+      }
+      if (opts.message) card.appendChild(mk("p", "app-dialog-msg", opts.message));
+      var hasInput = opts.value !== undefined;
+      var input = null;
+      if (hasInput) {
+        input = mk("input", "app-dialog-input");
+        input.type = "text";
+        input.value = opts.value || "";
+        if (opts.placeholder) input.placeholder = opts.placeholder;
+        input.maxLength = opts.maxLength || 30;
+        card.appendChild(input);
+      }
+      var btns = mk("div", "app-dialog-btns");
+      var cancelBtn = mk("button", "app-dialog-btn", opts.cancelLabel || "취소");
+      cancelBtn.type = "button";
+      var okBtn = mk("button", "app-dialog-btn app-dialog-ok" + (opts.danger ? " is-danger" : ""), opts.okLabel || "확인");
+      okBtn.type = "button";
+      btns.appendChild(cancelBtn);
+      btns.appendChild(okBtn);
+      card.appendChild(btns);
+      backdrop.appendChild(card);
+      function done(result) {
+        document.removeEventListener("keydown", onKey, true);
+        if (backdrop.parentNode) backdrop.parentNode.removeChild(backdrop);
+        if (prevFocus && prevFocus.focus) { try { prevFocus.focus(); } catch (e) {} }
+        resolve(result);
+      }
+      function confirm() {
+        if (hasInput) {
+          var v = input.value.trim();
+          if (!v) { input.focus(); return; }
+          done(v);
+        } else done(true);
+      }
+      function onKey(e) {
+        if (e.key === "Escape") { e.preventDefault(); e.stopPropagation(); done(null); }
+        else if (e.key === "Enter") { e.preventDefault(); e.stopPropagation(); confirm(); }
+      }
+      cancelBtn.addEventListener("click", function () { done(null); });
+      okBtn.addEventListener("click", confirm);
+      backdrop.addEventListener("mousedown", function (e) { if (e.target === backdrop) done(null); });
+      document.addEventListener("keydown", onKey, true);
+      document.body.appendChild(backdrop);
+      (hasInput ? input : okBtn).focus();
+      if (hasInput) input.select();
+    });
+  }
+
   function addFavGroupPrompt() {
-    var name = window.prompt("새 그룹 이름");
-    if (name == null) return;
-    name = name.trim();
-    if (!name) return;
-    Storage.addFavGroup(name);
-    render();
-    showSnack("그룹 ‘" + name + "’ 추가됨");
+    appDialog({ title: "새 그룹", value: "", placeholder: "그룹 이름", okLabel: "추가" }).then(function (name) {
+      if (!name) return;
+      Storage.addFavGroup(name);
+      render();
+      showSnack("그룹 ‘" + name + "’ 추가됨");
+    });
   }
   function renameFavGroupPrompt(g) {
-    var name = window.prompt("그룹 이름 변경", g.name);
-    if (name == null) return;
-    name = name.trim();
-    if (!name) return;
-    Storage.renameFavGroup(g.id, name);
-    if (!favGroupPickerEl.hidden) renderFavGroupPickerList();
-    render();
+    appDialog({ title: "그룹 이름 변경", value: g.name, placeholder: "그룹 이름", okLabel: "저장" }).then(function (name) {
+      if (!name) return;
+      Storage.renameFavGroup(g.id, name);
+      if (!favGroupPickerEl.hidden) renderFavGroupPickerList();
+      render();
+    });
   }
   function removeFavGroupConfirm(g) {
-    if (!window.confirm("‘" + g.name + "’ 그룹을 삭제할까요?\n그룹만 사라지고 연락처의 즐겨찾기는 유지됩니다.")) return;
-    Storage.removeFavGroup(g.id);
-    render();
-    showSnack("그룹 삭제됨");
+    appDialog({
+      title: "그룹 삭제",
+      message: "‘" + g.name + "’ 그룹을 삭제할까요?\n그룹만 사라지고 연락처의 즐겨찾기는 유지됩니다.",
+      okLabel: "삭제", danger: true,
+    }).then(function (ok) {
+      if (!ok) return;
+      Storage.removeFavGroup(g.id);
+      render();
+      showSnack("그룹 삭제됨");
+    });
   }
   function renderFavGroupPickerList() {
     if (!favGroupPickerContact) return;
     var sel = {};
     Storage.getContactFavGroups(favGroupPickerContact.id).forEach(function (gid) { sel[gid] = true; });
+    // 그룹별 소속 인원 수 집계(현재 선택 반영 — 토글 시 즉시 갱신)
+    var map = Storage.getFavGroupMap();
+    var counts = {};
+    Object.keys(map).forEach(function (cid) {
+      (map[cid] || []).forEach(function (gid) { counts[gid] = (counts[gid] || 0) + 1; });
+    });
     UI.renderFavGroupPicker(document.getElementById("fav-group-picker-list"), {
       groups: Storage.getFavGroups(),
       selected: sel,
+      counts: counts,
       onToggle: function (gid) {
         Storage.toggleContactFavGroup(favGroupPickerContact.id, gid);
         renderFavGroupPickerList();
         render(); // 뒤 목록 갱신
       },
-      onAddGroup: function () {
-        var name = window.prompt("새 그룹 이름");
-        if (name == null) return;
-        name = name.trim();
+      onAddGroup: function (name) {
+        name = (name || "").trim();
         if (!name) return;
         var id = Storage.addFavGroup(name);
         if (id) Storage.toggleContactFavGroup(favGroupPickerContact.id, id);
         renderFavGroupPickerList();
         render();
+        // 연속 추가 편의: 새 입력칸에 포커스
+        var inp = document.querySelector("#fav-group-picker-list .fav-pick-input");
+        if (inp) inp.focus();
       },
     });
   }

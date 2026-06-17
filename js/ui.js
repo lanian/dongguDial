@@ -88,6 +88,9 @@
     return el("span", "badge " + map[status], status);
   }
 
+  // 전역 설정: 사진 없는 모든 연락처를 기본 아이콘(실루엣)으로 표시할지 (app이 부팅/토글 시 주입)
+  var showDefaultIcon = false;
+
   // 사람 실루엣(기본 아이콘) — 색상 원+이니셜 대신 쓰는 중립 placeholder
   function defaultIconSVG() {
     var ns = "http://www.w3.org/2000/svg";
@@ -111,7 +114,7 @@
       im.src = photo;
       im.alt = (contact.name || "") + " 사진";
       a.appendChild(im);
-    } else if (contact.defaultIcon) {
+    } else if (contact.defaultIcon || showDefaultIcon) {
       a.classList.add("avatar--default");
       a.appendChild(defaultIconSVG());
     } else {
@@ -356,6 +359,7 @@
   var UI = {
     avatarColor: avatarColor,
     defaultIconSVG: defaultIconSVG,
+    setShowDefaultIcon: function (v) { showDefaultIcon = !!v; },
     icon: icon,
     formatPhone: formatPhone,
     renderRow: renderRow,

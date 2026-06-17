@@ -8,6 +8,7 @@
   var FAV_KEY = "dongguDial.favorites.v1";
   var RECENT_KEY = "dongguDial.recent.v1";
   var THEME_KEY = "dongguDial.theme.v1";
+  var SHOW_DEFAULT_ICON_KEY = "dongguDial.showDefaultIcon.v1"; // true면 사진 없는 모든 연락처를 기본 아이콘(실루엣)으로 표시
   var EDITS_KEY = "dongguDial.edits.v1";     // { [id]: {field:val,..., __deleted?:true} }  (기본 연락처 오버레이)
   var CUSTOM_KEY = "dongguDial.custom.v1";   // [ {id, ...} ]  (사용자가 추가한 연락처)
   var DEPT_EDITS_KEY = "dongguDial.deptEdits.v1";   // { [id]: {name,parentId,sortOrder,level,__deleted?} }
@@ -215,6 +216,10 @@
     getTheme: function () { return read(THEME_KEY, "system"); },
     setTheme: function (t) { write(THEME_KEY, t); },
 
+    // ---------- 프로필 기본 아이콘(실루엣) 전역 표시 ----------
+    getShowDefaultIcon: function () { return read(SHOW_DEFAULT_ICON_KEY, false) === true; },
+    setShowDefaultIcon: function (v) { write(SHOW_DEFAULT_ICON_KEY, !!v); },
+
     // ---------- 연락처 편집 / 추가 (공통 스토어 위임) ----------
     getEdits: function () { return contactStore.getEdits(); },
     getCustom: function () { return contactStore.getCustom(); },
@@ -275,6 +280,7 @@
         favorites: read(FAV_KEY, []),
         recent: normRecent(read(RECENT_KEY, [])),
         theme: read(THEME_KEY, "system"),
+        showDefaultIcon: read(SHOW_DEFAULT_ICON_KEY, false) === true,
         edits: read(EDITS_KEY, {}),
         custom: read(CUSTOM_KEY, []),
         deptEdits: read(DEPT_EDITS_KEY, {}),
@@ -358,6 +364,7 @@
       if (mode === "replace") write(BASE_HIDDEN_KEY, data.baseHidden === true);
       else if (data.baseHidden === true) write(BASE_HIDDEN_KEY, true);
       if (data.theme) write(THEME_KEY, data.theme);
+      if (typeof data.showDefaultIcon === "boolean") write(SHOW_DEFAULT_ICON_KEY, data.showDefaultIcon);
       return { favorites: favs.length, recent: recent.length,
         edits: Object.keys(edits).length, custom: custom.length,
         deptCustom: deptCustom.length };

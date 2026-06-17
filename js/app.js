@@ -4,7 +4,7 @@
 (function () {
   "use strict";
 
-  var APP_VERSION = "76"; // SW 캐시(donggu-dial-vNN)와 함께 갱신
+  var APP_VERSION = "77"; // SW 캐시(donggu-dial-vNN)와 함께 갱신
   var ORG_HDR_H = 44;     // 조직도 헤더 높이(CSS --org-hdr-h 와 동기화) — 계단식 sticky 점프 보정용
   var listEl = document.getElementById("list");
   var scrollRegion = document.getElementById("scroll-region");
@@ -495,6 +495,31 @@
   });
   applyTheme(Storage.getTheme());
   setThemeUI(Storage.getTheme());
+
+  // ---------- 프로필 기본 아이콘(실루엣) 전역 표시 ----------
+  var defaultIconBtns = Array.prototype.slice.call(document.querySelectorAll("#default-icon-seg .seg-btn"));
+  function setDefaultIconUI(on) {
+    defaultIconBtns.forEach(function (b) {
+      var sel = (b.dataset.defaulticon === "on") === !!on;
+      b.classList.toggle("is-active", sel);
+      b.setAttribute("aria-pressed", sel ? "true" : "false");
+    });
+  }
+  defaultIconBtns.forEach(function (b) {
+    b.addEventListener("click", function () {
+      var on = b.dataset.defaulticon === "on";
+      Storage.setShowDefaultIcon(on);
+      UI.setShowDefaultIcon(on);
+      setDefaultIconUI(on);
+      render(); // 목록 즉시 갱신
+      if (!detailEl.hidden && current.detailId != null) {
+        var c = Data.getById(current.detailId);
+        if (c) UI.renderDetail(detailBody, c, { onOrg: goToOrg, onPhoto: openPhotoViewer });
+      }
+    });
+  });
+  UI.setShowDefaultIcon(Storage.getShowDefaultIcon());
+  setDefaultIconUI(Storage.getShowDefaultIcon());
 
   // 스낵바 (가벼운 피드백)
   var snackTimer;

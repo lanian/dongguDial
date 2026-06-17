@@ -750,8 +750,10 @@ html[data-theme="dark"] .info-card { box-shadow: none; border: 1px solid var(--d
   height: var(--org-hdr-h); /* 계단식 sticky 정렬 위해 높이 고정 */
   padding: 0 var(--sp-4);
   overflow: hidden;
-  background: var(--surface);
+  background: var(--surface); /* 최상위 = 가장 또렷한 흰 바 */
   border-bottom: 1px solid var(--divider);
+  /* 떠 있는 입체감: 최상위가 그림자를 가장 강하게 드리워 목록 위에 뜬 느낌 */
+  box-shadow: 0 4px 12px -6px rgba(0, 0, 0, 0.24);
   z-index: 12; /* 경로 계단에서 최상위 헤더가 항상 위 */
 }
 .org-dept .org-dept-name { font-weight: var(--fw-bold); }
@@ -802,7 +804,12 @@ html[data-theme="dark"] .info-card { box-shadow: none; border: 1px solid var(--d
   position: sticky;
   top: calc(var(--org-hdr-h) * var(--depth, 1));
   z-index: calc(11 - var(--depth, 1));
+  /* 농담: 깊이가 깊을수록 살짝 회색조로 가라앉혀(recede) 계층을 표현.
+     color-mix 미지원 브라우저는 surface(흰색)로 폴백. */
   background: var(--surface);
+  background: color-mix(in srgb, var(--bg) 12%, var(--surface));
+  /* 입체감: 상위보다 옅은 그림자 */
+  box-shadow: 0 3px 9px -6px rgba(0, 0, 0, 0.18);
   color: inherit;
   font: inherit;
   font-weight: var(--fw-med);
@@ -818,6 +825,12 @@ html[data-theme="dark"] .info-card { box-shadow: none; border: 1px solid var(--d
 .org-team-header[aria-expanded="false"] .section-chevron { transform: rotate(0); }
 /* 레벨별 위계: 과(med, 기본) · 팀 이하(reg+muted) — 부서순 뷰의 section-lvl-* 와 동일 결 */
 .org-team-header.org-lvl-2 .org-dept-name { font-weight: var(--fw-reg); color: var(--on-surface-muted); }
+/* 팀 이하: 한 단 더 가라앉히고 그림자도 더 옅게 — 본문에 가장 가깝게 */
+.org-team-header.org-lvl-2 {
+  background: var(--surface);
+  background: color-mix(in srgb, var(--bg) 22%, var(--surface));
+  box-shadow: 0 2px 7px -6px rgba(0, 0, 0, 0.14);
+}
 .org-sub .row { padding-left: 14px; }
 .org-sub .row:last-child { border-bottom: none; }
 .row--lead { box-shadow: inset 3px 0 0 var(--brand); background: rgba(var(--brand-rgb), 0.04); }

@@ -653,13 +653,13 @@
       form.appendChild(photoRow);
 
       form.appendChild(field("이름", textInput("ef-name", contact.name, "홍길동")));
+      form.appendChild(field("직급", textInput("ef-grade", contact.grade, "주무관")));
 
       form.appendChild(pickerField("부서", "ef-dept-btn", "ef-dept",
         (contact.deptId != null ? String(contact.deptId) : "0"),
         deptLabel(contact.deptId, "(미지정)")));
 
       form.appendChild(field("직책", textInput("ef-position", contact.position, "팀장")));
-      form.appendChild(field("직급", textInput("ef-grade", contact.grade, "주무관")));
       form.appendChild(field("담당업무", textInput("ef-work", contact.work, "채용")));
       form.appendChild(field("휴대전화", textInput("ef-phone", contact.phone, "010-0000-0000", "tel")));
       form.appendChild(field("행정번호", textInput("ef-tel", contact.tel, "02-000-0000", "tel")));

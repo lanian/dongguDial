@@ -4,7 +4,7 @@
 (function () {
   "use strict";
 
-  var APP_VERSION = "90"; // SW 캐시(donggu-dial-vNN)와 함께 갱신
+  var APP_VERSION = "91"; // SW 캐시(donggu-dial-vNN)와 함께 갱신
   var ORG_HDR_H = 44;     // 조직도 헤더 높이(CSS --org-hdr-h 와 동기화) — 계단식 sticky 점프 보정용
   var listEl = document.getElementById("list");
   var scrollRegion = document.getElementById("scroll-region");
@@ -887,27 +887,19 @@
   }
   function updateLockUI() {
     var on = lockConfigured();
-    var seg = document.getElementById("lock-seg");
-    if (seg) {
-      seg.querySelectorAll(".seg-btn").forEach(function (b) {
-        var sel = (b.dataset.lock === "on") === on;
-        b.setAttribute("aria-pressed", sel ? "true" : "false");
-      });
-    }
+    var sw = document.getElementById("lock-switch");
+    if (sw) sw.setAttribute("aria-checked", on ? "true" : "false");
     var status = document.getElementById("lock-status");
     if (status) status.textContent = on ? (Storage.getLockCred() ? "사용 중 (지문 + PIN)" : "사용 중 (PIN)") : "사용 안 함";
     var chg = document.getElementById("lock-changepin-btn");
     if (chg) chg.hidden = !on;
   }
   (function wireLockSettings() {
-    var seg = document.getElementById("lock-seg");
-    if (seg) {
-      seg.querySelectorAll(".seg-btn").forEach(function (b) {
-        b.addEventListener("click", function () {
-          var wantOn = b.dataset.lock === "on";
-          if (wantOn === lockConfigured()) return;
-          if (wantOn) enableLock(); else disableLock();
-        });
+    var sw = document.getElementById("lock-switch");
+    if (sw) {
+      sw.addEventListener("click", function () {
+        // 실제 상태 기준으로 토글(켜기는 지문 등록·PIN 설정이 필요하므로 완료/취소 후 updateLockUI가 상태 반영)
+        if (lockConfigured()) disableLock(); else enableLock();
       });
     }
     var chg = document.getElementById("lock-changepin-btn");

@@ -253,16 +253,16 @@
 
       <div class="settings-section-title">보안 잠금</div>
       <div class="info-card">
-        <div class="info-row">
+        <div class="info-row info-row--switch">
           <span class="info-ico"><svg class="ic" aria-hidden="true"><use href="#ic-badge"/></svg></span>
           <div class="info-text">
+            <div class="info-value">지문 잠금</div>
             <div class="info-label">앱을 열 때 지문(생체)인증으로 잠급니다. 지문 미지원·실패 시 PIN으로 해제합니다. 모든 데이터는 기기 안에만 있으며, 잠금은 화면 노출을 막는 보조 수단입니다.</div>
-            <div class="info-value" id="lock-status">사용 안 함</div>
+            <div class="info-label" id="lock-status">사용 안 함</div>
           </div>
-        </div>
-        <div class="theme-seg" id="lock-seg" role="group" aria-label="보안 잠금">
-          <button class="seg-btn" data-lock="off" aria-pressed="true">끄기</button>
-          <button class="seg-btn" data-lock="on" aria-pressed="false">켜기</button>
+          <button id="lock-switch" class="switch" role="switch" type="button" aria-checked="false" aria-label="보안 잠금">
+            <span class="switch-track"><span class="switch-knob"></span></span>
+          </button>
         </div>
         <button class="settings-action" id="lock-changepin-btn" hidden>
           <span class="info-ico"><svg class="ic" aria-hidden="true"><use href="#ic-edit"/></svg></span>

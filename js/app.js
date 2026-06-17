@@ -4,7 +4,7 @@
 (function () {
   "use strict";
 
-  var APP_VERSION = "60"; // SW 캐시(donggu-dial-vNN)와 함께 갱신
+  var APP_VERSION = "61"; // SW 캐시(donggu-dial-vNN)와 함께 갱신
   var listEl = document.getElementById("list");
   var scrollRegion = document.getElementById("scroll-region");
   var resultStatus = document.getElementById("result-status");
@@ -121,23 +121,31 @@
     alphaRail.hidden = !on;
   }
 
+  var alphaOffsets = {}; // 초성 → 해당 섹션의 scrollRegion 기준 자연 위치(미리 계산)
   function buildAlphaRail(groups) {
     alphaRail.textContent = "";
+    alphaOffsets = {};
+    // 각 섹션 위치를 'sticky 끈 상태'로 한 번에 미리 측정(스크럽 중 매번 측정/리플로우 방지).
+    listEl.classList.add("measure-no-sticky");
     var frag = document.createDocumentFragment();
     groups.forEach(function (g) {
+      var h = document.getElementById("grp-" + g.key);
+      alphaOffsets[g.key] = h ? sectionTop(h) : 0;
       var b = document.createElement("button");
       b.type = "button";
       b.className = "alpha-key";
       b.textContent = g.key;
       b.dataset.key = g.key;
       b.setAttribute("aria-label", g.key + "로 이동");
-      // 포인터(탭·드래그)는 레일 컨테이너가 처리(아래). 클릭은 키보드(Enter)용으로 유지.
-      b.addEventListener("click", function () {
-        scrollToEl(document.getElementById("grp-" + g.key), "auto");
-      });
+      b.addEventListener("click", function () { jumpToAlpha(g.key); }); // 키보드(Enter)용
       frag.appendChild(b);
     });
+    listEl.classList.remove("measure-no-sticky");
     alphaRail.appendChild(frag);
+  }
+  function jumpToAlpha(key) {
+    var top = alphaOffsets[key];
+    if (top != null) scrollRegion.scrollTo({ top: top, behavior: "auto" });
   }
 
   // ---------- 가나다 인덱스 바: 드래그 스크럽 + 현재 글자 버블 + 햅틱 ----------
@@ -171,7 +179,7 @@
       if (navigator.vibrate) navigator.vibrate(3); // 글자 바뀔 때만 짧은 햅틱
     }
     showAlphaBubble(key.dataset.key);
-    scrollToEl(document.getElementById("grp-" + key.dataset.key), "auto");
+    jumpToAlpha(key.dataset.key); // 미리 측정한 자연 위치로 점프(sticky 왜곡 없음)
   }
   function endAlphaScrub() {
     if (!alphaScrubbing) return;
@@ -211,14 +219,23 @@
     e.preventDefault();
   });
 
-  function scrollToEl(el, behavior) {
-    if (!el) return;
-    // sticky 헤더는 getBoundingClientRect().top 이 화면 상단에 '쌓인' 위치로 나와
-    // 위쪽 점프가 망가진다. offsetTop(레이아웃 위치, sticky 영향 없음)을 scrollRegion
-    // 기준으로 누적해 정확히 스크롤한다.
+  // sticky 헤더는 offsetTop/rect 가 스크롤에 따라 '상단에 쌓인 위치'로 왜곡되어
+  // 위쪽 섹션 점프가 망가진다. 측정 시 sticky 를 잠깐 꺼서 섹션의 '자연 위치'
+  // (scrollRegion 기준)를 정확히 구한다. (한 JS 틱 안이라 화면 깜빡임 없음)
+  function sectionTop(el) {
     var top = 0, node = el;
     while (node && node !== scrollRegion) { top += node.offsetTop; node = node.offsetParent; }
-    scrollRegion.scrollTo({ top: top, behavior: behavior || "smooth" });
+    return top;
+  }
+  function measuredTop(el) {
+    listEl.classList.add("measure-no-sticky");
+    var top = sectionTop(el);
+    listEl.classList.remove("measure-no-sticky");
+    return top;
+  }
+  function scrollToEl(el, behavior) {
+    if (!el) return;
+    scrollRegion.scrollTo({ top: measuredTop(el), behavior: behavior || "smooth" });
   }
 
   function render() { renderBody(); updateFab(); }

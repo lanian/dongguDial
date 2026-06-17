@@ -284,6 +284,8 @@ body {
 .list { padding: var(--sp-2) 0 calc(var(--sp-6) + var(--safe-bottom)); }
 .list:focus-visible { outline: none; }
 
+/* 섹션 위치 측정 시 sticky 를 잠깐 꺼 '자연 위치'를 얻기 위한 토글(JS 한 틱 내 사용) */
+.measure-no-sticky .section-header { position: static !important; }
 .section-header {
   position: sticky;
   top: 0;

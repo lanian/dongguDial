@@ -4,7 +4,7 @@
 (function () {
   "use strict";
 
-  var APP_VERSION = "69"; // SW 캐시(donggu-dial-vNN)와 함께 갱신
+  var APP_VERSION = "70"; // SW 캐시(donggu-dial-vNN)와 함께 갱신
   var ORG_HDR_H = 44;     // 조직도 헤더 높이(CSS --org-hdr-h 와 동기화) — 계단식 sticky 점프 보정용
   var listEl = document.getElementById("list");
   var scrollRegion = document.getElementById("scroll-region");
@@ -377,8 +377,19 @@
         actionLabel: "전체에서 찾기", onAction: function () { switchTab(tabs[0]); },
       });
     } else if (current.tab === "recent") {
-      UI.renderFlat(listEl, Data.resolveIds(Storage.getRecent()), {
+      UI.renderRecentView(listEl, recentBuckets(Storage.getRecentEntries()), {
         onOpen: openDetail, onFav: onFavChanged,
+        onRemove: function (c) {
+          Storage.removeRecent(c.id);
+          render();
+          showSnack("최근에서 제거됨");
+        },
+        onClearAll: function () {
+          if (!window.confirm("최근 본 연락처 기록을 모두 비울까요?")) return;
+          Storage.clearRecent();
+          render();
+          showSnack("최근 기록을 비웠습니다");
+        },
         emptyMsg: "최근 본 연락처가 없습니다.",
         actionLabel: "전체에서 찾기", onAction: function () { switchTab(tabs[0]); },
       });
@@ -556,6 +567,34 @@
       .map(function (id) { return byId[id]; });
     return { sections: sections, ungrouped: ungrouped, total: resolved.length };
   }
+  // 최근 항목을 날짜 구간으로 묶는다(오늘/어제/이번 주/이전). ts=0(레거시)은 '이전'.
+  function recentBuckets(entries) {
+    var byId = {};
+    Data.resolveIds(entries.map(function (e) { return e.id; }))
+      .forEach(function (c) { byId[c.id] = c; });
+    var now = new Date();
+    var startToday = new Date(now.getFullYear(), now.getMonth(), now.getDate()).getTime();
+    var startYesterday = startToday - 86400000;
+    var startWeek = startToday - 6 * 86400000; // 오늘 포함 최근 7일
+    var buckets = [
+      { key: "today", label: "오늘", members: [] },
+      { key: "yesterday", label: "어제", members: [] },
+      { key: "week", label: "이번 주", members: [] },
+      { key: "older", label: "이전", members: [] },
+    ];
+    entries.forEach(function (e) {
+      var c = byId[e.id];
+      if (!c) return;
+      var ts = e.ts || 0, b;
+      if (ts >= startToday) b = buckets[0];
+      else if (ts >= startYesterday) b = buckets[1];
+      else if (ts >= startWeek) b = buckets[2];
+      else b = buckets[3];
+      b.members.push(c);
+    });
+    return buckets.filter(function (b) { return b.members.length; });
+  }
+
   function addFavGroupPrompt() {
     var name = window.prompt("새 그룹 이름");
     if (name == null) return;

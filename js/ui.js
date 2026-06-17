@@ -250,6 +250,16 @@
         });
         actions.appendChild(call);
       }
+
+      if (opts.onRemove) {
+        // 최근 목록에서 이 항목만 제거(연락처 자체는 삭제하지 않음)
+        var rm = el("button", "mini-btn mini-btn--ghost");
+        rm.type = "button";
+        rm.setAttribute("aria-label", (contact.name || "") + " 최근에서 제거");
+        rm.appendChild(icon("close"));
+        rm.addEventListener("click", function (e) { e.stopPropagation(); opts.onRemove(contact); });
+        actions.appendChild(rm);
+      }
     }
     row.appendChild(actions);
 
@@ -385,6 +395,41 @@
       }
       var frag = document.createDocumentFragment();
       appendRows(frag, contacts, opts);
+      container.appendChild(frag);
+    },
+
+    /** 최근(날짜 그룹). groups=[{label, members:[contact]}].
+     *  opts: onOpen,onFav,onRemove,onClearAll,emptyMsg,actionLabel,onAction */
+    renderRecentView: function (container, groups, opts) {
+      opts = opts || {};
+      container.textContent = "";
+      var total = groups.reduce(function (n, g) { return n + g.members.length; }, 0);
+      if (!total) {
+        container.appendChild(UI.emptyState(opts.emptyMsg || "최근 본 연락처가 없습니다.",
+          opts.actionLabel, opts.onAction));
+        return;
+      }
+      // 상단 툴바: 전체 비우기 (즐겨찾기 툴바와 동일 스타일 재사용)
+      var bar = el("div", "fav-toolbar");
+      bar.appendChild(el("span", "fav-toolbar-info", "최근 " + total + "명"));
+      if (opts.onClearAll) {
+        var clr = el("button", "fav-toolbar-btn");
+        clr.type = "button";
+        clr.appendChild(icon("trash"));
+        clr.appendChild(document.createTextNode(" 전체 비우기"));
+        clr.addEventListener("click", opts.onClearAll);
+        bar.appendChild(clr);
+      }
+      container.appendChild(bar);
+
+      var frag = document.createDocumentFragment();
+      groups.forEach(function (g) {
+        var header = el("div", "section-header");
+        header.appendChild(document.createTextNode(g.label + " "));
+        header.appendChild(el("span", "count", "(" + g.members.length + ")"));
+        frag.appendChild(header);
+        appendRows(frag, g.members, opts);
+      });
       container.appendChild(frag);
     },
 

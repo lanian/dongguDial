@@ -38,6 +38,22 @@
     if (key === FAV_KEY) _favSet = null; // 즐겨찾기 변경 시 캐시 무효화
   }
 
+  // 최근 목록 정규화: 레거시(id 배열)와 신규({id,ts} 배열)를 모두 [{id,ts}]로 통일.
+  // 레거시 항목은 시각 정보가 없어 ts=0(이전)으로 둔다. id 기준 중복 제거(앞이 우선).
+  function normRecent(arr) {
+    if (!Array.isArray(arr)) return [];
+    var out = [], seen = {};
+    arr.forEach(function (e) {
+      var id, ts;
+      if (e && typeof e === "object") { id = e.id; ts = +e.ts || 0; }
+      else { id = e; ts = 0; }
+      if (id == null || seen[id]) return;
+      seen[id] = true;
+      out.push({ id: id, ts: ts });
+    });
+    return out;
+  }
+
   // 즐겨찾기 메모리 캐시: isFavorite 가 행마다 호출되므로(목록 렌더) localStorage
   // 읽기·파싱을 매번 하지 않도록 Set(객체 맵)으로 캐싱. write(FAV_KEY) 시 무효화.
   var _favSet = null;
@@ -180,13 +196,20 @@
     },
 
     // ---------- 최근 ----------
-    getRecent: function () { return read(RECENT_KEY, []); },
+    // id 배열만 필요할 때(목록 해석 등). 신규/레거시 포맷 모두 안전.
+    getRecent: function () { return normRecent(read(RECENT_KEY, [])).map(function (e) { return e.id; }); },
+    // {id, ts} 항목 배열 — 날짜 그룹화용
+    getRecentEntries: function () { return normRecent(read(RECENT_KEY, [])); },
     pushRecent: function (id) {
-      var recent = read(RECENT_KEY, []).filter(function (x) { return x !== id; });
-      recent.unshift(id);
-      if (recent.length > RECENT_LIMIT) recent = recent.slice(0, RECENT_LIMIT);
-      write(RECENT_KEY, recent);
+      var list = normRecent(read(RECENT_KEY, [])).filter(function (e) { return e.id !== id; });
+      list.unshift({ id: id, ts: Date.now() });
+      if (list.length > RECENT_LIMIT) list = list.slice(0, RECENT_LIMIT);
+      write(RECENT_KEY, list);
     },
+    removeRecent: function (id) {
+      write(RECENT_KEY, normRecent(read(RECENT_KEY, [])).filter(function (e) { return e.id !== id; }));
+    },
+    clearRecent: function () { write(RECENT_KEY, []); },
 
     // ---------- 테마 ----------
     getTheme: function () { return read(THEME_KEY, "system"); },
@@ -250,7 +273,7 @@
         version: 4,
         exportedAt: new Date().toISOString(),
         favorites: read(FAV_KEY, []),
-        recent: read(RECENT_KEY, []),
+        recent: normRecent(read(RECENT_KEY, [])),
         theme: read(THEME_KEY, "system"),
         edits: read(EDITS_KEY, {}),
         custom: read(CUSTOM_KEY, []),
@@ -280,7 +303,7 @@
       var favs, recent, edits, custom, deptEdits, deptCustom, favGroups, favGroupMap, memberOrder;
       if (mode === "replace") {
         favs = inFav.slice();
-        recent = inRecent.slice(0, RECENT_LIMIT);
+        recent = normRecent(inRecent).slice(0, RECENT_LIMIT);
         edits = inEdits;
         custom = inCustom;
         deptEdits = inDeptEdits;
@@ -292,11 +315,14 @@
         var curFav = read(FAV_KEY, []);
         favs = curFav.slice();
         inFav.forEach(function (x) { if (favs.indexOf(x) === -1) favs.push(x); });
-        recent = [];
-        inRecent.concat(read(RECENT_KEY, [])).forEach(function (x) {
-          if (recent.indexOf(x) === -1) recent.push(x);
+        // id 기준 병합 후 최신 ts 우선, 시간 내림차순 정렬
+        var rMerged = {};
+        normRecent(inRecent).concat(normRecent(read(RECENT_KEY, []))).forEach(function (e) {
+          if (!rMerged[e.id] || e.ts > rMerged[e.id].ts) rMerged[e.id] = e;
         });
-        recent = recent.slice(0, RECENT_LIMIT);
+        recent = Object.keys(rMerged).map(function (k) { return rMerged[k]; })
+          .sort(function (a, b) { return b.ts - a.ts; })
+          .slice(0, RECENT_LIMIT);
         edits = Object.assign({}, read(EDITS_KEY, {}), inEdits);
         // custom: id 기준 병합(가져온 것이 우선)
         var byId = {};

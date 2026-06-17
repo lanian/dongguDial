@@ -4,7 +4,7 @@
 (function () {
   "use strict";
 
-  var APP_VERSION = "85"; // SW 캐시(donggu-dial-vNN)와 함께 갱신
+  var APP_VERSION = "86"; // SW 캐시(donggu-dial-vNN)와 함께 갱신
   var ORG_HDR_H = 44;     // 조직도 헤더 높이(CSS --org-hdr-h 와 동기화) — 계단식 sticky 점프 보정용
   var listEl = document.getElementById("list");
   var scrollRegion = document.getElementById("scroll-region");
@@ -711,7 +711,9 @@
       var input = null;
       if (hasInput) {
         input = mk("input", "app-dialog-input");
-        input.type = "text";
+        input.type = opts.inputType || "text";
+        if (opts.inputMode) input.inputMode = opts.inputMode;
+        if (opts.autocomplete) input.autocomplete = opts.autocomplete;
         input.value = opts.value || "";
         if (opts.placeholder) input.placeholder = opts.placeholder;
         input.maxLength = opts.maxLength || 30;
@@ -762,6 +764,173 @@
       if (hasInput) input.select();
     });
   }
+
+  // ---------- 접근 잠금(지문/PIN) ----------
+  var lockScreen = document.getElementById("lock-screen");
+  var lockSub = document.getElementById("lock-sub");
+  var lockBioBtn = document.getElementById("lock-bio-btn");
+  var lockPinForm = document.getElementById("lock-pin-form");
+  var lockPinInput = document.getElementById("lock-pin-input");
+  var lockUsePinBtn = document.getElementById("lock-usepin-btn");
+  var isLocked = false;
+  var lockHiddenAt = 0;
+  var LOCK_GRACE_MS = 60 * 1000; // 백그라운드 60초 초과 시 재잠금
+
+  function lockConfigured() {
+    return Storage.isLockEnabled() && !!Storage.getLockPin();
+  }
+  function canUseBio() {
+    return !!(Storage.getLockCred() && window.Lock && Lock.isSupported());
+  }
+  function verifyPin(pin) {
+    var rec = Storage.getLockPin();
+    if (!rec) return Promise.resolve(false);
+    return Lock.hashPin(pin, rec.salt).then(function (r) { return r.hash === rec.hash; });
+  }
+
+  function showLockScreen() {
+    if (isLocked) return;
+    isLocked = true;
+    lockScreen.hidden = false;
+    document.body.classList.add("is-locked");
+    lockPinForm.hidden = true;
+    lockBioBtn.hidden = !canUseBio();
+    lockUsePinBtn.hidden = false;
+    if (canUseBio()) startBio(); else showPinEntry();
+  }
+  function startBio() {
+    lockSub.textContent = "지문을 인식해 주세요…";
+    Lock.verify(Storage.getLockCred()).then(function () { doUnlock(); })
+      .catch(function () { lockSub.textContent = "지문 인증 실패 — 다시 시도하거나 PIN을 입력하세요."; });
+  }
+  function showPinEntry() {
+    lockPinForm.hidden = false;
+    lockUsePinBtn.hidden = true;
+    lockSub.textContent = "PIN을 입력해 잠금을 해제하세요";
+    lockPinInput.value = "";
+    setTimeout(function () { lockPinInput.focus(); }, 60);
+  }
+  function doUnlock() {
+    isLocked = false;
+    lockScreen.hidden = true;
+    document.body.classList.remove("is-locked");
+    lockPinInput.value = "";
+  }
+  lockBioBtn.addEventListener("click", startBio);
+  lockUsePinBtn.addEventListener("click", showPinEntry);
+  lockPinForm.addEventListener("submit", function (e) {
+    e.preventDefault();
+    var pin = lockPinInput.value.trim();
+    if (!pin) return;
+    verifyPin(pin).then(function (ok) {
+      if (ok) doUnlock();
+      else { lockSub.textContent = "PIN이 올바르지 않습니다"; lockPinInput.value = ""; lockPinInput.focus(); }
+    });
+  });
+
+  // 새 PIN 설정(입력 → 확인). 성공 시 저장하고 true 로 resolve.
+  function promptNewPin() {
+    return appDialog({ title: "PIN 설정", value: "", placeholder: "숫자 4~8자리", okLabel: "다음", inputType: "password", inputMode: "numeric", autocomplete: "off", maxLength: 8 }).then(function (pin) {
+      if (!pin) return false;
+      if (!/^\d{4,8}$/.test(pin)) { showSnack("PIN은 숫자 4~8자리"); return promptNewPin(); }
+      return appDialog({ title: "PIN 확인", value: "", placeholder: "다시 입력", okLabel: "저장", inputType: "password", inputMode: "numeric", autocomplete: "off", maxLength: 8 }).then(function (pin2) {
+        if (!pin2) return false;
+        if (pin2 !== pin) { showSnack("PIN이 일치하지 않습니다"); return promptNewPin(); }
+        return Lock.hashPin(pin).then(function (rec) { Storage.setLockPin(rec); return true; });
+      });
+    });
+  }
+  // 현재 사용자 확인(PIN). 잠금 해제·PIN 변경 전 본인 확인용.
+  function requireAuth(title) {
+    return appDialog({ title: title, message: "PIN을 입력하세요", value: "", placeholder: "PIN", okLabel: "확인", inputType: "password", inputMode: "numeric", autocomplete: "off", maxLength: 8 }).then(function (pin) {
+      if (!pin) return false;
+      return verifyPin(pin).then(function (ok) {
+        if (ok) return true;
+        showSnack("PIN이 올바르지 않습니다");
+        return requireAuth(title);
+      });
+    });
+  }
+
+  function enableLock() {
+    if (!window.Lock) { showSnack("이 브라우저에서 잠금을 쓸 수 없습니다"); updateLockUI(); return; }
+    var finish = function (useBio, credId) {
+      promptNewPin().then(function (ok) {
+        if (!ok) { updateLockUI(); return; } // PIN 미설정 → 활성화 취소
+        Storage.setLockCred(credId || null);
+        Storage.setLockEnabled(true);
+        updateLockUI();
+        showSnack(useBio ? "지문 잠금이 켜졌습니다" : "PIN 잠금이 켜졌습니다");
+      });
+    };
+    Lock.platformAvailable().then(function (avail) {
+      if (avail && Lock.isSupported()) {
+        Lock.register().then(function (credId) { finish(true, credId); })
+          .catch(function () {
+            appDialog({ title: "지문 등록 실패", message: "지문을 등록하지 못했습니다.\nPIN만으로 잠금을 설정할까요?", okLabel: "PIN으로 설정" })
+              .then(function (ok) { if (ok) finish(false, null); else updateLockUI(); });
+          });
+      } else {
+        appDialog({ title: "지문 미지원", message: "이 기기·브라우저는 생체인증을 지원하지 않습니다.\nPIN만으로 잠금을 설정할까요?", okLabel: "PIN으로 설정" })
+          .then(function (ok) { if (ok) finish(false, null); else updateLockUI(); });
+      }
+    });
+  }
+  function disableLock() {
+    requireAuth("잠금 해제 확인").then(function (ok) {
+      if (!ok) { updateLockUI(); return; }
+      Storage.clearLock();
+      updateLockUI();
+      showSnack("잠금이 해제되었습니다");
+    });
+  }
+  function updateLockUI() {
+    var on = lockConfigured();
+    var seg = document.getElementById("lock-seg");
+    if (seg) {
+      seg.querySelectorAll(".seg-btn").forEach(function (b) {
+        var sel = (b.dataset.lock === "on") === on;
+        b.setAttribute("aria-pressed", sel ? "true" : "false");
+      });
+    }
+    var status = document.getElementById("lock-status");
+    if (status) status.textContent = on ? (Storage.getLockCred() ? "사용 중 (지문 + PIN)" : "사용 중 (PIN)") : "사용 안 함";
+    var chg = document.getElementById("lock-changepin-btn");
+    if (chg) chg.hidden = !on;
+  }
+  (function wireLockSettings() {
+    var seg = document.getElementById("lock-seg");
+    if (seg) {
+      seg.querySelectorAll(".seg-btn").forEach(function (b) {
+        b.addEventListener("click", function () {
+          var wantOn = b.dataset.lock === "on";
+          if (wantOn === lockConfigured()) return;
+          if (wantOn) enableLock(); else disableLock();
+        });
+      });
+    }
+    var chg = document.getElementById("lock-changepin-btn");
+    if (chg) chg.addEventListener("click", function () {
+      requireAuth("PIN 변경 — 현재 PIN 확인").then(function (ok) {
+        if (!ok) return;
+        promptNewPin().then(function (done) { if (done) showSnack("PIN이 변경되었습니다"); });
+      });
+    });
+    updateLockUI();
+  })();
+
+  // 백그라운드 복귀 시 유예시간 초과면 재잠금
+  document.addEventListener("visibilitychange", function () {
+    if (document.visibilityState === "hidden") {
+      if (!isLocked) lockHiddenAt = Date.now();
+    } else if (document.visibilityState === "visible") {
+      if (!isLocked && lockConfigured() && lockHiddenAt && (Date.now() - lockHiddenAt) > LOCK_GRACE_MS) {
+        showLockScreen();
+      }
+    }
+  });
+  // 실행 시 잠금
+  if (lockConfigured()) showLockScreen();
 
   function addFavGroupPrompt() {
     appDialog({ title: "새 그룹", value: "", placeholder: "그룹 이름", okLabel: "추가" }).then(function (name) {

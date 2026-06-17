@@ -33,7 +33,7 @@
   /* misc */
   --touch-min: 44px;
   --disabled-opacity: 0.35;
-  --z-bar: 10; --z-tabs: 9; --z-detail: 20; --z-toast: 30;
+  --z-bar: 10; --z-tabs: 9; --z-detail: 20; --z-toast: 30; --z-lock: 40;
 
   --safe-top: env(safe-area-inset-top, 0px);
   --safe-bottom: env(safe-area-inset-bottom, 0px);
@@ -1248,6 +1248,52 @@ select.ef-input { appearance: none; }
 .app-dialog-btn:active { background: var(--divider); }
 .app-dialog-ok { color: var(--brand); font-weight: var(--fw-bold); }
 .app-dialog-ok.is-danger { color: var(--danger); }
+
+/* ---------- 접근 잠금 화면 ---------- */
+.lock-screen {
+  position: fixed; inset: 0; z-index: var(--z-lock);
+  background: var(--bg);
+  display: flex; align-items: center; justify-content: center;
+  padding: var(--sp-5);
+}
+.lock-screen[hidden] { display: none; } /* display 지정이 [hidden] 기본값을 덮어쓰지 않도록 */
+.lock-card {
+  width: 100%; max-width: 320px;
+  display: flex; flex-direction: column; align-items: center; gap: var(--sp-3);
+  text-align: center;
+}
+.lock-icon {
+  width: 64px; height: 64px; border-radius: var(--r-pill);
+  display: flex; align-items: center; justify-content: center;
+  background: rgba(var(--brand-rgb), 0.12); color: var(--brand);
+  margin-bottom: var(--sp-2);
+}
+.lock-icon .ic { width: 32px; height: 32px; }
+.lock-title { margin: 0; font-size: var(--fs-lg); font-weight: var(--fw-bold); }
+.lock-sub { margin: 0; color: var(--on-surface-muted); font-size: var(--fs-md); min-height: 2.4em; }
+.lock-btn {
+  width: 100%; border: none; background: var(--brand); color: #fff;
+  font: inherit; font-size: var(--fs-md); font-weight: var(--fw-med);
+  padding: 12px var(--sp-4); border-radius: var(--r-pill); cursor: pointer;
+  min-height: var(--touch-min);
+}
+.lock-btn:active { opacity: 0.9; }
+.lock-pin { display: flex; gap: var(--sp-2); width: 100%; }
+.lock-pin-input {
+  flex: 1 1 auto; min-width: 0;
+  border: 1px solid var(--divider); border-radius: var(--r-md);
+  padding: 12px var(--sp-3); font: inherit; font-size: var(--fs-md);
+  background: var(--surface); color: var(--on-surface); text-align: center;
+  letter-spacing: 0.3em;
+}
+.lock-pin-input:focus { outline: none; border-color: var(--brand); box-shadow: 0 0 0 2px rgba(var(--brand-rgb), 0.2); }
+.lock-pin .lock-btn { width: auto; flex: 0 0 auto; }
+.lock-link {
+  border: none; background: none; color: var(--brand);
+  font: inherit; font-size: var(--fs-sm); font-weight: var(--fw-med);
+  padding: var(--sp-2); cursor: pointer;
+}
+.is-locked { overflow: hidden; }
 
 /* ---------- 데스크톱: 폰 프레임(중앙 정렬 컬럼) ----------
    넓은 창에서 명부가 가로로 늘어지지 않도록 ~480px 컬럼으로 고정.

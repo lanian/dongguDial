@@ -17,6 +17,22 @@
   <link rel="stylesheet" href="css/styles.css" />
 </head>
 <body>
+  <!-- 접근 잠금 화면 (지문/PIN). 활성화 시 앱 콘텐츠를 완전히 가린다. -->
+  <div id="lock-screen" class="lock-screen" role="dialog" aria-modal="true" aria-label="잠금" hidden>
+    <div class="lock-card">
+      <div class="lock-icon"><svg class="ic" aria-hidden="true"><use href="#ic-badge"/></svg></div>
+      <h2 class="lock-title">행정전화부 잠금</h2>
+      <p class="lock-sub" id="lock-sub">지문으로 잠금을 해제하세요</p>
+      <button class="lock-btn" id="lock-bio-btn" type="button">지문으로 해제</button>
+      <form class="lock-pin" id="lock-pin-form" hidden>
+        <input id="lock-pin-input" class="lock-pin-input" type="password" inputmode="numeric"
+               autocomplete="off" maxlength="8" placeholder="PIN 입력" aria-label="PIN 입력" />
+        <button class="lock-btn" type="submit">확인</button>
+      </form>
+      <button class="lock-link" id="lock-usepin-btn" type="button">PIN으로 해제</button>
+    </div>
+  </div>
+
   <!-- 인라인 SVG 스프라이트 (currentColor 상속, no-build) -->
   <svg style="display:none" aria-hidden="true" focusable="false" xmlns="http://www.w3.org/2000/svg">
     <symbol id="ic-back" viewBox="0 0 24 24"><path d="M19 12H5M12 19l-7-7 7-7"/></symbol>
@@ -235,6 +251,28 @@
         </div>
       </div>
 
+      <div class="settings-section-title">보안 잠금</div>
+      <div class="info-card">
+        <div class="info-row">
+          <span class="info-ico"><svg class="ic" aria-hidden="true"><use href="#ic-badge"/></svg></span>
+          <div class="info-text">
+            <div class="info-label">앱을 열 때 지문(생체)인증으로 잠급니다. 지문 미지원·실패 시 PIN으로 해제합니다. 모든 데이터는 기기 안에만 있으며, 잠금은 화면 노출을 막는 보조 수단입니다.</div>
+            <div class="info-value" id="lock-status">사용 안 함</div>
+          </div>
+        </div>
+        <div class="theme-seg" id="lock-seg" role="group" aria-label="보안 잠금">
+          <button class="seg-btn" data-lock="off" aria-pressed="true">끄기</button>
+          <button class="seg-btn" data-lock="on" aria-pressed="false">켜기</button>
+        </div>
+        <button class="settings-action" id="lock-changepin-btn" hidden>
+          <span class="info-ico"><svg class="ic" aria-hidden="true"><use href="#ic-edit"/></svg></span>
+          <div class="info-text">
+            <div class="info-value">PIN 변경</div>
+            <div class="info-label">잠금 해제용 PIN을 다시 설정</div>
+          </div>
+        </button>
+      </div>
+
       <div class="settings-section-title">데이터 백업 / 복구</div>
       <div class="info-card">
         <div class="info-row">
@@ -359,6 +397,7 @@
   </div>
 
   <script src="js/storage.js"></script>
+  <script src="js/auth.js"></script>
   <script src="js/photos.js"></script>
   <script src="js/data.js"></script>
   <script src="js/import.js"></script>

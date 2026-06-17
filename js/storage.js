@@ -17,6 +17,9 @@
   var FAV_GROUPS_KEY = "dongguDial.favGroups.v1";    // [ {id,name,sortOrder} ]  (즐겨찾기 그룹 정의)
   var FAV_GROUP_MAP_KEY = "dongguDial.favGroupMap.v1"; // { [contactId]: [groupId,...] }  (연락처별 소속 그룹, 다중)
   var MEMBER_ORDER_KEY = "dongguDial.memberOrder.v1"; // { [contactId]: N }  (부서 내 사원 표시 순서)
+  var LOCK_ENABLED_KEY = "dongguDial.lock.enabled.v1"; // true면 접근 시 잠금
+  var LOCK_CRED_KEY = "dongguDial.lock.cred.v1";       // WebAuthn 자격증명 id(base64url) — 지문 해제용
+  var LOCK_PIN_KEY = "dongguDial.lock.pin.v1";         // { salt, hash }  (PIN 대체 인증, SHA-256)
   var RECENT_LIMIT = 30;
 
   // 고유 id 생성기 (같은 ms 에 여러 건 추가해도 충돌 없도록 카운터 결합)
@@ -219,6 +222,18 @@
     // ---------- 프로필 기본 아이콘(실루엣) 전역 표시 ----------
     getShowDefaultIcon: function () { return read(SHOW_DEFAULT_ICON_KEY, false) === true; },
     setShowDefaultIcon: function (v) { write(SHOW_DEFAULT_ICON_KEY, !!v); },
+
+    // ---------- 접근 잠금(지문/PIN) ----------
+    isLockEnabled: function () { return read(LOCK_ENABLED_KEY, false) === true; },
+    setLockEnabled: function (v) { write(LOCK_ENABLED_KEY, !!v); },
+    getLockCred: function () { return read(LOCK_CRED_KEY, null); },
+    setLockCred: function (id) { write(LOCK_CRED_KEY, id || null); },
+    getLockPin: function () { return read(LOCK_PIN_KEY, null); },     // {salt,hash} | null
+    setLockPin: function (rec) { write(LOCK_PIN_KEY, rec || null); },
+    clearLock: function () {
+      write(LOCK_ENABLED_KEY, false);
+      try { localStorage.removeItem(LOCK_CRED_KEY); localStorage.removeItem(LOCK_PIN_KEY); } catch (e) {}
+    },
 
     // ---------- 연락처 편집 / 추가 (공통 스토어 위임) ----------
     getEdits: function () { return contactStore.getEdits(); },

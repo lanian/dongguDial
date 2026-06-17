@@ -4,7 +4,7 @@
 (function () {
   "use strict";
 
-  var APP_VERSION = "87"; // SW 캐시(donggu-dial-vNN)와 함께 갱신
+  var APP_VERSION = "88"; // SW 캐시(donggu-dial-vNN)와 함께 갱신
   var ORG_HDR_H = 44;     // 조직도 헤더 높이(CSS --org-hdr-h 와 동기화) — 계단식 sticky 점프 보정용
   var listEl = document.getElementById("list");
   var scrollRegion = document.getElementById("scroll-region");
@@ -40,6 +40,7 @@
   var favGroupPickerContact = null;
   var current = { tab: "all", query: "", detailId: null, sort: "dept", collapsed: {}, orgCollapsed: {}, favCollapsed: {}, orgReorder: false, deptMgrCollapsed: {} };
   var editId = null;
+  var searchPushed = false; // 검색 활성 시 히스토리 항목 push 여부(뒤로가기로 검색어부터 비우기 위함)
   var orgInit = false; // 조직도 첫 진입 시 모두 접기 1회 적용 플래그
   var pendingPhoto; // undefined=변경없음, null=제거, string=새 dataURL
   var pendingDefaultIcon; // undefined=변경없음, true=기본 아이콘(실루엣), false=아님
@@ -1157,10 +1158,11 @@
     current.tab = tab.dataset.tab;
     current.orgReorder = false; // 탭 전환 시 순서 편집 모드 해제
     // 검색 중 탭 전환 시 검색을 종료하고 해당 탭 내용을 표시(검색 결과가 탭을 덮어쓰는 혼란 방지)
-    if (current.query) {
+    if (current.query || searchPushed) {
       searchInput.value = "";
       current.query = "";
       searchClear.hidden = true;
+      unwindSearchHistory();
     }
     listEl.setAttribute("aria-labelledby", tab.id);
     render();
@@ -1180,18 +1182,36 @@
   });
 
   // ---------- 검색 (디바운스) ----------
-  var searchTimer;
-  searchInput.addEventListener("input", function () {
-    current.query = searchInput.value;
-    searchClear.hidden = !searchInput.value;
-    clearTimeout(searchTimer);
-    searchTimer = setTimeout(render, 120);
-  });
-  searchClear.addEventListener("click", function () {
+  // 검색이 시작되면 히스토리 항목을 하나 push 한다 → 뒤로가기 시 앱을 나가지 않고 검색어부터 비운다.
+  function beginSearchHistory() {
+    if (!searchPushed && !anyOverlayOpen()) {
+      history.pushState({ search: true }, "");
+      searchPushed = true;
+    }
+  }
+  // push 했던 검색 항목을 되감아 히스토리를 깔끔히 유지(사용자가 직접 검색을 비울 때).
+  function unwindSearchHistory() {
+    if (searchPushed) { searchPushed = false; history.back(); }
+  }
+  // 입력/쿼리/목록만 초기화(히스토리는 건드리지 않음).
+  function resetSearchUI() {
     searchInput.value = "";
     current.query = "";
     searchClear.hidden = true;
     render();
+  }
+  var searchTimer;
+  searchInput.addEventListener("input", function () {
+    current.query = searchInput.value;
+    searchClear.hidden = !searchInput.value;
+    if (searchInput.value) beginSearchHistory();
+    else unwindSearchHistory(); // 사용자가 직접 글자를 모두 지움
+    clearTimeout(searchTimer);
+    searchTimer = setTimeout(render, 120);
+  });
+  searchClear.addEventListener("click", function () {
+    resetSearchUI();
+    unwindSearchHistory();
     searchInput.focus();
   });
 
@@ -1716,6 +1736,10 @@
   window.addEventListener("popstate", function (e) {
     if (anyOverlayOpen()) {
       closeTop(true);
+    } else if (searchPushed) {
+      // 검색 중 뒤로가기 → 앱을 나가지 않고 검색어부터 비운다
+      searchPushed = false;
+      resetSearchUI();
     } else if (e.state && e.state.detail) {
       var c = Data.getById(e.state.detail);
       if (c) openDetail(c);

@@ -4,7 +4,7 @@
 (function () {
   "use strict";
 
-  var APP_VERSION = "66"; // SW 캐시(donggu-dial-vNN)와 함께 갱신
+  var APP_VERSION = "67"; // SW 캐시(donggu-dial-vNN)와 함께 갱신
   var ORG_HDR_H = 44;     // 조직도 헤더 높이(CSS --org-hdr-h 와 동기화) — 계단식 sticky 점프 보정용
   var listEl = document.getElementById("list");
   var scrollRegion = document.getElementById("scroll-region");
@@ -38,7 +38,7 @@
   var deptPickerOpts = null;
   var favGroupPickerEl = document.getElementById("fav-group-picker");
   var favGroupPickerContact = null;
-  var current = { tab: "all", query: "", detailId: null, sort: "dept", collapsed: {}, orgCollapsed: {}, favCollapsed: {}, orgReorder: false };
+  var current = { tab: "all", query: "", detailId: null, sort: "dept", collapsed: {}, orgCollapsed: {}, favCollapsed: {}, orgReorder: false, deptMgrCollapsed: {} };
   var editId = null;
   var orgInit = false; // 조직도 첫 진입 시 모두 접기 1회 적용 플래그
   var pendingPhoto; // undefined=변경없음, null=제거, string=새 dataURL
@@ -360,7 +360,6 @@
         },
         reorder: current.orgReorder,
         onToggleReorder: function () { current.orgReorder = !current.orgReorder; render(); },
-        onMove: moveMember,
       });
     } else if (current.tab === "favorites") {
       showTools(false); showAlphaRail(false);
@@ -622,21 +621,139 @@
   }
   document.getElementById("fav-group-picker-back").addEventListener("click", function () { closeFavGroupPicker(false); });
 
-  // ---------- 사원 순서(부서 내) ----------
-  // 같은 부서 안에서 사원을 위/아래로 이동. 해당 부서 멤버 전체를 1..n 으로 재번호 부여해 저장.
-  function moveMember(contact, dir) {
-    var members = Data.membersOfDept(contact.deptId);
-    var i = members.map(function (m) { return m.id; }).indexOf(contact.id);
-    var j = i + dir;
-    if (i < 0 || j < 0 || j >= members.length) return;
-    var arr = members.slice();
-    var t = arr[i]; arr[i] = arr[j]; arr[j] = t;
-    arr.forEach(function (m, idx) {
-      if ((m.memberSortOrder || 0) !== idx + 1) Storage.setMemberOrder(m.id, idx + 1);
+  // ---------- 드래그 정렬: 사원(조직도 순서 편집) ----------
+  // 보이는 사원 행 + 부서 헤더(앵커)를 DOM 순서로 훑어 "삽입 슬롯" 목록 생성.
+  // 스크롤 중에도 정확하도록 이동마다 다시 계산한다(좌표는 뷰포트 기준).
+  function memberSlots() {
+    var slots = [];
+    var nodes = listEl.querySelectorAll("[data-dnd], [data-dept-anchor]");
+    var curDept = null, idx = 0, last = null;
+    function trail() {
+      if (curDept != null && last) slots.push({ deptId: curDept, index: idx, y: last.bottom, left: last.left, width: last.width });
+    }
+    Array.prototype.forEach.call(nodes, function (n) {
+      var r = n.getBoundingClientRect();
+      if (n.hasAttribute("data-dept-anchor")) {
+        trail();
+        curDept = n.getAttribute("data-dept-anchor"); idx = 0; last = null;
+        slots.push({ deptId: curDept, index: 0, y: r.bottom, left: r.left + 16, width: Math.max(40, r.width - 16) });
+      } else {
+        var dept = n.getAttribute("data-dept");
+        if (dept !== curDept) { trail(); curDept = dept; idx = 0; last = null; }
+        slots.push({ deptId: dept, index: idx, y: r.top, left: r.left, width: r.width });
+        idx++; last = r;
+      }
     });
+    trail();
+    return slots;
+  }
+  function applyMemberMove(id, target) {
+    id = +id;
+    var contact = Data.resolveIds([id])[0];
+    if (!contact) return;
+    var fromDept = contact.deptId;
+    var toRaw = target.deptId;
+    var toDept = (toRaw === "" || toRaw == null) ? null : +toRaw;
+    var toDeptObj = toDept != null ? Data.getDeptById(toDept) : null;
+    var effDept = toDeptObj ? toDept : fromDept; // 실존 부서가 아니면(기타 등) 부서 변경 금지
+    var ids = Data.membersOfDept(effDept).map(function (m) { return m.id; });
+    var without = ids.filter(function (x) { return x !== id; });
+    var at = target.index;
+    if (String(effDept) === String(fromDept)) {
+      var orig = ids.indexOf(id);
+      if (orig !== -1 && orig < at) at--; // 같은 부서 아래로 이동 시 자기 행이 위에 포함됨
+    }
+    at = Math.max(0, Math.min(at, without.length));
+    without.splice(at, 0, id);
+    if (toDeptObj && +toDept !== +fromDept) {
+      Storage.saveContact(id, { deptId: toDept, dept: toDeptObj.name });
+    }
+    without.forEach(function (cid, i) { Storage.setMemberOrder(cid, i + 1); });
     Data.rebuild();
     render();
+    showSnack("순서를 변경했습니다");
   }
+  DnD.attach(listEl, {
+    scrollEl: scrollRegion,
+    onStart: function () { return null; },
+    onMove: function (x, y) {
+      var slots = memberSlots();
+      if (!slots.length) return null;
+      var i = DnD.nearestSlot(slots, y);
+      if (i < 0) return null;
+      var s = slots[i];
+      return { rect: { left: s.left, top: s.y, width: s.width }, target: { deptId: s.deptId, index: s.index } };
+    },
+    onDrop: function (item, target) { applyMemberMove(item.getAttribute("data-id"), target); },
+  });
+
+  // ---------- 드래그 정렬: 부서 관리(순서 + 상위 변경, 트리 들여쓰기) ----------
+  function ancestorAtDepth(id, targetDepth) {
+    var cur = +id, guard = 0;
+    while (cur && guard++ < 64) {
+      if (Data.depthOf(cur) === targetDepth) return cur;
+      var d = Data.getDeptById(cur);
+      cur = d ? (d.parentId || 0) : 0;
+    }
+    return 0;
+  }
+  function deptVisibleRows(exclSet) {
+    return Array.prototype.slice.call(deptMgrBody.querySelectorAll(".deptmgr-row[data-dnd]"))
+      .filter(function (el) { return !exclSet[+el.getAttribute("data-id")]; });
+  }
+  function deptDropResolve(x, y, dragId) {
+    dragId = +dragId;
+    var excl = deptDescendants(dragId); excl[dragId] = true;
+    var els = deptVisibleRows(excl);
+    if (!els.length) return null;
+    var rows = els.map(function (el) {
+      var r = el.getBoundingClientRect();
+      return { id: +el.getAttribute("data-id"), depth: +el.getAttribute("data-depth"),
+        top: r.top, bottom: r.bottom, mid: (r.top + r.bottom) / 2, left: r.left, width: r.width };
+    });
+    var gap = rows.length;
+    for (var i = 0; i < rows.length; i++) { if (y < rows[i].mid) { gap = i; break; } }
+    var above = gap > 0 ? rows[gap - 1] : null;
+    var below = gap < rows.length ? rows[gap] : null;
+    var maxDepth = above ? above.depth + 1 : 0;
+    var minDepth = below ? below.depth : 0;
+    if (minDepth > maxDepth) minDepth = maxDepth;
+    var card = deptMgrBody.querySelector(".info-card");
+    var cardRect = card ? card.getBoundingClientRect() : { left: (above ? above.left : 0), width: (above ? above.width : 240) };
+    var desired = Math.round((x - cardRect.left - 8) / 16);
+    var depth = Math.max(minDepth, Math.min(maxDepth, desired));
+    var parentId = (depth > 0 && above) ? ancestorAtDepth(above.id, depth - 1) : 0;
+    var indLeft = cardRect.left + 8 + depth * 16;
+    var indWidth = Math.max(40, cardRect.width - (depth * 16) - 16);
+    var y0 = above ? above.bottom : (below ? below.top : 0);
+    return { rect: { left: indLeft, top: y0 - 1, width: indWidth },
+      target: { parentId: parentId, gap: gap, depth: depth } };
+  }
+  function applyDeptMove(dragId, target) {
+    dragId = +dragId;
+    var newParent = target.parentId || 0;
+    var excl = deptDescendants(dragId); excl[dragId] = true;
+    if (excl[newParent]) return; // 자기 자신/후손으로는 이동 불가(안전망)
+    var siblings = Data.getDepartments().filter(function (d) { return (d.parentId || 0) === newParent && d.id !== dragId; });
+    var aboveIds = deptVisibleRows(excl).slice(0, target.gap)
+      .map(function (el) { return +el.getAttribute("data-id"); });
+    var sibIds = siblings.map(function (d) { return d.id; });
+    var insertAt = sibIds.filter(function (sid) { return aboveIds.indexOf(sid) !== -1; }).length;
+    sibIds.splice(insertAt, 0, dragId);
+    var lvl = newParent ? Data.depthOf(newParent) + 1 : 0;
+    Storage.saveDept(dragId, { parentId: newParent, level: lvl });
+    sibIds.forEach(function (sid, i) { Storage.saveDept(sid, { sortOrder: (i + 1) * 10 }); });
+    Data.rebuild();
+    renderDeptMgrList();
+    render();
+    refreshCounts();
+    showSnack("부서를 이동했습니다");
+  }
+  DnD.attach(deptMgrBody, {
+    scrollEl: deptMgrBody,
+    onMove: function (x, y, ctx, item) { return deptDropResolve(x, y, item.getAttribute("data-id")); },
+    onDrop: function (item, target) { applyDeptMove(item.getAttribute("data-id"), target); },
+  });
 
   // 파일 → 256px 정사각 JPEG dataURL(중앙 크롭, 압축)
   function fileToAvatar(file) {
@@ -995,20 +1112,16 @@
   function renderDeptMgrList() {
     UI.renderDeptManager(deptMgrBody, Data.getDepartments(),
       { direct: Data.directCountByDept(), child: Data.childCountByParent() },
-      { onEdit: openDeptEditor, onMove: moveDept, onAddChild: function (d) { openDeptEditor(null, d.id); } });
-  }
-  function moveDept(dept, dir) {
-    var sibs = Data.getDepartments().filter(function (d) { return (d.parentId || 0) === (dept.parentId || 0); });
-    var i = sibs.findIndex(function (d) { return d.id === dept.id; });
-    var j = i + dir;
-    if (j < 0 || j >= sibs.length) return;
-    var a = sibs[i], b = sibs[j];
-    var av = a.sortOrder || 0, bv = b.sortOrder || 0;
-    if (av === bv) bv = av + dir;
-    Storage.saveDept(a.id, { sortOrder: bv });
-    Storage.saveDept(b.id, { sortOrder: av });
-    Data.rebuild(); renderDeptMgrList(); render();
-    showSnack("순서를 변경했습니다");
+      {
+        onEdit: openDeptEditor,
+        onAddChild: function (d) { openDeptEditor(null, d.id); },
+        onDelete: confirmDeleteDept,
+        onToggle: function (id) {
+          current.deptMgrCollapsed[id] = !current.deptMgrCollapsed[id];
+          renderDeptMgrList();
+        },
+        collapsed: current.deptMgrCollapsed,
+      });
   }
   function openDeptMgr() {
     renderDeptMgrList();
@@ -1073,31 +1186,37 @@
     refreshCounts();
     showSnack("부서가 저장되었습니다");
   }
-  function deleteDeptEditor() {
-    if (deptEditId == null) return;
-    var dept = Data.getDeptById(deptEditId);
-    var dc = Data.directCountByDept()[deptEditId] || 0;
-    var cc = Data.childCountByParent()[deptEditId] || 0;
+  // 부서 삭제(편집 화면·목록 행 공용). 인원/하위 있으면 상위로 올리고 삭제. 성공 시 true.
+  function performDeptDelete(id) {
+    var dept = Data.getDeptById(id);
+    if (!dept) return false;
+    var dc = Data.directCountByDept()[id] || 0;
+    var cc = Data.childCountByParent()[id] || 0;
     if (dc || cc) {
-      var up = (dept && dept.parentId) || 0;
+      var up = dept.parentId || 0;
       var upDept = up ? Data.getDeptById(up) : null;
       var upName = upDept ? upDept.name : "최상위(미지정)";
-      if (!window.confirm("이 부서에 인원 " + dc + "명, 하위 부서 " + cc + "개가 있습니다.\n이들을 상위(" + upName + ")로 옮기고 삭제할까요?")) return;
-      Data.getDepartments().filter(function (d) { return d.parentId === deptEditId; })
+      if (!window.confirm("‘" + dept.name + "’에 인원 " + dc + "명, 하위 부서 " + cc + "개가 있습니다.\n이들을 상위(" + upName + ")로 옮기고 삭제할까요?")) return false;
+      Data.getDepartments().filter(function (d) { return d.parentId === id; })
         .forEach(function (ch) { Storage.saveDept(ch.id, { parentId: up, level: up ? Data.depthOf(up) + 1 : 0 }); });
-      Data.membersOfDept(deptEditId).forEach(function (c) {
+      Data.membersOfDept(id).forEach(function (c) {
         Storage.saveContact(c.id, { deptId: up, dept: upDept ? upDept.name : "" });
       });
     } else {
-      if (!window.confirm("이 부서를 삭제할까요?")) return;
+      if (!window.confirm("‘" + dept.name + "’ 부서를 삭제할까요?")) return false;
     }
-    Storage.deleteDept(deptEditId);
+    Storage.deleteDept(id);
     Data.rebuild();
-    closeDeptEditor(false);
     renderDeptMgrList();
     render();
     refreshCounts();
     showSnack("부서가 삭제되었습니다");
+    return true;
+  }
+  function confirmDeleteDept(dept) { performDeptDelete(dept.id); }
+  function deleteDeptEditor() {
+    if (deptEditId == null) return;
+    if (performDeptDelete(deptEditId)) closeDeptEditor(false);
   }
   document.getElementById("dept-editor-cancel").addEventListener("click", function () { closeDeptEditor(false); });
   document.getElementById("dept-editor-save").addEventListener("click", saveDeptEditor);

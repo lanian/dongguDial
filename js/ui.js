@@ -191,16 +191,18 @@
 
     var actions = el("div", "row-actions");
 
-    if (opts.reorder && opts.onMove) {
-      // 순서 편집 모드: 같은 부서 안에서 위/아래 이동(별·전화 대신)
-      var sibs = (window.Data && Data.membersOfDept) ? Data.membersOfDept(contact.deptId) : [];
-      var pos = sibs.map(function (s) { return s.id; }).indexOf(contact.id);
-      actions.appendChild(moveBtn("up", pos <= 0, function (e) {
-        if (e) e.stopPropagation(); opts.onMove(contact, -1);
-      }));
-      actions.appendChild(moveBtn("down", pos < 0 || pos >= sibs.length - 1, function (e) {
-        if (e) e.stopPropagation(); opts.onMove(contact, 1);
-      }));
+    if (opts.reorder) {
+      // 순서 편집 모드: 드래그 핸들(별·전화 대신). 같은 부서 안 정렬 + 다른 부서로 이동 모두 드래그로.
+      row.setAttribute("data-dnd", "");
+      row.setAttribute("data-id", String(contact.id));
+      row.setAttribute("data-dept", contact.deptId == null ? "" : String(contact.deptId));
+      row.classList.add("row--reorder");
+      var grip = el("button", "mini-btn mini-btn--ghost dnd-handle");
+      grip.type = "button";
+      grip.setAttribute("aria-label", (contact.name || "") + " 끌어서 순서·부서 이동");
+      grip.appendChild(icon("grip"));
+      grip.addEventListener("click", function (e) { e.stopPropagation(); e.preventDefault(); });
+      actions.appendChild(grip);
     } else {
       var isFav = Storage.isFavorite(contact.id);
       var star = el("button", "mini-btn mini-btn--star" + (isFav ? " is-on" : ""));
@@ -245,10 +247,14 @@
     }
     row.appendChild(actions);
 
-    row.addEventListener("click", function () { opts.onOpen(contact); });
-    row.addEventListener("keydown", function (e) {
-      if (e.key === "Enter" || e.key === " ") { e.preventDefault(); opts.onOpen(contact); }
-    });
+    if (opts.onOpen && !opts.reorder) {
+      row.addEventListener("click", function () { opts.onOpen(contact); });
+      row.addEventListener("keydown", function (e) {
+        if (e.key === "Enter" || e.key === " ") { e.preventDefault(); opts.onOpen(contact); }
+      });
+    } else if (opts.reorder) {
+      row.tabIndex = -1; // 순서 편집 중에는 행 자체로 진입하지 않음(핸들만 조작)
+    }
     return row;
   }
 
@@ -278,6 +284,8 @@
       " org-lvl-" + Math.min(depth, 2));
     header.type = "button";
     header.id = "org-" + node.dept.id;
+    // 순서 편집 모드: 헤더를 드롭 앵커로 표시(빈 부서/섹션 첫 자리로의 이동 지원)
+    if (opts.reorder && node.dept.id) header.setAttribute("data-dept-anchor", String(node.dept.id));
     // 과/팀 헤더의 계단식 sticky top/z-index 계산용 깊이(최대 2단까지 쌓음)
     if (!top) header.style.setProperty("--depth", Math.min(depth, 2));
     header.setAttribute("aria-expanded", collapsed ? "false" : "true");
@@ -487,6 +495,8 @@
      *  opts: onOpen,onFav,collapsed,onToggle,reorder,onToggleReorder,onMove */
     renderOrgView: function (container, tree, opts) {
       container.textContent = "";
+      // 순서 편집 중에는 sticky 헤더를 끈다(드래그 좌표 계산이 정확해지고 편집 화면이 차분해짐)
+      container.classList.toggle("org-reordering", !!opts.reorder);
       if (!tree.length) {
         container.appendChild(UI.emptyState("조직 정보가 없습니다.",
           opts.onManage ? "부서 관리" : null, opts.onManage));
@@ -494,30 +504,35 @@
       }
       var totalPeople = tree.reduce(function (a, n) { return a + n.count; }, 0);
       var summary = el("div", "org-summary");
-      summary.appendChild(el("span", null, "총 " + tree.length + "개 부서 · " + totalPeople + "명"));
-      if (opts.onToggleReorder) {
-        var rb = el("button", "org-summary-btn" + (opts.reorder ? " is-active" : ""),
-          opts.reorder ? "순서 편집 완료" : "사원 순서 편집");
-        rb.type = "button";
-        rb.addEventListener("click", opts.onToggleReorder);
-        summary.appendChild(rb);
+      summary.appendChild(el("span", "org-summary-info",
+        "총 " + tree.length + "개 부서 · " + totalPeople + "명"));
+      var bar = el("div", "org-toolbar");
+      // 아이콘+라벨 툴바 버튼 헬퍼
+      function tbtn(ico, label, cls, fn) {
+        var b = el("button", "org-tbtn" + (cls ? " " + cls : ""));
+        b.type = "button";
+        b.appendChild(icon(ico));
+        b.appendChild(el("span", "org-tbtn-label", label));
+        b.addEventListener("click", fn);
+        bar.appendChild(b);
+        return b;
       }
-      if (opts.onToggleAll && !opts.reorder) {
-        var ta = el("button", "org-summary-btn", opts.allCollapsed ? "모두 펼치기" : "모두 접기");
-        ta.type = "button";
-        ta.addEventListener("click", opts.onToggleAll);
-        summary.appendChild(ta);
+      if (opts.reorder) {
+        // 편집 중: 완료 버튼만 강조
+        tbtn("check", "순서 편집 완료", "org-tbtn--done is-active", opts.onToggleReorder);
+      } else {
+        if (opts.onToggleAll) {
+          tbtn(opts.allCollapsed ? "expand-all" : "collapse-all",
+            opts.allCollapsed ? "모두 펼치기" : "모두 접기", null, opts.onToggleAll);
+        }
+        if (opts.onToggleReorder) tbtn("grip", "사원 순서", null, opts.onToggleReorder);
+        if (opts.onManage) tbtn("building", "부서 관리", null, opts.onManage);
       }
-      if (opts.onManage && !opts.reorder) {
-        var mb = el("button", "org-summary-btn org-manage-btn", "부서 관리");
-        mb.type = "button";
-        mb.addEventListener("click", opts.onManage);
-        summary.appendChild(mb);
-      }
+      summary.appendChild(bar);
       container.appendChild(summary);
       if (opts.reorder) {
         container.appendChild(el("div", "org-reorder-hint",
-          "▲▼ 로 같은 부서 안에서 사원 순서를 바꿉니다. 완료를 누르면 적용됩니다."));
+          "≡ 핸들을 끌어 순서를 바꾸세요. 다른 부서 영역으로 끌면 소속도 바뀝니다."));
       }
 
       var frag = document.createDocumentFragment();
@@ -570,24 +585,53 @@
       container.appendChild(form);
     },
 
-    /** 부서 관리 목록: 직제순 + 레벨 들여쓰기, 각 행 탭 → onEdit(dept) */
+    /** 부서 관리 목록: 직제순 + 레벨 들여쓰기 트리(상위 접기/펼치기).
+     *  드래그 핸들로 순서·상위 변경, 각 행 탭 → onEdit. h: onEdit,onAddChild,onDelete,onToggle,collapsed */
     renderDeptManager: function (container, departments, counts, h) {
       container.textContent = "";
       if (!departments.length) {
         container.appendChild(UI.emptyState("부서가 없습니다. ‘부서 추가’로 만들어 보세요."));
         return;
       }
+      var collapsed = h.collapsed || {};
       var byParent = {};
       departments.forEach(function (d) {
         var p = d.parentId || 0;
         (byParent[p] = byParent[p] || []).push(d);
       });
       var card = el("div", "info-card");
+      var cutoff = null; // 접힌 상위의 depth — 이보다 깊은 후손 행은 숨김(pre-order 가정)
       departments.forEach(function (d) {
-        var sibs = byParent[d.parentId || 0];
-        var i = sibs.indexOf(d);
+        var depth = Data.depthOf(d.id);
+        if (cutoff != null && depth > cutoff) return;
+        cutoff = null;
+        var kids = !!(byParent[d.id] && byParent[d.id].length);
+        var isCol = !!collapsed[d.id];
+
         var row = el("div", "deptmgr-row");
-        row.style.paddingLeft = (12 + Data.depthOf(d.id) * 16) + "px";
+        row.setAttribute("data-dnd", "");
+        row.setAttribute("data-id", String(d.id));
+        row.setAttribute("data-parent", String(d.parentId || 0));
+        row.setAttribute("data-depth", String(depth));
+        row.style.paddingLeft = (8 + depth * 16) + "px";
+
+        var grip = el("button", "mini-btn mini-btn--ghost dnd-handle deptmgr-grip");
+        grip.type = "button";
+        grip.setAttribute("aria-label", d.name + " 끌어서 순서·상위 변경");
+        grip.appendChild(icon("grip"));
+        row.appendChild(grip);
+
+        if (kids) {
+          var tg = el("button", "deptmgr-toggle" + (isCol ? " is-collapsed" : ""));
+          tg.type = "button";
+          tg.setAttribute("aria-label", d.name + (isCol ? " 펼치기" : " 접기"));
+          tg.setAttribute("aria-expanded", isCol ? "false" : "true");
+          tg.appendChild(icon("chevron", "section-chevron"));
+          tg.addEventListener("click", function (e) { e.stopPropagation(); h.onToggle(d.id); });
+          row.appendChild(tg);
+        } else {
+          row.appendChild(el("span", "deptmgr-toggle-spacer"));
+        }
 
         var main = el("button", "deptmgr-main");
         main.type = "button";
@@ -603,16 +647,24 @@
         row.appendChild(main);
 
         var acts = el("div", "deptmgr-acts");
-        acts.appendChild(moveBtn("up", i === 0, function () { h.onMove(d, -1); }));
-        acts.appendChild(moveBtn("down", i === sibs.length - 1, function () { h.onMove(d, 1); }));
         var addc = el("button", "mini-btn mini-btn--ghost");
         addc.type = "button";
         addc.setAttribute("aria-label", d.name + " 하위 부서 추가");
         addc.appendChild(icon("plus"));
         addc.addEventListener("click", function () { h.onAddChild(d); });
         acts.appendChild(addc);
+        if (h.onDelete) {
+          var del = el("button", "mini-btn mini-btn--ghost deptmgr-del");
+          del.type = "button";
+          del.setAttribute("aria-label", d.name + " 삭제");
+          del.appendChild(icon("trash"));
+          del.addEventListener("click", function () { h.onDelete(d); });
+          acts.appendChild(del);
+        }
         row.appendChild(acts);
         card.appendChild(row);
+
+        if (isCol && kids) cutoff = depth;
       });
       container.appendChild(card);
     },
@@ -628,7 +680,7 @@
         String(dept.parentId || 0),
         dept.parentId ? deptLabel(dept.parentId) : "최상위 (국·실·관)"));
       container.appendChild(form);
-      var note = el("p", "settings-note", "순서(직제)는 부서 관리 목록에서 ▲▼ 버튼으로 조정합니다.");
+      var note = el("p", "settings-note", "순서(직제)와 상위 부서는 부서 관리 목록에서 ≡ 핸들을 끌어 조정할 수도 있습니다.");
       container.appendChild(note);
     },
 
@@ -876,15 +928,6 @@
     return row;
   }
 
-  function moveBtn(dir, disabled, fn) {
-    var b = el("button", "mini-btn mini-btn--ghost deptmgr-move");
-    b.type = "button";
-    b.setAttribute("aria-label", dir === "up" ? "위로 이동" : "아래로 이동");
-    if (disabled) b.disabled = true;
-    b.appendChild(icon("chevron", "chev-" + dir));
-    b.addEventListener("click", fn);
-    return b;
-  }
 
   /** dept.id의 모든 하위(자손) id 집합 — 순환 부모 선택 방지용 */
   function descendantsOf(id, depts) {

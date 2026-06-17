@@ -4,7 +4,7 @@
 (function () {
   "use strict";
 
-  var APP_VERSION = "63"; // SW 캐시(donggu-dial-vNN)와 함께 갱신
+  var APP_VERSION = "64"; // SW 캐시(donggu-dial-vNN)와 함께 갱신
   var listEl = document.getElementById("list");
   var scrollRegion = document.getElementById("scroll-region");
   var resultStatus = document.getElementById("result-status");
@@ -385,6 +385,7 @@
   // 정렬 세그먼트
   sortBtns.forEach(function (b) {
     b.addEventListener("click", function () {
+      if (current.sort === b.dataset.sort) return; // 이미 선택된 정렬이면 무시
       current.sort = b.dataset.sort;
       sortBtns.forEach(function (x) {
         var on = x === b;
@@ -392,6 +393,7 @@
         x.setAttribute("aria-pressed", on ? "true" : "false");
       });
       render();
+      scrollRegion.scrollTo({ top: 0 }); // 정렬 바뀌면 맨 위로
     });
   });
 

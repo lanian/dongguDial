@@ -88,6 +88,20 @@
     return el("span", "badge " + map[status], status);
   }
 
+  // 사람 실루엣(기본 아이콘) — 색상 원+이니셜 대신 쓰는 중립 placeholder
+  function defaultIconSVG() {
+    var ns = "http://www.w3.org/2000/svg";
+    var svg = document.createElementNS(ns, "svg");
+    svg.setAttribute("viewBox", "0 0 24 24");
+    svg.setAttribute("class", "avatar-default-svg");
+    svg.setAttribute("aria-hidden", "true");
+    var p = document.createElementNS(ns, "path");
+    p.setAttribute("fill", "currentColor");
+    p.setAttribute("d", "M12 12a5 5 0 1 0 0-10 5 5 0 0 0 0 10Zm0 2.2c-4.6 0-8.4 2.4-8.4 5.6V22h16.8v-2.2c0-3.2-3.8-5.6-8.4-5.6Z");
+    svg.appendChild(p);
+    return svg;
+  }
+
   function makeAvatar(contact, sizeClass) {
     var a = el("div", "avatar" + (sizeClass ? " " + sizeClass : ""));
     var photo = (window.Photos && Photos.get) ? Photos.get(contact.id) : null;
@@ -97,6 +111,9 @@
       im.src = photo;
       im.alt = (contact.name || "") + " 사진";
       a.appendChild(im);
+    } else if (contact.defaultIcon) {
+      a.classList.add("avatar--default");
+      a.appendChild(defaultIconSVG());
     } else {
       a.style.background = avatarColor(contact.name || "");
       a.textContent = initial(contact.name);
@@ -338,6 +355,7 @@
 
   var UI = {
     avatarColor: avatarColor,
+    defaultIconSVG: defaultIconSVG,
     icon: icon,
     formatPhone: formatPhone,
     renderRow: renderRow,
@@ -619,8 +637,9 @@
       photoRow.appendChild(prev);
       var pbtns = el("div", "ef-photo-btns");
       var pick = el("button", "ef-photo-btn"); pick.id = "ef-photo-pick"; pick.type = "button"; pick.textContent = "사진 선택";
+      var def = el("button", "ef-photo-btn"); def.id = "ef-photo-default"; def.type = "button"; def.textContent = "기본 아이콘";
       var rem = el("button", "ef-photo-btn ef-photo-rem"); rem.id = "ef-photo-remove"; rem.type = "button"; rem.textContent = "제거";
-      pbtns.appendChild(pick); pbtns.appendChild(rem);
+      pbtns.appendChild(pick); pbtns.appendChild(def); pbtns.appendChild(rem);
       photoRow.appendChild(pbtns);
       var fileInp = el("input"); fileInp.id = "ef-photo-file"; fileInp.type = "file"; fileInp.accept = "image/*"; fileInp.hidden = true;
       photoRow.appendChild(fileInp);

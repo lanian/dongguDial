@@ -4,7 +4,7 @@
 (function () {
   "use strict";
 
-  var APP_VERSION = "75"; // SW 캐시(donggu-dial-vNN)와 함께 갱신
+  var APP_VERSION = "76"; // SW 캐시(donggu-dial-vNN)와 함께 갱신
   var ORG_HDR_H = 44;     // 조직도 헤더 높이(CSS --org-hdr-h 와 동기화) — 계단식 sticky 점프 보정용
   var listEl = document.getElementById("list");
   var scrollRegion = document.getElementById("scroll-region");
@@ -42,6 +42,7 @@
   var editId = null;
   var orgInit = false; // 조직도 첫 진입 시 모두 접기 1회 적용 플래그
   var pendingPhoto; // undefined=변경없음, null=제거, string=새 dataURL
+  var pendingDefaultIcon; // undefined=변경없음, true=기본 아이콘(실루엣), false=아님
   var bgEls = [appBar, tabsNav, listEl];
   var focusStack = [];
 
@@ -786,7 +787,12 @@
     function paint() {
       prev.textContent = ""; prev.className = "ef-photo-prev"; prev.style.background = "";
       var cur = pendingPhoto !== undefined ? pendingPhoto : ((window.Photos && contact.id != null) ? Photos.get(contact.id) : null);
+      var useDefault = pendingDefaultIcon !== undefined ? pendingDefaultIcon : !!contact.defaultIcon;
       if (cur) { var im = document.createElement("img"); im.src = cur; im.alt = "미리보기"; prev.appendChild(im); }
+      else if (useDefault) {
+        prev.classList.add("ef-photo-default");
+        prev.appendChild(UI.defaultIconSVG());
+      }
       else {
         prev.classList.add("ef-photo-initial");
         prev.style.background = UI.avatarColor(contact.name || "");
@@ -795,11 +801,12 @@
     }
     paint();
     document.getElementById("ef-photo-pick").addEventListener("click", function () { fileInp.value = ""; fileInp.click(); });
-    document.getElementById("ef-photo-remove").addEventListener("click", function () { pendingPhoto = null; paint(); });
+    document.getElementById("ef-photo-default").addEventListener("click", function () { pendingPhoto = null; pendingDefaultIcon = true; paint(); });
+    document.getElementById("ef-photo-remove").addEventListener("click", function () { pendingPhoto = null; pendingDefaultIcon = false; paint(); });
     fileInp.addEventListener("change", function () {
       var f = fileInp.files && fileInp.files[0];
       if (!f) return;
-      fileToAvatar(f).then(function (d) { pendingPhoto = d; paint(); })
+      fileToAvatar(f).then(function (d) { pendingPhoto = d; pendingDefaultIcon = false; paint(); })
         .catch(function (e) { window.alert("사진 처리 실패: " + e.message); });
     });
   }
@@ -1028,6 +1035,7 @@
     var depts = Data.getDepartments();
     UI.renderEditForm(editorBody, contact || { deptId: depts[0] && depts[0].id }, depts);
     pendingPhoto = undefined;
+    pendingDefaultIcon = undefined;
     setupPhotoControls(contact || {});
     document.getElementById("ef-dept-btn").addEventListener("click", function () {
       openDeptPicker({
@@ -1064,11 +1072,14 @@
     var deptId = realDeptId(val("ef-dept"));
     var d0 = Data.getDeptById(deptId);
     var dept = d0 ? d0.name : "";
+    var prevC = editId != null ? Data.getById(editId) : null;
+    var useDefaultIcon = pendingDefaultIcon !== undefined ? pendingDefaultIcon : !!(prevC && prevC.defaultIcon);
     var fields = {
       name: name, deptId: deptId, dept: dept,
       position: val("ef-position"), work: val("ef-work"),
       phone: val("ef-phone"), tel: val("ef-tel"), birth: val("ef-birth"),
       status: val("ef-status") || "미설정",
+      defaultIcon: useDefaultIcon,
     };
     var id;
     if (editId == null) id = Storage.addContact(fields);

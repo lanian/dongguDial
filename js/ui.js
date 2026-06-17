@@ -91,12 +91,9 @@
   // 전역 설정: 사진 없는 모든 연락처를 기본 아이콘(실루엣)으로 표시할지 (app이 부팅/토글 시 주입)
   var showDefaultIcon = false;
 
-  // 기본 아이콘 = 앱 아이콘(로고). 색상 원+이니셜 대신 쓰는 중립 placeholder
+  // 기본 아이콘 = 앱 로고(마스크)에 브랜드 색을 입힌 단색 실루엣. 색은 CSS(var(--brand))가 담당.
   function defaultIconNode() {
-    var im = el("img");
-    im.src = "icons/icon-192.png";
-    im.alt = "기본 아이콘";
-    return im;
+    return el("span", "default-icon");
   }
 
   function makeAvatar(contact, sizeClass) {

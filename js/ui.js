@@ -185,7 +185,9 @@
     if (badge) name.appendChild(badge);
     main.appendChild(name);
     var sub = el("div", "row-sub");
-    highlightInto(sub, subParts.join(" · "), opts.query);
+    var subText = el("span", "row-sub-text"); // 마퀴(흐름) 대상 — 평소엔 inline 으로 말줄임 유지
+    highlightInto(subText, subParts.join(" · "), opts.query);
+    sub.appendChild(subText);
     main.appendChild(sub);
     row.appendChild(main);
 

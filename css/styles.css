@@ -435,6 +435,21 @@ mark {
   text-overflow: ellipsis;
   white-space: nowrap;
 }
+/* 평소엔 inline → 부모(.row-sub)의 말줄임표가 그대로 적용. 행 높이는 항상 1줄로 균일 */
+.row-sub-text { display: inline; }
+/* 포커스/홀드된 행에서 텍스트가 넘칠 때만 좌우로 흐름(마퀴). 거리·속도는 JS가 측정해 변수로 주입 */
+.row-sub.is-marquee { text-overflow: clip; }
+.row-sub.is-marquee .row-sub-text {
+  display: inline-block;
+  animation: row-marquee var(--marquee-ms, 3000ms) ease-in-out infinite alternate;
+}
+@keyframes row-marquee {
+  0%, 14%   { transform: translateX(0); }
+  86%, 100% { transform: translateX(var(--marquee-x, 0)); }
+}
+@media (prefers-reduced-motion: reduce) {
+  .row-sub.is-marquee .row-sub-text { animation: none; }
+}
 
 .badge {
   display: inline-flex;

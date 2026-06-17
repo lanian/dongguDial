@@ -4,7 +4,7 @@
 (function () {
   "use strict";
 
-  var APP_VERSION = "73"; // SW 캐시(donggu-dial-vNN)와 함께 갱신
+  var APP_VERSION = "74"; // SW 캐시(donggu-dial-vNN)와 함께 갱신
   var ORG_HDR_H = 44;     // 조직도 헤더 높이(CSS --org-hdr-h 와 동기화) — 계단식 sticky 점프 보정용
   var listEl = document.getElementById("list");
   var scrollRegion = document.getElementById("scroll-region");
@@ -271,6 +271,67 @@
   }
 
   function render() { renderBody(); updateFab(); }
+
+  // ---------- 행 sub 텍스트 마퀴(흐름) ----------
+  // 평소엔 1줄 말줄임(높이 균일). 마우스 호버 / 키보드 포커스 / 모바일 길게누름(홀드) 시,
+  // 그 행의 부서·업무 텍스트가 넘칠 때만 좌우로 흘려 전체를 읽을 수 있게 한다.
+  var reduceMotion = window.matchMedia && matchMedia("(prefers-reduced-motion: reduce)");
+  function startMarquee(row) {
+    if (!row) return;
+    if (reduceMotion && reduceMotion.matches) return;
+    var sub = row.querySelector(".row-sub");
+    if (!sub || sub.classList.contains("is-marquee")) return;
+    var overflow = sub.scrollWidth - sub.clientWidth;
+    if (overflow <= 4) return; // 다 보이면 흐를 필요 없음
+    sub.style.setProperty("--marquee-x", "-" + (overflow + 6) + "px");
+    sub.style.setProperty("--marquee-ms", Math.max(1600, overflow * 28) + "ms");
+    sub.classList.add("is-marquee");
+  }
+  function stopMarquee(row) {
+    var sub = row && row.querySelector(".row-sub.is-marquee");
+    if (!sub) return;
+    sub.classList.remove("is-marquee");
+    sub.style.removeProperty("--marquee-x");
+    sub.style.removeProperty("--marquee-ms");
+  }
+  function rowOf(e) { return e.target && e.target.closest ? e.target.closest(".row") : null; }
+  function leaving(e, row) { return !(e.relatedTarget && row.contains(e.relatedTarget)); }
+  function stopAllMarquee() {
+    var on = listEl.querySelectorAll(".row-sub.is-marquee");
+    for (var i = 0; i < on.length; i++) stopMarquee(on[i].closest(".row"));
+  }
+  // 데스크톱: 호버. 터치에서 합성되는 가짜 마우스 이벤트는 무시(마퀴가 멈추지 않고 남는 것 방지).
+  var lastTouch = 0;
+  listEl.addEventListener("mouseover", function (e) {
+    if (Date.now() - lastTouch < 600) return;
+    var r = rowOf(e); if (r) startMarquee(r);
+  });
+  listEl.addEventListener("mouseout", function (e) {
+    if (Date.now() - lastTouch < 600) return;
+    var r = rowOf(e); if (r && leaving(e, r)) stopMarquee(r);
+  });
+  // 키보드 포커스
+  listEl.addEventListener("focusin", function (e) { var r = rowOf(e); if (r) startMarquee(r); });
+  listEl.addEventListener("focusout", function (e) { var r = rowOf(e); if (r && leaving(e, r)) stopMarquee(r); });
+  // 모바일: 길게 누르면(홀드) 그 행이 흐름. 가볍게 탭하면 평소대로 상세 열림.
+  var holdTimer = null, holdRow = null, holdX = 0, holdY = 0;
+  function endHold() { clearTimeout(holdTimer); if (holdRow) { stopMarquee(holdRow); holdRow = null; } }
+  listEl.addEventListener("touchstart", function (e) {
+    lastTouch = Date.now();
+    var t = e.touches && e.touches[0]; if (!t) return;
+    var r = rowOf(e); if (!r) return;
+    holdRow = r; holdX = t.clientX; holdY = t.clientY;
+    clearTimeout(holdTimer);
+    holdTimer = setTimeout(function () { if (holdRow) startMarquee(holdRow); }, 350);
+  }, { passive: true });
+  listEl.addEventListener("touchmove", function (e) {
+    var t = e.touches && e.touches[0]; if (!holdRow || !t) return;
+    if (Math.abs(t.clientX - holdX) > 10 || Math.abs(t.clientY - holdY) > 10) endHold();
+  }, { passive: true });
+  listEl.addEventListener("touchend", function () { lastTouch = Date.now(); endHold(); });
+  listEl.addEventListener("touchcancel", endHold);
+  // 스크롤하면 진행 중인 마퀴 정리(남아있는 애니메이션 방지)
+  scrollRegion.addEventListener("scroll", stopAllMarquee, { passive: true });
 
   function renderBody() {
     var q = current.query.trim();

@@ -66,7 +66,7 @@
   function buildSearchIndex(c) {
     // 재직상태도 일반어 검색 대상(예: '파견', '-교육'). 기본값 '미설정'은 잡음이라 제외.
     var st = (c.status && c.status !== "미설정") ? c.status : null;
-    var parts = [c.name, c.dept, c.team, c.position, c.work, st].filter(Boolean);
+    var parts = [c.name, c.dept, c.team, c.position, c.grade, c.work, st].filter(Boolean);
     c._haystack = parts.join(" ").toLowerCase();
     c._choName = chosung(c.name || "");
     c._phoneDigits = normalizeDigits(c.phone) + " " + normalizeDigits(c.tel);
@@ -76,6 +76,7 @@
       dept: (c.dept || "").toLowerCase(),
       team: (c.team || "").toLowerCase(),
       position: (c.position || "").toLowerCase(),
+      grade: (c.grade || "").toLowerCase(),
       work: (c.work || "").toLowerCase(),
       status: (c.status || "").toLowerCase(),
       birth: (c.birth || "").toLowerCase(),
@@ -90,7 +91,8 @@
     "이름": "name", "성명": "name", "name": "name",
     "부서": "dept", "소속": "dept", "dept": "dept",
     "팀": "team", "team": "team",
-    "직책": "position", "직급": "position", "position": "position",
+    "직책": "position", "직위": "position", "position": "position",
+    "직급": "grade", "급수": "grade", "grade": "grade",
     "업무": "work", "담당": "work", "담당업무": "work", "work": "work",
     "전화": "phone", "번호": "phone", "연락처": "phone", "휴대폰": "phone",
     "휴대전화": "phone", "내선": "phone", "행정번호": "phone", "phone": "phone", "tel": "phone",

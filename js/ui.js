@@ -140,6 +140,7 @@
     lines.push("FN:" + esc(c.name));
     if (c.dept || c.team) lines.push("ORG:" + esc(c.dept) + ";" + esc(c.team));
     if (c.position) lines.push("TITLE:" + esc(c.position));
+    if (c.grade) lines.push("ROLE:" + esc(c.grade));
     if (c.phone) lines.push("TEL;TYPE=CELL:" + clean(c.phone));
     if (c.tel) lines.push("TEL;TYPE=WORK:" + clean(c.tel));
     if (c.birth) lines.push("BDAY:" + c.birth);
@@ -162,7 +163,7 @@
 
   function shareContact(c) {
     var parts = [c.name];
-    if (c.position || c.dept) parts.push([c.dept, c.team, c.position].filter(Boolean).join(" "));
+    if (c.position || c.grade || c.dept) parts.push([c.dept, c.team, c.position, c.grade].filter(Boolean).join(" "));
     if (c.phone) parts.push("휴대전화 " + formatPhone(c.phone));
     if (c.tel) parts.push("행정번호 " + formatPhone(c.tel));
     var text = parts.join("\n");
@@ -179,7 +180,7 @@
     var row = el("div", "row");
     row.setAttribute("role", "button");
     row.tabIndex = 0;
-    var subParts = [contact.dept, contact.position, contact.work].filter(Boolean);
+    var subParts = [contact.dept, contact.position, contact.grade, contact.work].filter(Boolean);
     row.setAttribute("aria-label", (contact.name || "") + ", " + subParts.join(" ") + ", 상세 보기");
 
     row.appendChild(makeAvatar(contact));
@@ -658,6 +659,7 @@
         deptLabel(contact.deptId, "(미지정)")));
 
       form.appendChild(field("직책", textInput("ef-position", contact.position, "팀장")));
+      form.appendChild(field("직급", textInput("ef-grade", contact.grade, "주무관")));
       form.appendChild(field("담당업무", textInput("ef-work", contact.work, "채용")));
       form.appendChild(field("휴대전화", textInput("ef-phone", contact.phone, "010-0000-0000", "tel")));
       form.appendChild(field("행정번호", textInput("ef-tel", contact.tel, "02-000-0000", "tel")));
@@ -898,6 +900,7 @@
       // 소속 섹션
       var c2 = el("div", "info-card");
       addOrgRow(c2, contact, opts.onOrg);
+      addInfo(c2, "badge", "직급", contact.grade);
       addInfo(c2, "work", "담당업무", contact.work);
       addInfo(c2, "status", "재직상태", contact.status && contact.status !== "미설정" ? contact.status : null);
       if (c2.childNodes.length) {

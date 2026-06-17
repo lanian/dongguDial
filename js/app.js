@@ -4,7 +4,7 @@
 (function () {
   "use strict";
 
-  var APP_VERSION = "84"; // SW 캐시(donggu-dial-vNN)와 함께 갱신
+  var APP_VERSION = "85"; // SW 캐시(donggu-dial-vNN)와 함께 갱신
   var ORG_HDR_H = 44;     // 조직도 헤더 높이(CSS --org-hdr-h 와 동기화) — 계단식 sticky 점프 보정용
   var listEl = document.getElementById("list");
   var scrollRegion = document.getElementById("scroll-region");
@@ -350,7 +350,7 @@
         UI.renderFlat(listEl, results, {
           onOpen: openDetail, onFav: onFavChanged, query: hlTerms,
           emptyMsg: "‘" + q + "’ 검색 결과가 없습니다.\n" +
-            "연산자: 공백=모두포함 · -제외 · 부서:·직책:·상태: · \"구\" · |=또는",
+            "연산자: 공백=모두포함 · -제외 · 부서:·직책:·직급:·상태: · \"구\" · |=또는",
         });
       }
       resultStatus.textContent = results.length + "건 검색됨";
@@ -1196,7 +1196,7 @@
     var useDefaultIcon = pendingDefaultIcon !== undefined ? pendingDefaultIcon : !!(prevC && prevC.defaultIcon);
     var fields = {
       name: name, deptId: deptId, dept: dept,
-      position: val("ef-position"), work: val("ef-work"),
+      position: val("ef-position"), grade: val("ef-grade"), work: val("ef-work"),
       phone: val("ef-phone"), tel: val("ef-tel"), birth: val("ef-birth"),
       status: val("ef-status") || "미설정",
       defaultIcon: useDefaultIcon,
@@ -1381,7 +1381,8 @@
   var importContactsFile = document.getElementById("import-contacts-file");
   var FIELD_ALIASES = {
     name: ["이름", "성명", "직원명", "name"],
-    position: ["직책", "직위", "직급", "position"],
+    position: ["직책", "직위", "position"],
+    grade: ["직급", "급수", "계급", "grade"],
     work: ["담당업무", "업무", "담당", "work"],
     phone: ["휴대전화", "휴대폰", "핸드폰", "휴대", "개인전화", "연락처", "hp", "mobile", "phone"],
     tel: ["행정번호", "사내번호", "내선", "내선번호", "사무실", "직통", "전화", "tel"],
@@ -1454,7 +1455,7 @@
       var leaf = resolveDeptPath(pathNames);
       Storage.addContact({
         name: name, deptId: leaf.id, dept: leaf.name, team: "",
-        position: v(r, "position"), work: v(r, "work"),
+        position: v(r, "position"), grade: v(r, "grade"), work: v(r, "work"),
         phone: v(r, "phone"), tel: v(r, "tel"), birth: v(r, "birth"),
         status: normStatus(v(r, "status")),
       });
@@ -1510,9 +1511,9 @@
     reader.readAsArrayBuffer(file); // CSV/XLSX 모두 ArrayBuffer로 읽어 인코딩 자동 판별
   });
   document.getElementById("import-template-btn").addEventListener("click", function () {
-    var csv = "이름,상위부서,부서,팀,직책,담당업무,휴대전화,행정번호,생년월일,재직상태\n" +
-      "홍길동,행정복지국,자치행정과,총무팀,팀장,총무,010-1234-5678,062-608-0000,1980-01-01,재직\n" +
-      "김영희,행정복지국,자치행정과,,과장,자치행정,010-2222-3333,062-608-0001,1978-05-05,재직\n";
+    var csv = "이름,상위부서,부서,팀,직책,직급,담당업무,휴대전화,행정번호,생년월일,재직상태\n" +
+      "홍길동,행정복지국,자치행정과,총무팀,팀장,사무관,총무,010-1234-5678,062-608-0000,1980-01-01,재직\n" +
+      "김영희,행정복지국,자치행정과,,과장,서기관,자치행정,010-2222-3333,062-608-0001,1978-05-05,재직\n";
     var blob = new Blob(["﻿" + csv], { type: "text/csv;charset=utf-8" });
     var url = URL.createObjectURL(blob);
     var a = document.createElement("a");

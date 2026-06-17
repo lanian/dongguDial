@@ -256,7 +256,8 @@ body {
   padding: 2px 4px;
   border-radius: var(--r-pill);
 }
-.alpha-key.is-active { color: #fff; background: var(--brand); }
+.alpha-key.is-current { color: var(--brand-dark); background: rgba(var(--brand-rgb), 0.16); }
+.alpha-key.is-active { color: #fff; background: var(--brand); } /* 스크럽 누름이 현재표시보다 우선 */
 
 /* 스크럽 중 현재 글자 큰 미리보기 버블 */
 .alpha-bubble {

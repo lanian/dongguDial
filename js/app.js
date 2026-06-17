@@ -4,7 +4,7 @@
 (function () {
   "use strict";
 
-  var APP_VERSION = "61"; // SW 캐시(donggu-dial-vNN)와 함께 갱신
+  var APP_VERSION = "62"; // SW 캐시(donggu-dial-vNN)와 함께 갱신
   var listEl = document.getElementById("list");
   var scrollRegion = document.getElementById("scroll-region");
   var resultStatus = document.getElementById("result-status");
@@ -122,15 +122,19 @@
   }
 
   var alphaOffsets = {}; // 초성 → 해당 섹션의 scrollRegion 기준 자연 위치(미리 계산)
+  var alphaOrder = [];   // [{key, top}] 위에서 아래 순(현재 위치 표시용)
   function buildAlphaRail(groups) {
     alphaRail.textContent = "";
     alphaOffsets = {};
+    alphaOrder = [];
     // 각 섹션 위치를 'sticky 끈 상태'로 한 번에 미리 측정(스크럽 중 매번 측정/리플로우 방지).
     listEl.classList.add("measure-no-sticky");
     var frag = document.createDocumentFragment();
     groups.forEach(function (g) {
       var h = document.getElementById("grp-" + g.key);
-      alphaOffsets[g.key] = h ? sectionTop(h) : 0;
+      var top = h ? sectionTop(h) : 0;
+      alphaOffsets[g.key] = top;
+      alphaOrder.push({ key: g.key, top: top });
       var b = document.createElement("button");
       b.type = "button";
       b.className = "alpha-key";
@@ -142,11 +146,35 @@
     });
     listEl.classList.remove("measure-no-sticky");
     alphaRail.appendChild(frag);
+    alphaCurrentKey = null;
+    updateCurrentAlpha(); // 초기 현재 위치 표시
   }
   function jumpToAlpha(key) {
     var top = alphaOffsets[key];
     if (top != null) scrollRegion.scrollTo({ top: top, behavior: "auto" });
   }
+
+  // 리스트를 직접 스크롤할 때 현재 구간의 초성을 인덱스바에 자동 표시(스크럽 중엔 스킵).
+  var alphaCurrentKey = null, alphaRafPending = false;
+  function setCurrentAlphaKey(key) {
+    if (key === alphaCurrentKey) return;
+    alphaCurrentKey = key;
+    var keys = alphaRail.children;
+    for (var i = 0; i < keys.length; i++) keys[i].classList.toggle("is-current", keys[i].dataset.key === key);
+  }
+  function updateCurrentAlpha() {
+    if (alphaRail.hidden || alphaScrubbing || !alphaOrder.length) return;
+    var y = scrollRegion.scrollTop, cur = alphaOrder[0].key;
+    for (var i = 0; i < alphaOrder.length; i++) {
+      if (alphaOrder[i].top <= y + 2) cur = alphaOrder[i].key; else break;
+    }
+    setCurrentAlphaKey(cur);
+  }
+  scrollRegion.addEventListener("scroll", function () {
+    if (alphaRafPending) return;
+    alphaRafPending = true;
+    requestAnimationFrame(function () { alphaRafPending = false; updateCurrentAlpha(); });
+  }, { passive: true });
 
   // ---------- 가나다 인덱스 바: 드래그 스크럽 + 현재 글자 버블 + 햅틱 ----------
   var alphaBubble = null, alphaActiveKey = null, alphaScrubbing = false;
@@ -186,6 +214,8 @@
     alphaScrubbing = false;
     hideAlphaBubble();
     if (alphaActiveKey) { alphaActiveKey.classList.remove("is-active"); alphaActiveKey = null; }
+    alphaCurrentKey = null; // 스크럽 후 현재 위치 표시 재동기화
+    updateCurrentAlpha();
   }
   function alphaScrubTo(clientY) { activateAlphaKey(alphaKeyAt(clientY)); }
   // 모바일: Touch Events. 터치는 touchstart 대상(레일)으로 move/end가 암묵 캡처되어

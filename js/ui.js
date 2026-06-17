@@ -91,18 +91,12 @@
   // 전역 설정: 사진 없는 모든 연락처를 기본 아이콘(실루엣)으로 표시할지 (app이 부팅/토글 시 주입)
   var showDefaultIcon = false;
 
-  // 사람 실루엣(기본 아이콘) — 색상 원+이니셜 대신 쓰는 중립 placeholder
-  function defaultIconSVG() {
-    var ns = "http://www.w3.org/2000/svg";
-    var svg = document.createElementNS(ns, "svg");
-    svg.setAttribute("viewBox", "0 0 24 24");
-    svg.setAttribute("class", "avatar-default-svg");
-    svg.setAttribute("aria-hidden", "true");
-    var p = document.createElementNS(ns, "path");
-    p.setAttribute("fill", "currentColor");
-    p.setAttribute("d", "M12 12a5 5 0 1 0 0-10 5 5 0 0 0 0 10Zm0 2.2c-4.6 0-8.4 2.4-8.4 5.6V22h16.8v-2.2c0-3.2-3.8-5.6-8.4-5.6Z");
-    svg.appendChild(p);
-    return svg;
+  // 기본 아이콘 = 앱 아이콘(로고). 색상 원+이니셜 대신 쓰는 중립 placeholder
+  function defaultIconNode() {
+    var im = el("img");
+    im.src = "icons/icon-192.png";
+    im.alt = "기본 아이콘";
+    return im;
   }
 
   function makeAvatar(contact, sizeClass) {
@@ -116,7 +110,7 @@
       a.appendChild(im);
     } else if (contact.defaultIcon || showDefaultIcon) {
       a.classList.add("avatar--default");
-      a.appendChild(defaultIconSVG());
+      a.appendChild(defaultIconNode());
     } else {
       a.style.background = avatarColor(contact.name || "");
       a.textContent = initial(contact.name);
@@ -358,7 +352,7 @@
 
   var UI = {
     avatarColor: avatarColor,
-    defaultIconSVG: defaultIconSVG,
+    defaultIcon: defaultIconNode,
     setShowDefaultIcon: function (v) { showDefaultIcon = !!v; },
     icon: icon,
     formatPhone: formatPhone,

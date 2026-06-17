@@ -4,7 +4,7 @@
 (function () {
   "use strict";
 
-  var APP_VERSION = "78"; // SW 캐시(donggu-dial-vNN)와 함께 갱신
+  var APP_VERSION = "79"; // SW 캐시(donggu-dial-vNN)와 함께 갱신
   var ORG_HDR_H = 44;     // 조직도 헤더 높이(CSS --org-hdr-h 와 동기화) — 계단식 sticky 점프 보정용
   var listEl = document.getElementById("list");
   var scrollRegion = document.getElementById("scroll-region");
@@ -816,7 +816,7 @@
       if (cur) { var im = document.createElement("img"); im.src = cur; im.alt = "미리보기"; prev.appendChild(im); }
       else if (useDefault) {
         prev.classList.add("ef-photo-default");
-        prev.appendChild(UI.defaultIconSVG());
+        prev.appendChild(UI.defaultIcon());
       }
       else {
         prev.classList.add("ef-photo-initial");

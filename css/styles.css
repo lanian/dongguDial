@@ -14,6 +14,7 @@
   --on-surface-muted: #54585c;
   --divider: #e6e8eb;
   --danger: #d93025;
+  --danger-rgb: 217, 48, 37;
   --warn: #b06000;
   --ok: #1a7f37;
   --badge-alpha: 0.14;
@@ -951,20 +952,27 @@ select.ef-input { appearance: none; }
 .picker-row:last-child { border-bottom: none; }
 .picker-row:active { background: var(--divider); }
 .picker-check { color: var(--brand); font-weight: var(--fw-bold); flex: 0 0 auto; }
-.editor-footer { padding: var(--sp-3) var(--sp-4) calc(var(--sp-4) + var(--safe-bottom)); }
+.editor-footer {
+  padding: var(--sp-3) var(--sp-4) calc(var(--sp-4) + var(--safe-bottom));
+  border-top: 1px solid var(--divider); /* 본문과 구분되는 파괴적 동작 영역 */
+}
 .danger-btn {
-  display: inline-flex;
+  display: flex;            /* 풀-width로 눈에 띄게 */
+  width: 100%;
   align-items: center;
+  justify-content: center;
   gap: 6px;
+  min-height: var(--touch-min);
   border: 1px solid var(--danger);
   background: none;
   color: var(--danger);
   font: inherit;
-  font-weight: var(--fw-med);
+  font-weight: var(--fw-bold);
   padding: 10px 16px;
   border-radius: var(--r-md);
   cursor: pointer;
 }
+.danger-btn:active { background: rgba(var(--danger-rgb), 0.12); }
 .edit-chip {
   display: inline-block;
   margin-top: var(--sp-2);

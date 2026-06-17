@@ -2,7 +2,7 @@
  * Service Worker — 오프라인 캐싱.
  * 앱 셸은 캐시 우선, 연락처 데이터는 네트워크 우선(오프라인 시 캐시 폴백).
  */
-var CACHE = "donggu-dial-v59";
+var CACHE = "donggu-dial-v60";
 
 var APP_SHELL = [
   "./",
@@ -25,7 +25,14 @@ var APP_SHELL = [
 self.addEventListener("install", function (event) {
   event.waitUntil(
     caches.open(CACHE).then(function (cache) {
-      return cache.addAll(APP_SHELL);
+      // {cache:"reload"}로 HTTP 캐시를 우회해 항상 '최신' 자산을 받아 캐싱한다.
+      // (addAll은 HTTP 캐시의 옛 파일을 담을 수 있어, 버전만 오르고 코드는 옛것이 되는
+      //  업데이트 누락의 원인이 됨)
+      return Promise.all(APP_SHELL.map(function (url) {
+        return fetch(new Request(url, { cache: "reload" }))
+          .then(function (res) { if (res && (res.ok || res.type === "opaque")) return cache.put(url, res); })
+          .catch(function () {});
+      }));
     }).then(function () {
       return self.skipWaiting(); // 새 워커가 대기하지 않고 곧바로 활성화되도록
     })

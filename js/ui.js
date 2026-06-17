@@ -297,7 +297,11 @@
     header.type = "button";
     header.id = "org-" + node.dept.id;
     // 과/팀 헤더의 계단식 sticky top/z-index 계산용 깊이(최대 2단까지 쌓음)
-    if (!top) header.style.setProperty("--depth", Math.min(depth, 2));
+    if (!top) {
+      header.style.setProperty("--depth", Math.min(depth, 2));
+      // 2단을 넘는 깊이는 같은 top/z-index 에 쌓여 겹치므로 sticky 를 끄고 본문과 함께 스크롤
+      if (depth > 2) header.classList.add("org-header-flat");
+    }
     header.setAttribute("aria-expanded", collapsed ? "false" : "true");
     header.appendChild(icon("chevron", "section-chevron"));
     header.appendChild(el("span", "org-dept-name", node.dept.name));
@@ -306,8 +310,14 @@
     // 배지: 직속 인원(주) + 하위 포함 누적(보조). 자손이 있을 때만 누적을 덧붙여
     // "이 부서 자체에 몇 명, 산하 전체로 몇 명"이 한눈에 구분되게 한다.
     var direct = node.members.length, total = node.count;
-    var badge = el("span", "org-badge" + (top ? "" : " org-badge--sm"), String(direct));
-    if (total > direct) badge.appendChild(el("span", "org-badge-total", "/" + total));
+    var badge = el("span", "org-badge" + (top ? "" : " org-badge--sm"));
+    if (direct === 0 && total > 0) {
+      // 직속 인원 없이 산하에만 있으면 '0/' 군더더기 없이 누적 총원만 표시
+      badge.textContent = String(total);
+    } else {
+      badge.textContent = String(direct);
+      if (total > direct) badge.appendChild(el("span", "org-badge-total", "/" + total));
+    }
     header.appendChild(badge);
     header.setAttribute("aria-label",
       node.dept.name + ", 직속 " + direct + "명" +

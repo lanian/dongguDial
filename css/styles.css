@@ -762,12 +762,15 @@ html[data-theme="dark"] .info-card { box-shadow: none; border: 1px solid var(--d
   box-shadow: 0 4px 12px -6px rgba(0, 0, 0, 0.24);
   z-index: 12; /* 경로 계단에서 최상위 헤더가 항상 위 */
 }
+/* 긴 부서명은 헤더가 좁아지면 말줄임표로(헤더 overflow:hidden 으로 그냥 잘리던 문제 보완) */
+.org-dept-name { min-width: 0; overflow: hidden; text-overflow: ellipsis; white-space: nowrap; }
 .org-dept .org-dept-name { font-weight: var(--fw-bold); }
 .org-lead {
   color: var(--on-surface);
   font-size: var(--fs-sm);
   font-weight: var(--fw-med);
   margin-left: 6px;
+  min-width: 0;
   overflow: hidden;
   text-overflow: ellipsis;
   white-space: nowrap;
@@ -837,6 +840,8 @@ html[data-theme="dark"] .info-card { box-shadow: none; border: 1px solid var(--d
   background: color-mix(in srgb, var(--bg) 22%, var(--surface));
   box-shadow: 0 2px 7px -6px rgba(0, 0, 0, 0.14);
 }
+/* 2단 초과 깊이: 계단식 sticky 를 끔(같은 top/z-index 누적 겹침 방지) → 본문과 함께 스크롤 */
+.org-team-header.org-header-flat { position: static; box-shadow: none; }
 .org-sub .row { padding-left: 14px; }
 .org-sub .row:last-child { border-bottom: none; }
 .row--lead { box-shadow: inset 3px 0 0 var(--brand); background: rgba(var(--brand-rgb), 0.04); }

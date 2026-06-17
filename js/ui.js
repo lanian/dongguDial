@@ -278,6 +278,8 @@
       " org-lvl-" + Math.min(depth, 2));
     header.type = "button";
     header.id = "org-" + node.dept.id;
+    // 과/팀 헤더의 계단식 sticky top/z-index 계산용 깊이(최대 2단까지 쌓음)
+    if (!top) header.style.setProperty("--depth", Math.min(depth, 2));
     header.setAttribute("aria-expanded", collapsed ? "false" : "true");
     header.appendChild(icon("chevron", "section-chevron"));
     header.appendChild(el("span", "org-dept-name", node.dept.name));

@@ -25,6 +25,8 @@
   /* type */
   --fs-cap: 11px; --fs-sm: 13px; --fs-md: 15px; --fs-lg: 16px; --fs-title: 24px;
   --fw-reg: 400; --fw-med: 600; --fw-bold: 700;
+  /* 조직도 헤더 높이(계단식 sticky top 계산 기준 — JS ORG_HDR_H 와 동기화) */
+  --org-hdr-h: 44px;
   /* elevation */
   --elev-1: 0 1px 2px rgba(0, 0, 0, 0.06);
   --elev-2: 0 6px 24px rgba(0, 0, 0, 0.25);
@@ -294,7 +296,8 @@ body {
 .list:focus-visible { outline: none; }
 
 /* 섹션 위치 측정 시 sticky 를 잠깐 꺼 '자연 위치'를 얻기 위한 토글(JS 한 틱 내 사용) */
-.measure-no-sticky .section-header { position: static !important; }
+.measure-no-sticky .section-header,
+.measure-no-sticky .org-team-header { position: static !important; }
 .section-header {
   position: sticky;
   top: 0;
@@ -744,9 +747,12 @@ html[data-theme="dark"] .info-card { box-shadow: none; border: 1px solid var(--d
 .org-dept {
   gap: 6px;
   align-items: center;
-  padding: var(--sp-3) var(--sp-4);
+  height: var(--org-hdr-h); /* 계단식 sticky 정렬 위해 높이 고정 */
+  padding: 0 var(--sp-4);
+  overflow: hidden;
   background: var(--surface);
   border-bottom: 1px solid var(--divider);
+  z-index: 12; /* 경로 계단에서 최상위 헤더가 항상 위 */
 }
 .org-dept .org-dept-name { font-weight: var(--fw-bold); }
 .org-lead {
@@ -788,13 +794,20 @@ html[data-theme="dark"] .info-card { box-shadow: none; border: 1px solid var(--d
   align-items: center;
   gap: 6px;
   width: 100%;
+  height: var(--org-hdr-h); /* 계단식 sticky 정렬 위해 높이 고정 */
+  overflow: hidden;
   border: none;
+  /* 과/팀 헤더도 깊이만큼 아래로 쌓이게 고정 → '국 ▸ 과 ▸ 팀' 경로가 항상 보임.
+     얕을수록 위(z-index)라 빠져나가는 하위 헤더를 상위가 덮는다. */
+  position: sticky;
+  top: calc(var(--org-hdr-h) * var(--depth, 1));
+  z-index: calc(11 - var(--depth, 1));
   background: var(--surface);
   color: inherit;
   font: inherit;
   font-weight: var(--fw-med);
   text-align: left;
-  padding: 11px var(--sp-4) 11px 10px;
+  padding: 0 var(--sp-4) 0 10px;
   cursor: pointer;
   border-bottom: 1px solid var(--divider);
 }

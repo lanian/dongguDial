@@ -4,7 +4,8 @@
 (function () {
   "use strict";
 
-  var APP_VERSION = "64"; // SW 캐시(donggu-dial-vNN)와 함께 갱신
+  var APP_VERSION = "65"; // SW 캐시(donggu-dial-vNN)와 함께 갱신
+  var ORG_HDR_H = 44;     // 조직도 헤더 높이(CSS --org-hdr-h 와 동기화) — 계단식 sticky 점프 보정용
   var listEl = document.getElementById("list");
   var scrollRegion = document.getElementById("scroll-region");
   var resultStatus = document.getElementById("result-status");
@@ -263,9 +264,10 @@
     listEl.classList.remove("measure-no-sticky");
     return top;
   }
-  function scrollToEl(el, behavior) {
+  function scrollToEl(el, behavior, offset) {
     if (!el) return;
-    scrollRegion.scrollTo({ top: measuredTop(el), behavior: behavior || "smooth" });
+    var top = measuredTop(el) - (offset || 0); // offset: 계단식 sticky 헤더에 가리지 않도록 보정
+    scrollRegion.scrollTo({ top: Math.max(0, top), behavior: behavior || "smooth" });
   }
 
   function render() { renderBody(); updateFab(); }
@@ -444,7 +446,9 @@
     setTimeout(function () {
       var elH = document.getElementById("org-" + deptId);
       if (!elH) return;
-      scrollToEl(elH);
+      // 상위(국▸과) 계단식 sticky 헤더에 가리지 않도록 깊이만큼(최대 2단) 아래로 보정
+      var depth = (Data.depthOf ? Math.min(Data.depthOf(deptId), 2) : 0);
+      scrollToEl(elH, "smooth", depth * ORG_HDR_H);
       // 도착한 부서를 잠깐 강조해 "여기로 왔다"를 시각적으로 알림
       elH.classList.remove("is-flash"); // 연속 점프 시 애니메이션 재시작
       void elH.offsetWidth;             // reflow 강제 → 애니메이션 재트리거

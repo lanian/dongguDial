@@ -1224,6 +1224,7 @@ select.ef-input { appearance: none; }
 .app-dialog {
   background: var(--surface); color: var(--on-surface);
   width: 100%; max-width: 320px;
+  max-height: 100%; overflow-y: auto;
   border-radius: var(--r-lg);
   padding: var(--sp-5) var(--sp-5) var(--sp-4);
   box-shadow: var(--elev-2);

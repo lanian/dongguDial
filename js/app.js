@@ -4,7 +4,7 @@
 (function () {
   "use strict";
 
-  var APP_VERSION = "83"; // SW 캐시(donggu-dial-vNN)와 함께 갱신
+  var APP_VERSION = "84"; // SW 캐시(donggu-dial-vNN)와 함께 갱신
   var ORG_HDR_H = 44;     // 조직도 헤더 높이(CSS --org-hdr-h 와 동기화) — 계단식 sticky 점프 보정용
   var listEl = document.getElementById("list");
   var scrollRegion = document.getElementById("scroll-region");
@@ -447,10 +447,12 @@
           showSnack("최근에서 제거됨");
         },
         onClearAll: function () {
-          if (!window.confirm("최근 본 연락처 기록을 모두 비울까요?")) return;
-          Storage.clearRecent();
-          render();
-          showSnack("최근 기록을 비웠습니다");
+          appDialog({ title: "최근 기록 비우기", message: "최근 본 연락처 기록을 모두 비울까요?", okLabel: "비우기", danger: true }).then(function (ok) {
+            if (!ok) return;
+            Storage.clearRecent();
+            render();
+            showSnack("최근 기록을 비웠습니다");
+          });
         },
         emptyMsg: "최근 본 연락처가 없습니다.",
         actionLabel: "전체에서 찾기", onAction: function () { switchTab(tabs[0]); },
@@ -724,8 +726,17 @@
       btns.appendChild(okBtn);
       card.appendChild(btns);
       backdrop.appendChild(card);
+      // 소프트 키보드가 올라오면 visualViewport 높이가 줄어듦 → 보이는 영역에 카드를 다시 맞춰 가림 방지
+      var vv = window.visualViewport;
+      function fitViewport() {
+        if (!vv) return;
+        backdrop.style.top = vv.offsetTop + "px";
+        backdrop.style.bottom = "auto";
+        backdrop.style.height = vv.height + "px";
+      }
       function done(result) {
         document.removeEventListener("keydown", onKey, true);
+        if (vv) { vv.removeEventListener("resize", fitViewport); vv.removeEventListener("scroll", fitViewport); }
         if (backdrop.parentNode) backdrop.parentNode.removeChild(backdrop);
         if (prevFocus && prevFocus.focus) { try { prevFocus.focus(); } catch (e) {} }
         resolve(result);
@@ -746,6 +757,7 @@
       backdrop.addEventListener("mousedown", function (e) { if (e.target === backdrop) done(null); });
       document.addEventListener("keydown", onKey, true);
       document.body.appendChild(backdrop);
+      if (vv) { vv.addEventListener("resize", fitViewport); vv.addEventListener("scroll", fitViewport); fitViewport(); }
       (hasInput ? input : okBtn).focus();
       if (hasInput) input.select();
     });
@@ -913,7 +925,7 @@
       var f = fileInp.files && fileInp.files[0];
       if (!f) return;
       fileToAvatar(f).then(function (d) { pendingPhoto = d; pendingDefaultIcon = false; paint(); })
-        .catch(function (e) { window.alert("사진 처리 실패: " + e.message); });
+        .catch(function (e) { showSnack("사진 처리 실패: " + e.message); });
     });
   }
 
@@ -1107,30 +1119,32 @@
     reader.onload = function () {
       var data;
       try { data = JSON.parse(String(reader.result)); }
-      catch (e) { window.alert("가져오기 실패: " + e.message); return; }
-      if (backupImportMode === "replace" &&
-          !window.confirm("초기화 후 복구: 기존 즐겨찾기·편집·추가·부서·사진을 모두 비우고 이 백업으로 대체합니다. 계속할까요?")) {
-        return;
-      }
-      try {
-        var result = Storage.importData(data, backupImportMode);
-        Data.rebuild();
-        applyTheme(Storage.getTheme());
-        setThemeUI(Storage.getTheme());
-        refreshCounts();
-        render();
-        if (window.Photos) {
-          if (backupImportMode === "replace") Photos.importMap(data.photos || {}, true).then(render);
-          else if (data.photos) Photos.importMap(data.photos, false).then(render);
+      catch (e) { showSnack("가져오기 실패: " + e.message); return; }
+      function proceed() {
+        try {
+          var result = Storage.importData(data, backupImportMode);
+          Data.rebuild();
+          applyTheme(Storage.getTheme());
+          setThemeUI(Storage.getTheme());
+          refreshCounts();
+          render();
+          if (window.Photos) {
+            if (backupImportMode === "replace") Photos.importMap(data.photos || {}, true).then(render);
+            else if (data.photos) Photos.importMap(data.photos, false).then(render);
+          }
+          showSnack((backupImportMode === "replace" ? "대체 복구 완료: " : "복구 완료: ") +
+            "즐겨찾기 " + result.favorites + ", 최근 " + result.recent +
+            ", 편집 " + result.edits + ", 추가 " + result.custom);
+        } catch (e) {
+          showSnack("가져오기 실패: " + e.message);
         }
-        window.alert((backupImportMode === "replace" ? "대체 복구 완료: " : "복구 완료: ") +
-          "즐겨찾기 " + result.favorites + ", 최근 " + result.recent +
-          ", 편집 " + result.edits + ", 추가 " + result.custom);
-      } catch (e) {
-        window.alert("가져오기 실패: " + e.message);
       }
+      if (backupImportMode === "replace") {
+        appDialog({ title: "초기화 후 복구", message: "기존 즐겨찾기·편집·추가·부서·사진을 모두 비우고 이 백업으로 대체합니다. 계속할까요?", okLabel: "대체", danger: true })
+          .then(function (ok) { if (ok) proceed(); });
+      } else proceed();
     };
-    reader.onerror = function () { window.alert("파일을 읽지 못했습니다."); };
+    reader.onerror = function () { showSnack("파일을 읽지 못했습니다."); };
     reader.readAsText(file);
   });
 
@@ -1174,7 +1188,7 @@
   function realDeptId(raw) { if (!raw || raw === "0") return 0; var d = Data.getDeptById(raw); return d ? d.id : 0; }
   function saveEditor() {
     var name = val("ef-name");
-    if (!name) { window.alert("이름을 입력하세요."); return; }
+    if (!name) { showSnack("이름을 입력하세요."); return; }
     var deptId = realDeptId(val("ef-dept"));
     var d0 = Data.getDeptById(deptId);
     var dept = d0 ? d0.name : "";
@@ -1204,28 +1218,32 @@
   }
   function deleteEditor() {
     if (editId == null) return;
-    if (!window.confirm("이 연락처를 삭제할까요?")) return;
     var delId = editId;
-    Storage.deleteContact(delId);
-    if (window.Photos) Photos.remove(delId);
-    Data.rebuild();
-    closeEditor(false);
-    if (!detailEl.hidden && current.detailId === delId) closeDetail(false);
-    render();
-    showSnack("삭제되었습니다");
+    appDialog({ title: "연락처 삭제", message: "이 연락처를 삭제할까요?", okLabel: "삭제", danger: true }).then(function (ok) {
+      if (!ok) return;
+      Storage.deleteContact(delId);
+      if (window.Photos) Photos.remove(delId);
+      Data.rebuild();
+      closeEditor(false);
+      if (!detailEl.hidden && current.detailId === delId) closeDetail(false);
+      render();
+      showSnack("삭제되었습니다");
+    });
   }
   document.getElementById("editor-cancel").addEventListener("click", function () { closeEditor(false); });
   document.getElementById("editor-save").addEventListener("click", saveEditor);
   document.getElementById("editor-delete").addEventListener("click", deleteEditor);
   fab.addEventListener("click", function () { openEditor(null); });
   document.getElementById("reset-edits-btn").addEventListener("click", function () {
-    if (!window.confirm("수정·추가한 연락처와 부서를 모두 초기화할까요?")) return;
-    Storage.resetAllEdits();
-    if (window.Photos) Photos.clearAll();
-    Data.rebuild();
-    refreshCounts();
-    render();
-    showSnack("초기화되었습니다");
+    appDialog({ title: "초기화", message: "수정·추가한 연락처와 부서를 모두 초기화할까요?", okLabel: "초기화", danger: true }).then(function (ok) {
+      if (!ok) return;
+      Storage.resetAllEdits();
+      if (window.Photos) Photos.clearAll();
+      Data.rebuild();
+      refreshCounts();
+      render();
+      showSnack("초기화되었습니다");
+    });
   });
 
   // ---------- 부서 관리 (로컬 오버레이) ----------
@@ -1305,7 +1323,7 @@
   }
   function saveDeptEditor() {
     var name = val("df-name");
-    if (!name) { window.alert("부서명을 입력하세요."); return; }
+    if (!name) { showSnack("부서명을 입력하세요."); return; }
     var parentId = realDeptId(val("df-parent"));
     var level = parentId ? Data.depthOf(parentId) + 1 : 0;
     var existing = deptEditId != null ? Data.getDeptById(deptEditId) : null;
@@ -1320,37 +1338,40 @@
     refreshCounts();
     showSnack("부서가 저장되었습니다");
   }
-  // 부서 삭제(편집 화면·목록 행 공용). 인원/하위 있으면 상위로 올리고 삭제. 성공 시 true.
+  // 부서 삭제(편집 화면·목록 행 공용). 인원/하위 있으면 상위로 올리고 삭제. 성공 시 true 로 resolve 되는 Promise.
   function performDeptDelete(id) {
     var dept = Data.getDeptById(id);
-    if (!dept) return false;
+    if (!dept) return Promise.resolve(false);
     var dc = Data.directCountByDept()[id] || 0;
     var cc = Data.childCountByParent()[id] || 0;
-    if (dc || cc) {
-      var up = dept.parentId || 0;
-      var upDept = up ? Data.getDeptById(up) : null;
-      var upName = upDept ? upDept.name : "최상위(미지정)";
-      if (!window.confirm("‘" + dept.name + "’에 인원 " + dc + "명, 하위 부서 " + cc + "개가 있습니다.\n이들을 상위(" + upName + ")로 옮기고 삭제할까요?")) return false;
-      Data.getDepartments().filter(function (d) { return d.parentId === id; })
-        .forEach(function (ch) { Storage.saveDept(ch.id, { parentId: up, level: up ? Data.depthOf(up) + 1 : 0 }); });
-      Data.membersOfDept(id).forEach(function (c) {
-        Storage.saveContact(c.id, { deptId: up, dept: upDept ? upDept.name : "" });
-      });
-    } else {
-      if (!window.confirm("‘" + dept.name + "’ 부서를 삭제할까요?")) return false;
-    }
-    Storage.deleteDept(id);
-    Data.rebuild();
-    renderDeptMgrList();
-    render();
-    refreshCounts();
-    showSnack("부서가 삭제되었습니다");
-    return true;
+    var up = dept.parentId || 0;
+    var upDept = up ? Data.getDeptById(up) : null;
+    var upName = upDept ? upDept.name : "최상위(미지정)";
+    var msg = (dc || cc)
+      ? "‘" + dept.name + "’에 인원 " + dc + "명, 하위 부서 " + cc + "개가 있습니다.\n이들을 상위(" + upName + ")로 옮기고 삭제할까요?"
+      : "‘" + dept.name + "’ 부서를 삭제할까요?";
+    return appDialog({ title: "부서 삭제", message: msg, okLabel: "삭제", danger: true }).then(function (ok) {
+      if (!ok) return false;
+      if (dc || cc) {
+        Data.getDepartments().filter(function (d) { return d.parentId === id; })
+          .forEach(function (ch) { Storage.saveDept(ch.id, { parentId: up, level: up ? Data.depthOf(up) + 1 : 0 }); });
+        Data.membersOfDept(id).forEach(function (c) {
+          Storage.saveContact(c.id, { deptId: up, dept: upDept ? upDept.name : "" });
+        });
+      }
+      Storage.deleteDept(id);
+      Data.rebuild();
+      renderDeptMgrList();
+      render();
+      refreshCounts();
+      showSnack("부서가 삭제되었습니다");
+      return true;
+    });
   }
   function confirmDeleteDept(dept) { performDeptDelete(dept.id); }
   function deleteDeptEditor() {
     if (deptEditId == null) return;
-    if (performDeptDelete(deptEditId)) closeDeptEditor(false);
+    performDeptDelete(deptEditId).then(function (ok) { if (ok) closeDeptEditor(false); });
   }
   document.getElementById("dept-editor-cancel").addEventListener("click", function () { closeDeptEditor(false); });
   document.getElementById("dept-editor-save").addEventListener("click", saveDeptEditor);
@@ -1463,24 +1484,29 @@
         parse = isCSV
           ? Promise.resolve(Importer.parseCSV(Importer.decodeText(reader.result)))
           : Importer.parseXLSX(reader.result);
-      } catch (e) { window.alert("가져오기 실패: " + e.message); return; }
+      } catch (e) { showSnack("가져오기 실패: " + e.message); return; }
       parse.then(function (rows) {
-        if (!rows || !rows.length) { window.alert("가져올 행이 없습니다."); return; }
+        if (!rows || !rows.length) { showSnack("가져올 행이 없습니다."); return; }
         var msg = importMode === "replace"
           ? "초기화 후 가져오기: 기존 샘플·편집·추가·가져온 연락처와 부서를 모두 비우고 이 파일(" + rows.length + "건)만 남깁니다. 계속할까요?"
           : rows.length + "건을 가져옵니다. 기존 데이터에 추가됩니다. 계속할까요?";
-        if (!window.confirm(msg)) return;
-        if (importMode === "replace") { Storage.resetAllEdits(); if (window.Photos) Photos.clearAll(); Storage.setBaseHidden(true); Data.rebuild(); }
-        var res;
-        try { res = applyContactImport(rows); }
-        catch (e) { window.alert("가져오기 실패: " + e.message); return; }
-        Data.rebuild(); render(); refreshCounts();
-        showSnack((importMode === "replace" ? "대체 완료: " : "가져오기 완료: ") +
-          res.added + "명" + (res.newDepts ? " · 신규 부서 " + res.newDepts + "개" : ""));
-        if (res.skipped) window.alert("이름이 없어 건너뛴 행: " + res.skipped + "건");
-      }).catch(function (e) { window.alert("가져오기 실패: " + e.message); });
+        appDialog({
+          title: "연락처 가져오기", message: msg,
+          okLabel: importMode === "replace" ? "대체" : "가져오기", danger: importMode === "replace",
+        }).then(function (ok) {
+          if (!ok) return;
+          if (importMode === "replace") { Storage.resetAllEdits(); if (window.Photos) Photos.clearAll(); Storage.setBaseHidden(true); Data.rebuild(); }
+          var res;
+          try { res = applyContactImport(rows); }
+          catch (e) { showSnack("가져오기 실패: " + e.message); return; }
+          Data.rebuild(); render(); refreshCounts();
+          showSnack((importMode === "replace" ? "대체 완료: " : "가져오기 완료: ") +
+            res.added + "명" + (res.newDepts ? " · 신규 부서 " + res.newDepts + "개" : "") +
+            (res.skipped ? " · 건너뜀 " + res.skipped + "건" : ""));
+        });
+      }).catch(function (e) { showSnack("가져오기 실패: " + e.message); });
     };
-    reader.onerror = function () { window.alert("파일을 읽지 못했습니다."); };
+    reader.onerror = function () { showSnack("파일을 읽지 못했습니다."); };
     reader.readAsArrayBuffer(file); // CSV/XLSX 모두 ArrayBuffer로 읽어 인코딩 자동 판별
   });
   document.getElementById("import-template-btn").addEventListener("click", function () {

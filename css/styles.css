@@ -441,11 +441,12 @@ mark {
 .row-sub.is-marquee { text-overflow: clip; }
 .row-sub.is-marquee .row-sub-text {
   display: inline-block;
-  animation: row-marquee var(--marquee-ms, 3000ms) ease-in-out infinite alternate;
+  /* 좌→우 한 방향으로 1회만 흐른 뒤 끝 위치 유지(forwards). 반복·왕복 없음 */
+  animation: row-marquee var(--marquee-ms, 3000ms) ease-in-out forwards;
 }
 @keyframes row-marquee {
-  0%, 14%   { transform: translateX(0); }
-  86%, 100% { transform: translateX(var(--marquee-x, 0)); }
+  0%, 12%   { transform: translateX(0); }
+  100%      { transform: translateX(var(--marquee-x, 0)); }
 }
 @media (prefers-reduced-motion: reduce) {
   .row-sub.is-marquee .row-sub-text { animation: none; }

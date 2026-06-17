@@ -246,6 +246,8 @@
       write(FAV_KEY, read(FAV_KEY, []).filter(function (x) { return x !== id; }));
       var map = read(FAV_GROUP_MAP_KEY, {});
       if (map[id]) { delete map[id]; write(FAV_GROUP_MAP_KEY, map); }
+      // 최근 목록에 남은 죽은 id 정리(즐겨찾기·그룹과 동일하게 일관 정리)
+      write(RECENT_KEY, normRecent(read(RECENT_KEY, [])).filter(function (e) { return e.id !== id; }));
     },
     resetContact: function (id) {
       var edits = read(EDITS_KEY, {});

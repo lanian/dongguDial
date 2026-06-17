@@ -4,7 +4,7 @@
 (function () {
   "use strict";
 
-  var APP_VERSION = "89"; // SW 캐시(donggu-dial-vNN)와 함께 갱신
+  var APP_VERSION = "90"; // SW 캐시(donggu-dial-vNN)와 함께 갱신
   var ORG_HDR_H = 44;     // 조직도 헤더 높이(CSS --org-hdr-h 와 동기화) — 계단식 sticky 점프 보정용
   var listEl = document.getElementById("list");
   var scrollRegion = document.getElementById("scroll-region");
@@ -1410,7 +1410,13 @@
   function deleteEditor() {
     if (editId == null) return;
     var delId = editId;
-    appDialog({ title: "연락처 삭제", message: "이 연락처를 삭제할까요?", okLabel: "삭제", danger: true }).then(function (ok) {
+    var dc = Data.getById(delId);
+    var dname = (dc && dc.name) ? dc.name : "이 연락처";
+    var gmap = Storage.getFavGroupMap();
+    var alsoRemoved = Storage.isFavorite(delId) || (gmap[delId] && gmap[delId].length);
+    var msg = "‘" + dname + "’ 연락처를 삭제할까요?" +
+      (alsoRemoved ? "\n즐겨찾기·그룹 지정도 함께 사라집니다." : "");
+    appDialog({ title: "연락처 삭제", message: msg, okLabel: "삭제", danger: true }).then(function (ok) {
       if (!ok) return;
       Storage.deleteContact(delId);
       if (window.Photos) Photos.remove(delId);

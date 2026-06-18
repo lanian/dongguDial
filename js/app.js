@@ -4,8 +4,12 @@
 (function () {
   "use strict";
 
-  var APP_VERSION = "96"; // SW 캐시(donggu-dial-vNN)와 함께 갱신
-  var ORG_HDR_H = 44;     // 조직도 헤더 높이(CSS --org-hdr-h 와 동기화) — 계단식 sticky 점프 보정용
+  var APP_VERSION = "97"; // SW 캐시(donggu-dial-vNN)와 함께 갱신
+  // 조직도 헤더 높이: CSS 토큰(--org-hdr-h)을 단일 소스로 읽어 JS 상수 이중정의(동기화 누락)를 제거
+  var ORG_HDR_H = (function () {
+    var v = parseInt(getComputedStyle(document.documentElement).getPropertyValue("--org-hdr-h"), 10);
+    return v > 0 ? v : 44; // 폴백
+  })();
   var listEl = document.getElementById("list");
   var scrollRegion = document.getElementById("scroll-region");
   var resultStatus = document.getElementById("result-status");
@@ -38,10 +42,14 @@
   var deptPickerOpts = null;
   var favGroupPickerEl = document.getElementById("fav-group-picker");
   var favGroupPickerContact = null;
-  var current = { tab: "all", query: "", detailId: null, sort: "dept", collapsed: {}, orgCollapsed: {}, favCollapsed: {}, orgReorder: false, deptMgrCollapsed: {} };
+  // 접힘 상태는 콜드스타트(PWA 재시작)에도 유지되도록 localStorage 에서 복원한다.
+  var _orgStored = Storage.getOrgCollapsed(); // null=한 번도 초기화 안 됨(=첫 진입)
+  var current = { tab: "all", query: "", detailId: null, sort: "dept", collapsed: {},
+    orgCollapsed: _orgStored || {}, favCollapsed: Storage.getFavCollapsed(),
+    orgReorder: false, deptMgrCollapsed: {} };
   var editId = null;
   var searchPushed = false; // 검색 활성 시 히스토리 항목 push 여부(뒤로가기로 검색어부터 비우기 위함)
-  var orgInit = false; // 조직도 첫 진입 시 모두 접기 1회 적용 플래그
+  var orgInit = _orgStored !== null; // 저장된 상태가 있으면 '첫 진입 전부 접기'를 건너뜀
   var pendingPhoto; // undefined=변경없음, null=제거, string=새 dataURL
   var pendingDefaultIcon; // undefined=변경없음, true=기본 아이콘(실루엣), false=아님
   var bgEls = [appBar, tabsNav, listEl];
@@ -395,8 +403,9 @@
     showTools(false); showAlphaRail(false);
     if (current.tab === "org") {
       var depts = Data.getDepartments();
-      if (!orgInit) { // 처음 조직도 진입 시 모두 접힌 상태로 시작
+      if (!orgInit) { // 처음 조직도 진입 시 모두 접힌 상태로 시작(이후엔 저장된 상태 복원)
         depts.forEach(function (d) { current.orgCollapsed[d.id] = true; });
+        Storage.setOrgCollapsed(current.orgCollapsed); // 키 존재=초기화 표식
         orgInit = true;
       }
       var allCol = depts.length > 0 && depts.every(function (d) { return current.orgCollapsed[d.id]; });
@@ -405,12 +414,21 @@
         collapsed: current.orgCollapsed,
         onToggle: function (id) {
           current.orgCollapsed[id] = !current.orgCollapsed[id];
+          Storage.setOrgCollapsed(current.orgCollapsed); // 콜드스타트에도 유지
+          var expanded = !current.orgCollapsed[id];
           render();
           // 토글 시 render()가 DOM을 재생성해 포커스가 소실되므로 같은 헤더로 복원하고,
           // 상태 변화를 aria-live(#result-status)로 알려 키보드·스크린리더 위치를 유지한다.
           var h = document.getElementById("org-" + id);
-          if (h) h.focus();
-          if (resultStatus) resultStatus.textContent = current.orgCollapsed[id] ? "접음" : "펼침";
+          if (h) {
+            h.focus({ preventScroll: true }); // 스크롤은 아래에서 직접 보정
+            // 펼친 경우, 계단식 sticky 헤더에 가리지 않도록 깊이만큼 보정해 스크롤(점프 방지)
+            if (expanded) {
+              var dep = (Data.depthOf ? Math.min(Data.depthOf(id), 2) : 0);
+              scrollToEl(h, "smooth", dep * ORG_HDR_H);
+            }
+          }
+          if (resultStatus) resultStatus.textContent = expanded ? "펼침" : "접음";
         },
         onManage: openDeptMgr,
         allCollapsed: allCol,
@@ -419,6 +437,7 @@
           var anyOpen = ds.some(function (d) { return !current.orgCollapsed[d.id]; });
           if (anyOpen) ds.forEach(function (d) { current.orgCollapsed[d.id] = true; });
           else current.orgCollapsed = {};
+          Storage.setOrgCollapsed(current.orgCollapsed);
           render();
         },
         reorder: current.orgReorder,
@@ -431,7 +450,11 @@
       UI.renderFavView(listEl, favSections(), {
         onOpen: openDetail, onFav: onFavChanged, onAssign: openFavGroupPicker,
         collapsed: current.favCollapsed,
-        onToggle: function (gid) { current.favCollapsed[gid] = !current.favCollapsed[gid]; render(); },
+        onToggle: function (gid) {
+          current.favCollapsed[gid] = !current.favCollapsed[gid];
+          Storage.setFavCollapsed(current.favCollapsed); // 콜드스타트에도 유지
+          render();
+        },
         onAddGroup: addFavGroupPrompt,
         onRenameGroup: renameFavGroupPrompt,
         onRemoveGroup: removeFavGroupConfirm,
@@ -545,6 +568,7 @@
     switchTab(tabs[3]); // 조직도
     Data.deptPath(deptId).forEach(function (p) { current.orgCollapsed[p.id] = false; });
     current.orgCollapsed[deptId] = false; // 대상 부서 자체도 펼침
+    Storage.setOrgCollapsed(current.orgCollapsed);
     render();
     setTimeout(function () {
       var elH = document.getElementById("org-" + deptId);

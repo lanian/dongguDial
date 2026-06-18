@@ -237,12 +237,17 @@
       // 순서 편집 모드: 같은 부서 안에서 ▲▼ 이동 + '다른 부서로' 이동(별·전화 대신)
       var sibs = (window.Data && Data.membersOfDept) ? Data.membersOfDept(contact.deptId) : [];
       var pos = sibs.map(function (s) { return s.id; }).indexOf(contact.id);
-      actions.appendChild(moveBtn("up", pos <= 0, function (e) {
+      var nm = contact.name || "";
+      var upB = moveBtn("up", pos <= 0, function (e) {
         if (e) e.stopPropagation(); opts.onMove(contact, -1);
-      }));
-      actions.appendChild(moveBtn("down", pos < 0 || pos >= sibs.length - 1, function (e) {
+      });
+      upB.setAttribute("aria-label", nm + " 위로 이동");
+      actions.appendChild(upB);
+      var dnB = moveBtn("down", pos < 0 || pos >= sibs.length - 1, function (e) {
         if (e) e.stopPropagation(); opts.onMove(contact, 1);
-      }));
+      });
+      dnB.setAttribute("aria-label", nm + " 아래로 이동");
+      actions.appendChild(dnB);
       if (opts.onMoveDept) {
         var md = el("button", "mini-btn mini-btn--ghost");
         md.type = "button";
@@ -338,6 +343,11 @@
       " org-lvl-" + Math.min(depth, 2));
     header.type = "button";
     header.id = "org-" + node.dept.id;
+    // 트리 시맨틱: 헤더 button 을 treeitem 으로 승격하고 깊이를 aria-level 로 노출.
+    // (role=treeitem 이 button role 을 대체하지만 aria-expanded·키보드 활성은 그대로 동작)
+    header.setAttribute("role", "treeitem");
+    header.setAttribute("aria-level", String(depth + 1));
+    header.tabIndex = -1; // roving tabindex — renderOrgView/포커스 핸들러가 활성 1개만 0으로
     // 과/팀 헤더의 계단식 sticky top/z-index 계산용 깊이(최대 2단까지 쌓음)
     if (!top) {
       header.style.setProperty("--depth", Math.min(depth, 2));
@@ -361,14 +371,18 @@
       if (total > direct) badge.appendChild(el("span", "org-badge-total", "/" + total));
     }
     header.appendChild(badge);
+    // 접힘/펼침은 aria-expanded 가 전달하므로 라벨에서 제외(중복 읽힘 방지).
+    // 시각적으로 강조되는 리더(이름+직위)도 라벨에 포함해 스크린리더 정보 누락을 막는다.
     header.setAttribute("aria-label",
-      node.dept.name + ", 직속 " + direct + "명" +
-      (total > direct ? ", 전체 " + total + "명" : "") +
-      ", " + (collapsed ? "접힘" : "펼침"));
+      node.dept.name +
+      (lead ? ", " + lead.name + " " + lead.position : "") +
+      ", 직속 " + direct + "명" +
+      (total > direct ? ", 전체 " + total + "명" : ""));
     header.addEventListener("click", function () { if (opts.onToggle && !opts.reorder) opts.onToggle(node.dept.id); });
     wrap.appendChild(header);
     if (!collapsed) {
       var body = el("div", "org-body");
+      body.setAttribute("role", "group"); // treeitem 의 자식 묶음
       node.members.forEach(function (c) { body.appendChild(orgRow(c, opts)); });
       node.children.forEach(function (ch) { body.appendChild(orgNode(ch, depth + 1, opts)); });
       wrap.appendChild(body);
@@ -662,13 +676,67 @@
       summary.appendChild(bar);
       container.appendChild(summary);
       if (opts.reorder) {
-        container.appendChild(el("div", "org-reorder-hint",
-          "▲▼ 로 같은 부서 안에서 순서를 바꾸고, 🏢 버튼으로 다른 부서로 옮깁니다."));
+        // 힌트의 버튼 지칭을 이모지 대신 실제 아이콘으로 → 화면 버튼과 1:1 매칭.
+        var hint = el("div", "org-reorder-hint");
+        hint.appendChild(icon("chevron", "chev-up"));
+        hint.appendChild(icon("chevron", "chev-down"));
+        hint.appendChild(el("span", null, " 로 같은 부서 안에서 순서를 바꾸고, "));
+        hint.appendChild(icon("building"));
+        hint.appendChild(el("span", null, " 버튼으로 다른 부서로 옮깁니다."));
+        container.appendChild(hint);
       }
 
-      var frag = document.createDocumentFragment();
-      tree.forEach(function (n) { frag.appendChild(orgNode(n, 0, opts)); });
-      container.appendChild(frag);
+      // 트리 시맨틱 컨테이너: role=tree + roving tabindex + 화살표키 내비게이션
+      var treeEl = el("div", "org-tree");
+      treeEl.setAttribute("role", "tree");
+      treeEl.setAttribute("aria-label", "조직도");
+      // reorder 시 멤버 행 액션 간격을 넓혀(▲▼/🏢) 오터치를 줄인다(트리에 스코프 → 타 탭 누수 방지)
+      if (opts.reorder) treeEl.classList.add("org-reordering");
+      tree.forEach(function (n) { treeEl.appendChild(orgNode(n, 0, opts)); });
+
+      function items() {
+        return Array.prototype.slice.call(treeEl.querySelectorAll('[role="treeitem"]'));
+      }
+      function focusItem(it) { if (it) it.focus(); }
+      // 어떤 경로(Tab·클릭·토글 후 포커스 복원)로 진입하든 포커스된 노드를 유일한 탭 정지점으로
+      treeEl.addEventListener("focusin", function (e) {
+        var cur = e.target.closest && e.target.closest('[role="treeitem"]');
+        if (!cur) return;
+        items().forEach(function (it) { it.tabIndex = it === cur ? 0 : -1; });
+      });
+      treeEl.addEventListener("keydown", function (e) {
+        var cur = e.target.closest && e.target.closest('[role="treeitem"]');
+        if (!cur) return;
+        var list = items(), i = list.indexOf(cur);
+        switch (e.key) {
+          case "ArrowDown": e.preventDefault(); focusItem(list[i + 1]); break;
+          case "ArrowUp": e.preventDefault(); focusItem(list[i - 1]); break;
+          case "Home": e.preventDefault(); focusItem(list[0]); break;
+          case "End": e.preventDefault(); focusItem(list[list.length - 1]); break;
+          case "ArrowRight": {
+            e.preventDefault();
+            if (cur.getAttribute("aria-expanded") === "false") { cur.click(); } // 펼침(재렌더 후 포커스 복원)
+            else { // 이미 펼침 → 첫 자식 노드로
+              var body = cur.nextElementSibling;
+              focusItem(body && body.querySelector('[role="treeitem"]'));
+            }
+            break;
+          }
+          case "ArrowLeft": {
+            e.preventDefault();
+            if (cur.getAttribute("aria-expanded") === "true") { cur.click(); } // 접힘
+            else { // 접힘/말단 → 부모 노드로
+              var box = cur.parentElement && cur.parentElement.parentElement;
+              if (box && box.classList.contains("org-body")) focusItem(box.previousElementSibling);
+            }
+            break;
+          }
+        }
+      });
+      container.appendChild(treeEl);
+      // 최초 탭 정지점 1개 지정(나머지는 orgNode 에서 -1)
+      var first = treeEl.querySelector('[role="treeitem"]');
+      if (first) first.tabIndex = 0;
     },
 
     /** 편집/추가 폼 렌더. 입력값은 #ef-* id로 app이 읽는다. */

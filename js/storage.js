@@ -20,6 +20,8 @@
   var LOCK_ENABLED_KEY = "dongguDial.lock.enabled.v1"; // true면 접근 시 잠금
   var LOCK_CRED_KEY = "dongguDial.lock.cred.v1";       // WebAuthn 자격증명 id(base64url) — 지문 해제용
   var LOCK_PIN_KEY = "dongguDial.lock.pin.v1";         // { salt, hash }  (PIN 대체 인증, SHA-256)
+  var ORG_COLLAPSED_KEY = "dongguDial.orgCollapsed.v1"; // { [deptId]: true }  (조직도 접힌 부서) — 키 존재=초기화됨
+  var FAV_COLLAPSED_KEY = "dongguDial.favCollapsed.v1"; // { [groupId]: true } (즐겨찾기 접힌 그룹)
   var RECENT_LIMIT = 30;
 
   // 고유 id 생성기 (같은 ms 에 여러 건 추가해도 충돌 없도록 카운터 결합)
@@ -223,6 +225,19 @@
     // ---------- 테마 ----------
     getTheme: function () { return read(THEME_KEY, "system"); },
     setTheme: function (t) { write(THEME_KEY, t); },
+
+    // ---------- 조직도·즐겨찾기 접힘 상태(콜드스타트에도 유지) ----------
+    // 조직도는 "키 존재 여부"로 최초 진입(전부 접기)을 판별한다. null=미초기화.
+    getOrgCollapsed: function () {
+      var v = read(ORG_COLLAPSED_KEY, null);
+      return (v && typeof v === "object") ? v : null;
+    },
+    setOrgCollapsed: function (map) { write(ORG_COLLAPSED_KEY, map || {}); },
+    getFavCollapsed: function () {
+      var v = read(FAV_COLLAPSED_KEY, null);
+      return (v && typeof v === "object") ? v : {};
+    },
+    setFavCollapsed: function (map) { write(FAV_COLLAPSED_KEY, map || {}); },
 
     // ---------- 프로필 기본 아이콘(실루엣) 전역 표시 ----------
     getShowDefaultIcon: function () { return read(SHOW_DEFAULT_ICON_KEY, false) === true; },

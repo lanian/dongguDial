@@ -331,11 +331,15 @@
     /** 조직도: parentId 기반 재귀 트리(국→과→팀, 실/관→팀 등 임의 깊이) */
     groupedByOrg: function () {
       var depts = state.departments; // sortOrder(직제) 정렬됨
-      function buildNode(dept) {
+      // seen: 데이터 오류(A↔B 상호 부모, 자기참조 등)로 인한 무한재귀·스택오버플로 방어.
+      // depthOf/deptPath 는 guard 가 있는데 트리 빌드만 없어 한쪽만 죽던 비대칭을 해소한다.
+      function buildNode(dept, seen) {
+        seen = seen || {};
+        seen[dept.id] = true;
         var members = Data.membersOfDept(dept.id);
         var children = depts
-          .filter(function (d) { return d.parentId === dept.id; })
-          .map(buildNode)
+          .filter(function (d) { return d.parentId === dept.id && d.id !== dept.id && !seen[d.id]; })
+          .map(function (d) { return buildNode(d, Object.assign({}, seen)); })
           .filter(function (n) { return n.count > 0; });
         var count = members.length + children.reduce(function (a, n) { return a + n.count; }, 0);
         return { dept: dept, members: members, children: children, count: count };

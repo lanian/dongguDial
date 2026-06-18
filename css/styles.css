@@ -841,7 +841,8 @@ html[data-theme="dark"] .info-card { box-shadow: none; border: 1px solid var(--d
   font-weight: var(--fw-bold);
 }
 .org-badge--sm { background: var(--divider); color: var(--on-surface-muted); }
-.org-badge-total { font-weight: var(--fw-reg); opacity: 0.6; margin-left: 1px; }
+/* 누적(전체) 인원: 직속(bold)과 굵기로만 구분 — opacity 로 흐리면 대비(AA) 미달이라 제거 */
+.org-badge-total { font-weight: var(--fw-reg); margin-left: 1px; }
 
 .org-body { background: var(--surface); }
 
@@ -885,7 +886,8 @@ html[data-theme="dark"] .info-card { box-shadow: none; border: 1px solid var(--d
 .org-team-header[aria-expanded="false"] .section-chevron { transform: rotate(0); }
 /* 레벨별 위계: 과(med) · 팀 이하도 헤더답게 med 유지(연락처 보조줄과 혼동되지 않게).
    깊이감은 배경 틴트·들여쓰기로 표현하고, 텍스트는 muted 로 흐리지 않는다. */
-.org-team-header.org-lvl-2 .org-dept-name { font-weight: var(--fw-med); color: var(--on-surface); }
+/* 깊이 굵기 사다리: 국(bold) ▸ 과(med) ▸ 팀 이하(reg). 색을 흐리지 않고 굵기로 위계를 표현 */
+.org-team-header.org-lvl-2 .org-dept-name { font-weight: var(--fw-reg); color: var(--on-surface); }
 /* 팀 이하: 배경을 한 단 더 가라앉혀(가장 진한 띠) 깊이를 표현 */
 .org-team-header.org-lvl-2 {
   background: var(--surface);
@@ -1065,7 +1067,9 @@ select.ef-input { appearance: none; }
 .org-tbtn {
   display: inline-flex;
   align-items: center;
+  justify-content: center;
   gap: 5px;
+  min-height: var(--touch-min); /* 터치 타깃 44px 확보(오터치 방지) */
   border: 1px solid var(--divider);
   background: var(--surface);
   color: var(--brand);
@@ -1077,6 +1081,10 @@ select.ef-input { appearance: none; }
   cursor: pointer;
   white-space: nowrap;
 }
+/* reorder 모드: 멤버 행 ▲▼/🏢 간격을 넓혀 상하 반대 동작의 오터치를 줄임 */
+.org-reordering .row-actions { gap: var(--sp-2); }
+/* reorder 힌트: 실제 버튼 아이콘과 같은 모양으로 인라인 표시 */
+.org-reorder-hint .ic { width: 1em; height: 1em; vertical-align: -0.12em; color: var(--on-surface-muted); }
 .org-tbtn .ic { width: 1.05em; height: 1.05em; }
 .org-tbtn:active { background: var(--divider); }
 .org-tbtn--done.is-active { background: var(--brand); color: #fff; border-color: var(--brand); }

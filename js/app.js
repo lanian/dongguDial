@@ -4,7 +4,7 @@
 (function () {
   "use strict";
 
-  var APP_VERSION = "95"; // SW 캐시(donggu-dial-vNN)와 함께 갱신
+  var APP_VERSION = "96"; // SW 캐시(donggu-dial-vNN)와 함께 갱신
   var ORG_HDR_H = 44;     // 조직도 헤더 높이(CSS --org-hdr-h 와 동기화) — 계단식 sticky 점프 보정용
   var listEl = document.getElementById("list");
   var scrollRegion = document.getElementById("scroll-region");
@@ -1269,9 +1269,11 @@
     refreshCounts();
     document.getElementById("settings-version").textContent = "v" + APP_VERSION;
     var settingsBody = settingsEl.querySelector(".detail-body");
-    if (settingsBody) settingsBody.scrollTop = 0; // 진입 시 항상 맨 위부터
     pushFocus();
     settingsEl.hidden = false;
+    // display:none 상태에서의 scrollTop 쓰기는 일부 브라우저(iOS Safari 등)에서
+    // 무시·복원될 수 있으므로, 표시(layout 생성) 후에 맨 위로 리셋한다.
+    if (settingsBody) settingsBody.scrollTop = 0; // 진입 시 항상 맨 위부터
     syncInert();
     updateFab();
     document.getElementById("settings-back").focus();

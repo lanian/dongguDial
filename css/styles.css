@@ -788,14 +788,16 @@ html[data-theme="dark"] .info-card { box-shadow: none; border: 1px solid var(--d
 }
 .org-node { margin-bottom: var(--sp-3); }
 
-/* 최상위(국/실/관) 헤더: surface 카드 캡 — sticky 시 본문과 경계가 또렷하고 겹쳐도 불투명 */
+/* 최상위(국/실/관) 헤더: 브랜드 틴트 캡 — 위계상 가장 또렷하게.
+   과/팀(회색 띠)·연락처(흰 행)와 색으로 구분되고, 다크모드(그림자 약함)에서도 식별됨. */
 .org-dept {
   gap: 6px;
   align-items: center;
   height: var(--org-hdr-h); /* 계단식 sticky 정렬 위해 높이 고정 */
   padding: 0 var(--sp-4);
   overflow: hidden;
-  background: var(--surface); /* 최상위 = 가장 또렷한 흰 바 */
+  background: var(--surface); /* color-mix 미지원 폴백 */
+  background: color-mix(in srgb, var(--brand) 8%, var(--surface));
   border-bottom: 1px solid var(--divider);
   /* 떠 있는 입체감: 최상위가 그림자를 가장 강하게 드리워 목록 위에 뜬 느낌 */
   box-shadow: 0 4px 12px -6px rgba(0, 0, 0, 0.24);

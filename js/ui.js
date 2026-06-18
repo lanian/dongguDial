@@ -569,7 +569,8 @@
 
       // 미분류
       if (fs.ungrouped.length) {
-        var uh = el("div", "section-header fav-group-header");
+        var uh = el("div", "section-header fav-group-header fav-group-header--plain");
+        uh.appendChild(favDot(null, false)); // 색 점 열 정렬용(무채색 = 미분류)
         uh.appendChild(el("span", "section-leaf section-muted", "미분류 "));
         uh.appendChild(el("span", "count", "(" + fs.ungrouped.length + ")"));
         var us = el("div", "list-section");

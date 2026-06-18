@@ -1173,7 +1173,8 @@ select.ef-input { appearance: none; }
 /* ---------- 즐겨찾기 그룹 ---------- */
 .fav-toolbar {
   display: flex; align-items: center; gap: var(--sp-3);
-  padding: var(--sp-2) var(--sp-4);
+  padding: var(--sp-3) var(--sp-4);
+  border-bottom: 1px solid var(--divider);
 }
 .fav-toolbar-info { color: var(--on-surface-muted); font-size: var(--fs-sm); }
 .fav-toolbar-btn {
@@ -1185,7 +1186,12 @@ select.ef-input { appearance: none; }
 }
 .fav-toolbar-btn:active { background: var(--divider); }
 .fav-toolbar-btn .ic { width: 0.9em; height: 0.9em; }
-.fav-group-header { display: flex; align-items: center; gap: var(--sp-2); }
+/* 그룹 헤더: 색 점 · 이름(토글) · 컨트롤을 한 줄에 정렬. 터치 높이 확보 + 세로 중앙. */
+.fav-group-header {
+  display: flex; align-items: center; gap: var(--sp-2);
+  min-height: 44px;
+  padding-top: var(--sp-1); padding-bottom: var(--sp-1);
+}
 /* 그룹 색 좌측 액센트 바: 헤더~멤버 행을 같은 색으로 묶어 한눈에 구분(none=transparent) */
 .fav-group-section .fav-group-header,
 .fav-group-section > .row { box-shadow: inset 3px 0 0 var(--fav-color, transparent); }
@@ -1229,6 +1235,8 @@ select.ef-input { appearance: none; }
 .fav-group-ctrl:active { background: var(--divider); }
 .fav-group-ctrl[disabled] { opacity: 0.25; pointer-events: none; }
 .fav-group-ctrl .ic { width: 1em; height: 1em; }
+/* 순서이동(▲▼) 쌍과 이름변경·삭제 쌍 사이에 살짝 간격을 둬 그룹화 */
+.fav-ctrl-down + .fav-group-ctrl { margin-left: var(--sp-1); }
 /* 이동 버튼 셰브론: 위(▲)/아래(▼). 기본 셰브론은 오른쪽을 향함 */
 .fav-ctrl-up .ic { transform: rotate(-90deg); }
 .fav-ctrl-down .ic { transform: rotate(90deg); }

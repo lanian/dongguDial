@@ -131,13 +131,13 @@
         return (a.sortOrder || 0) - (b.sortOrder || 0);
       });
     },
-    addFavGroup: function (name) {
+    addFavGroup: function (name, color) {
       name = (name || "").trim();
       if (!name) return null;
       var groups = read(FAV_GROUPS_KEY, []);
       var max = groups.reduce(function (m, g) { return Math.max(m, g.sortOrder || 0); }, 0);
       var id = uid("g");
-      groups.push({ id: id, name: name, sortOrder: max + 10 });
+      groups.push({ id: id, name: name, sortOrder: max + 10, color: color || null });
       write(FAV_GROUPS_KEY, groups);
       return id;
     },
@@ -147,6 +147,11 @@
       var groups = read(FAV_GROUPS_KEY, []);
       var g = groups.find(function (x) { return x.id === id; });
       if (g) { g.name = name; write(FAV_GROUPS_KEY, groups); }
+    },
+    setFavGroupColor: function (id, color) {
+      var groups = read(FAV_GROUPS_KEY, []);
+      var g = groups.find(function (x) { return x.id === id; });
+      if (g) { g.color = color || null; write(FAV_GROUPS_KEY, groups); }
     },
     removeFavGroup: function (id) {
       write(FAV_GROUPS_KEY, read(FAV_GROUPS_KEY, []).filter(function (g) { return g.id !== id; }));

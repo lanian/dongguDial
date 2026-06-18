@@ -4,7 +4,7 @@
 (function () {
   "use strict";
 
-  var APP_VERSION = "93"; // SW 캐시(donggu-dial-vNN)와 함께 갱신
+  var APP_VERSION = "94"; // SW 캐시(donggu-dial-vNN)와 함께 갱신
   var ORG_HDR_H = 44;     // 조직도 헤더 높이(CSS --org-hdr-h 와 동기화) — 계단식 sticky 점프 보정용
   var listEl = document.getElementById("list");
   var scrollRegion = document.getElementById("scroll-region");
@@ -435,6 +435,7 @@
         onAddGroup: addFavGroupPrompt,
         onRenameGroup: renameFavGroupPrompt,
         onRemoveGroup: removeFavGroupConfirm,
+        onSetColor: setFavGroupColorPrompt,
         onMoveGroup: function (g, dir) { Storage.moveFavGroup(g.id, dir); render(); },
         emptyMsg: "즐겨찾기한 연락처가 없습니다.\n별 아이콘을 눌러 추가하세요.",
         actionLabel: "전체에서 찾기", onAction: function () { switchTab(tabs[0]); },
@@ -708,6 +709,21 @@
         card.appendChild(h);
       }
       if (opts.message) card.appendChild(mk("p", "app-dialog-msg", opts.message));
+      // 색상 스와치 모드: 스와치 클릭 = 즉시 선택(키 반환). 입력/확인 버튼 없이 동작.
+      var swatchWrap = null;
+      if (opts.swatches) {
+        swatchWrap = mk("div", "app-dialog-swatches");
+        opts.swatches.forEach(function (s) {
+          var sel = s.key === opts.swatchValue;
+          var b = mk("button", "swatch swatch--" + s.key + (sel ? " is-sel" : ""));
+          b.type = "button";
+          b.setAttribute("aria-label", s.label);
+          b.setAttribute("aria-pressed", sel ? "true" : "false");
+          b.addEventListener("click", function () { done(s.key); });
+          swatchWrap.appendChild(b);
+        });
+        card.appendChild(swatchWrap);
+      }
       var hasInput = opts.value !== undefined;
       var input = null;
       if (hasInput) {
@@ -726,7 +742,7 @@
       var okBtn = mk("button", "app-dialog-btn app-dialog-ok" + (opts.danger ? " is-danger" : ""), opts.okLabel || "확인");
       okBtn.type = "button";
       btns.appendChild(cancelBtn);
-      btns.appendChild(okBtn);
+      if (!opts.swatches) btns.appendChild(okBtn); // 스와치 모드는 확인 버튼 불필요(클릭=선택)
       card.appendChild(btns);
       backdrop.appendChild(card);
       // 소프트 키보드가 올라오면 visualViewport 높이가 줄어듦 → 보이는 영역에 카드를 다시 맞춰 가림 방지
@@ -753,7 +769,7 @@
       }
       function onKey(e) {
         if (e.key === "Escape") { e.preventDefault(); e.stopPropagation(); done(null); }
-        else if (e.key === "Enter") { e.preventDefault(); e.stopPropagation(); confirm(); }
+        else if (e.key === "Enter" && !opts.swatches) { e.preventDefault(); e.stopPropagation(); confirm(); }
       }
       cancelBtn.addEventListener("click", function () { done(null); });
       okBtn.addEventListener("click", confirm);
@@ -761,7 +777,7 @@
       document.addEventListener("keydown", onKey, true);
       document.body.appendChild(backdrop);
       if (vv) { vv.addEventListener("resize", fitViewport); vv.addEventListener("scroll", fitViewport); fitViewport(); }
-      (hasInput ? input : okBtn).focus();
+      (hasInput ? input : (swatchWrap ? swatchWrap.firstChild : okBtn)).focus();
       if (hasInput) input.select();
     });
   }
@@ -925,10 +941,16 @@
   // 실행 시 잠금
   if (lockConfigured()) showLockScreen();
 
+  // 새 그룹에 자동으로 구분되는 색을 배정(무채색 제외, 기존 그룹 수만큼 회전)
+  function nextFavColor() {
+    var palette = UI.FAV_COLORS.filter(function (c) { return c.key !== "none"; });
+    var n = Storage.getFavGroups().length;
+    return palette[n % palette.length].key;
+  }
   function addFavGroupPrompt() {
     appDialog({ title: "새 그룹", value: "", placeholder: "그룹 이름", okLabel: "추가" }).then(function (name) {
       if (!name) return;
-      Storage.addFavGroup(name);
+      Storage.addFavGroup(name, nextFavColor());
       render();
       showSnack("그룹 ‘" + name + "’ 추가됨");
     });
@@ -937,6 +959,19 @@
     appDialog({ title: "그룹 이름 변경", value: g.name, placeholder: "그룹 이름", okLabel: "저장" }).then(function (name) {
       if (!name) return;
       Storage.renameFavGroup(g.id, name);
+      if (!favGroupPickerEl.hidden) renderFavGroupPickerList();
+      render();
+    });
+  }
+  function setFavGroupColorPrompt(g) {
+    appDialog({
+      title: "그룹 색상",
+      message: "‘" + g.name + "’ 그룹의 색을 선택하세요.",
+      swatches: UI.FAV_COLORS,
+      swatchValue: UI.favColorKey(g.color),
+    }).then(function (key) {
+      if (key == null) return; // 취소
+      Storage.setFavGroupColor(g.id, key === "none" ? null : key);
       if (!favGroupPickerEl.hidden) renderFavGroupPickerList();
       render();
     });
@@ -975,7 +1010,7 @@
       onAddGroup: function (name) {
         name = (name || "").trim();
         if (!name) return;
-        var id = Storage.addFavGroup(name);
+        var id = Storage.addFavGroup(name, nextFavColor());
         if (id) Storage.toggleContactFavGroup(favGroupPickerContact.id, id);
         renderFavGroupPickerList();
         render();

@@ -14,6 +14,37 @@
 
   function initial(name) { return name ? name.trim().charAt(0) : "?"; }
 
+  // 즐겨찾기 그룹 색상 팔레트. "none"=무채색(기본). 키는 CSS .swatch--{key}/.fav-dot--{key} 와 1:1.
+  var FAV_COLORS = [
+    { key: "none", label: "기본" },
+    { key: "red", label: "빨강" },
+    { key: "orange", label: "주황" },
+    { key: "amber", label: "노랑" },
+    { key: "green", label: "초록" },
+    { key: "teal", label: "청록" },
+    { key: "blue", label: "파랑" },
+    { key: "purple", label: "보라" },
+    { key: "pink", label: "분홍" },
+  ];
+  function favColorKey(c) {
+    // 저장값 정규화: 팔레트에 없거나 비었으면 "none"
+    for (var i = 0; i < FAV_COLORS.length; i++) if (FAV_COLORS[i].key === c) return c;
+    return "none";
+  }
+  // 그룹 색 점(dot). asButton=true 면 클릭 가능한 색상 변경 버튼(탭 영역 확장 위해 내부 점을 감싼다).
+  function favDot(colorKey, asButton, onClick) {
+    var k = favColorKey(colorKey);
+    if (asButton) {
+      var btn = el("button", "fav-dot-btn");
+      btn.type = "button";
+      btn.setAttribute("aria-label", "그룹 색상 변경");
+      btn.appendChild(el("span", "fav-dot fav-dot--" + k));
+      if (onClick) btn.addEventListener("click", function (e) { e.stopPropagation(); onClick(); });
+      return btn;
+    }
+    return el("span", "fav-dot fav-dot--" + k);
+  }
+
   function icon(name, cls) {
     var svg = document.createElementNS(SVG_NS, "svg");
     svg.setAttribute("class", "ic" + (cls ? " " + cls : ""));
@@ -347,6 +378,8 @@
 
   var UI = {
     avatarColor: avatarColor,
+    FAV_COLORS: FAV_COLORS,
+    favColorKey: favColorKey,
     defaultIcon: defaultIconNode,
     setShowDefaultIcon: function (v) { showDefaultIcon = !!v; },
     icon: icon,
@@ -491,8 +524,11 @@
       var frag = document.createDocumentFragment();
       fs.sections.forEach(function (sec, i) {
         var gid = sec.group.id;
+        var key = favColorKey(sec.group.color);
         var collapsed = !!(opts.collapsed && opts.collapsed[gid]);
         var header = el("div", "section-header fav-group-header");
+        // 색 점(클릭 시 색상 변경)
+        header.appendChild(favDot(sec.group.color, !!opts.onSetColor, function () { opts.onSetColor(sec.group); }));
         var toggle = el("button", "section-toggle fav-group-toggle");
         toggle.type = "button";
         toggle.setAttribute("aria-expanded", collapsed ? "false" : "true");
@@ -520,11 +556,13 @@
         if (opts.onRenameGroup) ctrl("edit", "이름 변경", false, function () { opts.onRenameGroup(sec.group); });
         if (opts.onRemoveGroup) ctrl("trash", "그룹 삭제", false, function () { opts.onRemoveGroup(sec.group); });
         header.appendChild(ctrls);
-        var section = el("div", "list-section"); // sticky 헤더 누적(겹침) 방지
+        var section = el("div", "list-section fav-group-section"); // sticky 헤더 누적(겹침) 방지
+        // 그룹 색을 섹션 변수로 주입 → 헤더 좌측 바·멤버 행 좌측 액센트에 사용
+        section.style.setProperty("--fav-color", key === "none" ? "transparent" : "var(--fav-c-" + key + ")");
         section.appendChild(header);
         if (!collapsed) {
           if (sec.members.length) appendRows(section, sec.members, opts);
-          else section.appendChild(el("div", "fav-group-empty", "이 그룹에 연락처가 없습니다. 연락처 행의 🔖 버튼으로 지정하세요."));
+          else section.appendChild(el("div", "fav-group-empty", "이 그룹에 연락처가 없습니다. 연락처의 북마크 버튼으로 지정하세요."));
         }
         frag.appendChild(section);
       });
@@ -558,6 +596,7 @@
         var chk = el("span", "fav-pick-check");
         if (on) chk.appendChild(icon("star"));
         row.appendChild(chk);
+        row.appendChild(favDot(g.color, false));
         row.appendChild(el("span", "pick-name", g.name));
         row.appendChild(el("span", "fav-pick-count", (counts[g.id] || 0) + "명"));
         row.addEventListener("click", function () { opts.onToggle(g.id); });

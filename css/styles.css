@@ -852,10 +852,11 @@ html[data-theme="dark"] .info-card { box-shadow: none; border: 1px solid var(--d
   position: sticky;
   top: calc(var(--org-hdr-h) * var(--depth, 1));
   z-index: calc(11 - var(--depth, 1));
-  /* 농담: 깊이가 깊을수록 살짝 회색조로 가라앉혀(recede) 계층을 표현.
-     color-mix 미지원 브라우저는 surface(흰색)로 폴백. */
+  /* 헤더 띠: 연락처 행(흰 surface)과 또렷이 구분되도록 실제 회색 토큰(divider)으로 당긴다.
+     (bg 는 흰색과 거의 같아 구분이 약했음.) divider 는 라이트·다크 모두 가시적 회색.
+     color-mix 미지원 브라우저는 surface 로 폴백. */
   background: var(--surface);
-  background: color-mix(in srgb, var(--bg) 12%, var(--surface));
+  background: color-mix(in srgb, var(--divider) 70%, var(--surface));
   /* 입체감: 상위보다 옅은 그림자 */
   box-shadow: 0 3px 9px -6px rgba(0, 0, 0, 0.18);
   color: inherit;
@@ -867,16 +868,17 @@ html[data-theme="dark"] .info-card { box-shadow: none; border: 1px solid var(--d
   border-bottom: 1px solid var(--divider);
 }
 .org-team-header .org-dept-name { font-weight: var(--fw-med); }
-.org-team-header:active { background: var(--divider); }
+.org-team-header:active { background: color-mix(in srgb, var(--on-surface) 10%, var(--divider)); }
 .org-team-header .section-chevron { width: 0.9em; height: 0.9em; }
 /* 과/팀 헤더 셰브론도 접힘 상태를 회전으로 표시(.section-toggle 규칙이 안 걸리던 버그 보완) */
 .org-team-header[aria-expanded="false"] .section-chevron { transform: rotate(0); }
-/* 레벨별 위계: 과(med, 기본) · 팀 이하(reg+muted) — 부서순 뷰의 section-lvl-* 와 동일 결 */
-.org-team-header.org-lvl-2 .org-dept-name { font-weight: var(--fw-reg); color: var(--on-surface-muted); }
-/* 팀 이하: 한 단 더 가라앉히고 그림자도 더 옅게 — 본문에 가장 가깝게 */
+/* 레벨별 위계: 과(med) · 팀 이하도 헤더답게 med 유지(연락처 보조줄과 혼동되지 않게).
+   깊이감은 배경 틴트·들여쓰기로 표현하고, 텍스트는 muted 로 흐리지 않는다. */
+.org-team-header.org-lvl-2 .org-dept-name { font-weight: var(--fw-med); color: var(--on-surface); }
+/* 팀 이하: 배경을 한 단 더 가라앉혀(가장 진한 띠) 깊이를 표현 */
 .org-team-header.org-lvl-2 {
   background: var(--surface);
-  background: color-mix(in srgb, var(--bg) 22%, var(--surface));
+  background: var(--divider);
   box-shadow: 0 2px 7px -6px rgba(0, 0, 0, 0.14);
 }
 /* 2단 초과 깊이: 계단식 sticky 를 끔(같은 top/z-index 누적 겹침 방지) → 본문과 함께 스크롤 */

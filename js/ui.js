@@ -796,6 +796,15 @@
       });
       form.appendChild(field("재직상태", statusSel));
 
+      var memoInp = el("textarea", "ef-input");
+      memoInp.id = "ef-memo";
+      memoInp.rows = 3;
+      memoInp.placeholder = "개인 메모 (이 기기에만 저장 · 공유/CSV에는 포함 안 됨)";
+      memoInp.style.resize = "vertical";
+      memoInp.style.minHeight = "72px";
+      if (contact.memo) memoInp.value = contact.memo;
+      form.appendChild(field("메모", memoInp));
+
       container.appendChild(form);
     },
 
@@ -1031,6 +1040,22 @@
       if (c2.childNodes.length) {
         container.appendChild(sectionTitle("소속"));
         container.appendChild(c2);
+      }
+
+      // 메모(개인·로컬) — 여러 줄 보존
+      if (contact.memo) {
+        container.appendChild(sectionTitle("메모"));
+        var cm = el("div", "info-card");
+        var mrow = el("div", "info-row");
+        var mico = el("span", "info-ico"); mico.appendChild(icon("edit")); mrow.appendChild(mico);
+        var mtext = el("div", "info-text");
+        var mval = el("div", "info-value");
+        mval.style.whiteSpace = "pre-wrap"; // 줄바꿈 유지
+        mval.textContent = contact.memo;
+        mtext.appendChild(mval);
+        mrow.appendChild(mtext);
+        cm.appendChild(mrow);
+        container.appendChild(cm);
       }
     },
   };

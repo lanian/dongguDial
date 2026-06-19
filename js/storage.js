@@ -110,6 +110,25 @@
   var contactStore = overlayStore(EDITS_KEY, CUSTOM_KEY, "u");
   var deptStore = overlayStore(DEPT_EDITS_KEY, DEPT_CUSTOM_KEY, "d");
 
+  // ---------- 백업 스키마 버저닝 ----------
+  // 백업 구조가 바뀌면 CURRENT_BACKUP_VERSION 을 올리고, 직전 버전→다음 버전 변환기를
+  // BACKUP_MIGRATIONS[n] 에 등록한다. importData 가 가져오기 직전에 자동 적용해 구버전
+  // 백업 호환을 보장한다(흩어진 임시 호환 로직을 한곳으로 모으는 토대).
+  var CURRENT_BACKUP_VERSION = 4;
+  var BACKUP_MIGRATIONS = {
+    // 예) 4: function (d) { /* v4 → v5 구조 변환 */ return d; },
+  };
+  function migrateBackup(data) {
+    var v = (typeof data.version === "number" && data.version > 0) ? data.version : 1;
+    while (v < CURRENT_BACKUP_VERSION) {
+      var fn = BACKUP_MIGRATIONS[v];
+      if (!fn) break; // 해당 단계 변환기가 없으면 가능한 범위까지만(이후는 방어적 읽기로 흡수)
+      data = fn(data) || data;
+      v++;
+    }
+    return data;
+  }
+
   var Storage = {
     // ---------- 즐겨찾기 ----------
     getFavorites: function () { return read(FAV_KEY, []); },
@@ -312,7 +331,7 @@
       return {
         app: "dongguDial",
         type: "backup",
-        version: 4,
+        version: CURRENT_BACKUP_VERSION,
         exportedAt: new Date().toISOString(),
         favorites: read(FAV_KEY, []),
         recent: normRecent(read(RECENT_KEY, [])),
@@ -333,6 +352,7 @@
       if (!data || data.app !== "dongguDial" || data.type !== "backup") {
         throw new Error("행정전화부 백업 파일이 아닙니다.");
       }
+      data = migrateBackup(data); // 구버전 백업을 현재 스키마로 정규화
       var inFav = Array.isArray(data.favorites) ? data.favorites : [];
       var inRecent = Array.isArray(data.recent) ? data.recent : [];
       var inEdits = (data.edits && typeof data.edits === "object") ? data.edits : {};

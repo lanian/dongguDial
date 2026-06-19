@@ -4,7 +4,7 @@
 (function () {
   "use strict";
 
-  var APP_VERSION = "112"; // SW 캐시(donggu-dial-vNN)와 함께 갱신
+  var APP_VERSION = "113"; // SW 캐시(donggu-dial-vNN)와 함께 갱신
   // 조직도 헤더 높이: CSS 토큰(--org-hdr-h)을 단일 소스로 읽어 JS 상수 이중정의(동기화 누락)를 제거
   var ORG_HDR_H = (function () {
     var v = parseInt(getComputedStyle(document.documentElement).getPropertyValue("--org-hdr-h"), 10);
@@ -1947,21 +1947,72 @@
       return leaf;
     }
     function v(r, f) { return fmap[f] ? (r[fmap[f]] || "").trim() : ""; }
-    var added = 0, skipped = 0;
+    function leafOf(r) { for (var i = hierHeaders.length - 1; i >= 0; i--) { var h = hierHeaders[i]; if (h && (r[h] || "").trim()) return r[h].trim(); } return ""; }
+    function fieldsFromRow(r) {
+      var leaf = resolveDeptPath(hierHeaders.map(function (h) { return h ? (r[h] || "").trim() : ""; }));
+      return { name: v(r, "name"), deptId: leaf.id, dept: leaf.name, team: "",
+        position: v(r, "position"), grade: v(r, "grade"), work: v(r, "work"),
+        phone: v(r, "phone"), tel: v(r, "tel"), birth: v(r, "birth"), status: normStatus(v(r, "status")) };
+    }
+    var idx = buildContactMatchIndex();
+    var added = 0, updated = 0, skipped = 0;
     rows.forEach(function (r) {
       var name = v(r, "name");
       if (!name) { skipped++; return; }
-      var pathNames = hierHeaders.map(function (h) { return h ? (r[h] || "").trim() : ""; });
-      var leaf = resolveDeptPath(pathNames);
-      Storage.addContact({
-        name: name, deptId: leaf.id, dept: leaf.name, team: "",
-        position: v(r, "position"), grade: v(r, "grade"), work: v(r, "work"),
-        phone: v(r, "phone"), tel: v(r, "tel"), birth: v(r, "birth"),
-        status: normStatus(v(r, "status")),
-      });
-      added++;
+      var ph = digits(v(r, "phone")) || digits(v(r, "tel"));
+      var m = matchExisting(idx, name, ph, leafOf(r));
+      if (m) { Storage.saveContact(m.id, fieldsFromRow(r)); updated++; }  // 일치 → 갱신(중복 누적 방지)
+      else { Storage.addContact(fieldsFromRow(r)); added++; }             // 신규 → 추가
     });
-    return { added: added, skipped: skipped, newDepts: newDepts };
+    return { added: added, updated: updated, skipped: skipped, newDepts: newDepts };
+  }
+  function digits(s) { return (s || "").replace(/\D/g, ""); }
+  // 기존 연락처 색인: 이름+전화digits(우선) / 이름+부서leaf
+  function buildContactMatchIndex() {
+    var byNamePhone = {}, byNameDept = {};
+    (window.Data && Data.getAllContacts ? Data.getAllContacts() : []).forEach(function (c) {
+      var nm = (c.name || "").trim(); if (!nm) return;
+      var ph = digits(c.phone) || digits(c.tel);
+      if (ph.length >= 7) byNamePhone[nm + "|" + ph] = c;
+      if (c.dept) byNameDept[nm + "|" + c.dept] = c;
+    });
+    return { byNamePhone: byNamePhone, byNameDept: byNameDept };
+  }
+  function matchExisting(idx, name, rowPhone, leaf) {
+    if (rowPhone.length >= 7 && idx.byNamePhone[name + "|" + rowPhone]) return idx.byNamePhone[name + "|" + rowPhone];
+    if (leaf && idx.byNameDept[name + "|" + leaf]) return idx.byNameDept[name + "|" + leaf];
+    return null;
+  }
+  // 미리보기(dry-run, 변경 없음): 신규/갱신/건너뜀 건수
+  function classifyImport(rows) {
+    var headers = Object.keys(rows[0] || {});
+    var fmap = buildFieldMap(headers);
+    if (!fmap.name) throw new Error("'이름' 열을 찾을 수 없습니다. 양식을 확인하세요.");
+    var hierHeaders = HIER_ALIASES.map(function (aliases) {
+      var a = aliases.map(norm);
+      return headers.find(function (hd) { return a.indexOf(norm(hd)) !== -1; }) || null;
+    });
+    function v(r, f) { return fmap[f] ? (r[fmap[f]] || "").trim() : ""; }
+    function leafOf(r) { for (var i = hierHeaders.length - 1; i >= 0; i--) { var h = hierHeaders[i]; if (h && (r[h] || "").trim()) return r[h].trim(); } return ""; }
+    var idx = buildContactMatchIndex();
+    var news = 0, updates = 0, skipped = 0;
+    rows.forEach(function (r) {
+      var name = v(r, "name");
+      if (!name) { skipped++; return; }
+      var ph = digits(v(r, "phone")) || digits(v(r, "tel"));
+      if (matchExisting(idx, name, ph, leafOf(r))) updates++; else news++;
+    });
+    return { news: news, updates: updates, skipped: skipped };
+  }
+  function runImport(rows) {
+    var res;
+    try { res = applyContactImport(rows); }
+    catch (e) { showSnack("가져오기 실패: " + e.message); return; }
+    Data.rebuild(); render(); refreshCounts(); rebuildSearchSuggest();
+    showSnack((importMode === "replace" ? "대체 완료: " : "가져오기 완료: ") +
+      "추가 " + res.added + "명" + (res.updated ? " · 갱신 " + res.updated + "명" : "") +
+      (res.newDepts ? " · 신규 부서 " + res.newDepts + "개" : "") +
+      (res.skipped ? " · 건너뜀 " + res.skipped + "건" : ""));
   }
   var importMode = "append"; // "append" | "replace"
   document.getElementById("import-contacts-btn").addEventListener("click", function () {
@@ -1988,23 +2039,24 @@
       } catch (e) { showSnack("가져오기 실패: " + e.message); return; }
       parse.then(function (rows) {
         if (!rows || !rows.length) { showSnack("가져올 행이 없습니다."); return; }
-        var msg = importMode === "replace"
-          ? "초기화 후 가져오기: 기존 샘플·편집·추가·가져온 연락처와 부서를 모두 비우고 이 파일(" + rows.length + "건)만 남깁니다. 계속할까요?"
-          : rows.length + "건을 가져옵니다. 기존 데이터에 추가됩니다. 계속할까요?";
-        appDialog({
-          title: "연락처 가져오기", message: msg,
-          okLabel: importMode === "replace" ? "대체" : "가져오기", danger: importMode === "replace",
-        }).then(function (ok) {
-          if (!ok) return;
-          if (importMode === "replace") { Storage.resetAllEdits(); if (window.Photos) Photos.clearAll(); Storage.setBaseHidden(true); Data.rebuild(); }
-          var res;
-          try { res = applyContactImport(rows); }
-          catch (e) { showSnack("가져오기 실패: " + e.message); return; }
-          Data.rebuild(); render(); refreshCounts();
-          showSnack((importMode === "replace" ? "대체 완료: " : "가져오기 완료: ") +
-            res.added + "명" + (res.newDepts ? " · 신규 부서 " + res.newDepts + "개" : "") +
-            (res.skipped ? " · 건너뜀 " + res.skipped + "건" : ""));
-        });
+        if (importMode === "replace") {
+          appDialog({ title: "연락처 가져오기", message: "초기화 후 가져오기: 기존 샘플·편집·추가·가져온 연락처와 부서를 모두 비우고 이 파일(" + rows.length + "건)만 남깁니다. 계속할까요?", okLabel: "대체", danger: true })
+            .then(function (ok) {
+              if (!ok) return;
+              Storage.resetAllEdits(); if (window.Photos) Photos.clearAll(); Storage.setBaseHidden(true); Data.rebuild();
+              runImport(rows);
+            });
+          return;
+        }
+        // 추가 모드: 미리보기(신규/갱신/건너뜀) → 일치 항목은 갱신해 중복 누적 방지
+        var cls;
+        try { cls = classifyImport(rows); }
+        catch (e) { showSnack("가져오기 실패: " + e.message); return; }
+        var msg = "총 " + rows.length + "건\n· 신규 추가 " + cls.news + "명\n· 기존과 일치(갱신) " + cls.updates + "명"
+          + (cls.skipped ? "\n· 이름 없음(건너뜀) " + cls.skipped + "건" : "")
+          + "\n\n일치하는 연락처(이름+전화 또는 이름+부서)는 새 내용으로 갱신되어 중복으로 쌓이지 않습니다.";
+        appDialog({ title: "가져오기 미리보기", message: msg, okLabel: "가져오기" })
+          .then(function (ok) { if (ok) runImport(rows); });
       }).catch(function (e) { showSnack("가져오기 실패: " + e.message); });
     };
     reader.onerror = function () { showSnack("파일을 읽지 못했습니다."); };

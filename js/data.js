@@ -347,7 +347,9 @@
       // 부모가 사라진 부서(고아)도 루트로 끌어올려 조직도 누락 방지
       var roots = depts
         .filter(function (d) { return !d.parentId || !state.deptById[d.parentId]; })
-        .map(buildNode)
+        // 래퍼로 감싸 호출 — .map(buildNode) 는 콜백에 (dept, index)를 넘겨
+        // 두 번째 인자 seen 에 배열 인덱스(숫자)가 들어가 크래시(루트 2개 이상일 때)
+        .map(function (d) { return buildNode(d); })
         .filter(function (n) { return n.count > 0; });
       var orphan = state.contacts.filter(function (c) { return !state.deptById[c.deptId]; });
       if (orphan.length) {

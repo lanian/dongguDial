@@ -4,7 +4,7 @@
 (function () {
   "use strict";
 
-  var APP_VERSION = "102"; // SW 캐시(donggu-dial-vNN)와 함께 갱신
+  var APP_VERSION = "103"; // SW 캐시(donggu-dial-vNN)와 함께 갱신
   // 조직도 헤더 높이: CSS 토큰(--org-hdr-h)을 단일 소스로 읽어 JS 상수 이중정의(동기화 누락)를 제거
   var ORG_HDR_H = (function () {
     var v = parseInt(getComputedStyle(document.documentElement).getPropertyValue("--org-hdr-h"), 10);
@@ -58,8 +58,12 @@
   function pushFocus() { focusStack.push(document.activeElement); }
   function popFocus() {
     var el = focusStack.pop();
-    if (el && document.contains(el) && el.focus) el.focus();
-    else if (listEl && listEl.focus) listEl.focus(); // 재렌더로 원래 요소가 사라진 경우 폴백
+    if (el && el !== listEl && document.contains(el) && el.focus) { el.focus(); return; }
+    // 복원 대상이 없으면: 키보드 기기·리스트 화면이면 검색창을 선포커스해 한글도 첫 글자부터 입력되게,
+    // 그 외에는 리스트 컨테이너로 폴백.
+    if (kbDevice && isTypeToSearchContext()) {
+      try { searchInput.focus({ preventScroll: true }); } catch (e) { searchInput.focus(); }
+    } else if (listEl && listEl.focus) { listEl.focus(); }
   }
   // 오버레이(중첩 가능) — topmost 우선 순서. close 함수는 hoisting됨.
   function overlayList() {
@@ -1347,9 +1351,25 @@
     var t = el.tagName;
     return t === "INPUT" || t === "TEXTAREA" || t === "SELECT" || el.isContentEditable;
   }
+  // 물리 키보드가 있을 법한 기기(데스크톱 등)에서만 검색창 선포커스 — 터치폰 소프트키보드 팝업 방지.
+  var kbDevice = !window.matchMedia || matchMedia("(hover: hover) and (pointer: fine)").matches;
+  // 리스트 화면이 idle 상태면 검색창에 미리 포커스(부팅 시 호출). 한글도 첫 글자부터 입력됨.
+  function focusSearchIfIdle() {
+    if (kbDevice && isTypeToSearchContext()) {
+      try { searchInput.focus({ preventScroll: true }); } catch (e) { searchInput.focus(); }
+    }
+  }
   document.addEventListener("keydown", function (e) {
     if (e.ctrlKey || e.metaKey || e.altKey) return;   // 단축키는 통과
-    if (isEditableTarget(e.target)) return;           // 이미 입력 필드(검색창 포함)면 통과
+    // 검색창 포커스 상태에서 ↓ → 리스트 첫 항목으로 핸드오프(한글 조합 중엔 IME 후보 이동이므로 제외)
+    if (e.target === searchInput) {
+      if (e.key === "ArrowDown" && !e.isComposing) {
+        var firstRow = listEl.querySelector(".row, .section-toggle, [role='treeitem']");
+        if (firstRow) { e.preventDefault(); firstRow.focus(); }
+      }
+      return; // 그 외 키는 검색창이 네이티브로 처리(한글 포함)
+    }
+    if (isEditableTarget(e.target)) return;           // 다른 입력 필드면 통과
     if (e.key === " ") return;                         // 스페이스는 가로채지 않음
     if (!isTypeToSearchContext()) return;
 
@@ -1939,6 +1959,7 @@
     .then(function () {
       render();
       openFromHash();
+      focusSearchIfIdle(); // 부팅 직후 리스트면 검색창 선포커스(한글 첫 글자 유실 방지)
     })
     .catch(function (err) {
       listEl.textContent = "";

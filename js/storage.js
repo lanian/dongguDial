@@ -20,6 +20,7 @@
   var LOCK_ENABLED_KEY = "dongguDial.lock.enabled.v1"; // true면 접근 시 잠금
   var LOCK_CRED_KEY = "dongguDial.lock.cred.v1";       // WebAuthn 자격증명 id(base64url) — 지문 해제용
   var LOCK_PIN_KEY = "dongguDial.lock.pin.v1";         // { salt, hash }  (PIN 대체 인증, SHA-256)
+  var LOCK_FAIL_KEY = "dongguDial.lock.fail.v1";       // { count, lockedUntil }  (PIN 무차별 대입 방지)
   var ORG_COLLAPSED_KEY = "dongguDial.orgCollapsed.v1"; // { [deptId]: true }  (조직도 접힌 부서) — 키 존재=초기화됨
   var FAV_COLLAPSED_KEY = "dongguDial.favCollapsed.v1"; // { [groupId]: true } (즐겨찾기 접힌 그룹)
   var RECENT_LIMIT = 30;
@@ -269,9 +270,14 @@
     setLockCred: function (id) { write(LOCK_CRED_KEY, id || null); },
     getLockPin: function () { return read(LOCK_PIN_KEY, null); },     // {salt,hash} | null
     setLockPin: function (rec) { write(LOCK_PIN_KEY, rec || null); },
+    getLockFails: function () { return read(LOCK_FAIL_KEY, { count: 0, lockedUntil: 0 }); }, // 무차별 대입 방지
+    setLockFails: function (rec) { write(LOCK_FAIL_KEY, rec || { count: 0, lockedUntil: 0 }); },
     clearLock: function () {
       write(LOCK_ENABLED_KEY, false);
-      try { localStorage.removeItem(LOCK_CRED_KEY); localStorage.removeItem(LOCK_PIN_KEY); } catch (e) {}
+      try {
+        localStorage.removeItem(LOCK_CRED_KEY); localStorage.removeItem(LOCK_PIN_KEY);
+        localStorage.removeItem(LOCK_FAIL_KEY);
+      } catch (e) {}
     },
 
     // ---------- 연락처 편집 / 추가 (공통 스토어 위임) ----------

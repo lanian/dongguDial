@@ -4,7 +4,7 @@
 (function () {
   "use strict";
 
-  var APP_VERSION = "109"; // SW 캐시(donggu-dial-vNN)와 함께 갱신
+  var APP_VERSION = "110"; // SW 캐시(donggu-dial-vNN)와 함께 갱신
   // 조직도 헤더 높이: CSS 토큰(--org-hdr-h)을 단일 소스로 읽어 JS 상수 이중정의(동기화 누락)를 제거
   var ORG_HDR_H = (function () {
     var v = parseInt(getComputedStyle(document.documentElement).getPropertyValue("--org-hdr-h"), 10);
@@ -854,6 +854,23 @@
     if (!rec) return Promise.resolve(false);
     return Lock.hashPin(pin, rec.salt).then(function (r) { return r.hash === rec.hash; });
   }
+  // ---------- PIN 무차별 대입 방지(시도 제한 + 지수 지연) ----------
+  function lockoutRemainingMs() {
+    var rec = Storage.getLockFails();
+    return rec && rec.lockedUntil ? Math.max(0, rec.lockedUntil - Date.now()) : 0;
+  }
+  function registerPinFail() {
+    var rec = Storage.getLockFails() || { count: 0, lockedUntil: 0 };
+    rec.count = (rec.count || 0) + 1;
+    if (rec.count >= 5) { // 5회부터 지수 지연: 30초→1분→2분… 최대 30분
+      var delay = Math.min(30 * 60 * 1000, 30 * 1000 * Math.pow(2, rec.count - 5));
+      rec.lockedUntil = Date.now() + delay;
+    }
+    Storage.setLockFails(rec);
+    return rec;
+  }
+  function registerPinSuccess() { Storage.setLockFails({ count: 0, lockedUntil: 0 }); }
+  function fmtRemain(ms) { var s = Math.ceil(ms / 1000); return s < 60 ? s + "초" : Math.ceil(s / 60) + "분"; }
 
   function showLockScreen() {
     if (isLocked) return;
@@ -887,11 +904,18 @@
   lockUsePinBtn.addEventListener("click", showPinEntry);
   lockPinForm.addEventListener("submit", function (e) {
     e.preventDefault();
+    var rem = lockoutRemainingMs();
+    if (rem > 0) { lockSub.textContent = "시도가 많아 잠겼습니다. " + fmtRemain(rem) + " 후 다시 시도하세요."; lockPinInput.value = ""; return; }
     var pin = lockPinInput.value.trim();
     if (!pin) return;
     verifyPin(pin).then(function (ok) {
-      if (ok) doUnlock();
-      else { lockSub.textContent = "PIN이 올바르지 않습니다"; lockPinInput.value = ""; lockPinInput.focus(); }
+      if (ok) { registerPinSuccess(); doUnlock(); return; }
+      var r = registerPinFail();
+      var rem2 = lockoutRemainingMs();
+      lockSub.textContent = rem2 > 0
+        ? "PIN을 " + r.count + "회 틀렸습니다. " + fmtRemain(rem2) + " 후 다시 시도하세요."
+        : "PIN이 올바르지 않습니다 (" + r.count + "회 실패)";
+      lockPinInput.value = ""; lockPinInput.focus();
     });
   });
 
@@ -903,16 +927,19 @@
       return appDialog({ title: "PIN 확인", value: "", placeholder: "다시 입력", okLabel: "저장", inputType: "password", inputMode: "numeric", autocomplete: "off", maxLength: 8 }).then(function (pin2) {
         if (!pin2) return false;
         if (pin2 !== pin) { showSnack("PIN이 일치하지 않습니다"); return promptNewPin(); }
-        return Lock.hashPin(pin).then(function (rec) { Storage.setLockPin(rec); return true; });
+        return Lock.hashPin(pin).then(function (rec) { Storage.setLockPin(rec); registerPinSuccess(); return true; });
       });
     });
   }
   // 현재 사용자 확인(PIN). 잠금 해제·PIN 변경 전 본인 확인용.
   function requireAuth(title) {
+    var rem = lockoutRemainingMs();
+    if (rem > 0) { showSnack("시도가 많아 잠겼습니다. " + fmtRemain(rem) + " 후 다시 시도하세요."); return Promise.resolve(false); }
     return appDialog({ title: title, message: "PIN을 입력하세요", value: "", placeholder: "PIN", okLabel: "확인", inputType: "password", inputMode: "numeric", autocomplete: "off", maxLength: 8 }).then(function (pin) {
       if (!pin) return false;
       return verifyPin(pin).then(function (ok) {
-        if (ok) return true;
+        if (ok) { registerPinSuccess(); return true; }
+        registerPinFail();
         showSnack("PIN이 올바르지 않습니다");
         return requireAuth(title);
       });
@@ -1502,23 +1529,64 @@
     closeSettings(false);
   });
 
-  document.getElementById("export-btn").addEventListener("click", function () {
+  function buildBackupData() {
     var data = Storage.exportData();
     if (window.Photos) data.photos = Photos.all();
-    var blob = new Blob([JSON.stringify(data, null, 2)], { type: "application/json" });
+    return data;
+  }
+  function downloadJson(obj, filename) {
+    var blob = new Blob([JSON.stringify(obj, null, 2)], { type: "application/json" });
     var url = URL.createObjectURL(blob);
-    var d = new Date();
-    var stamp = d.getFullYear() +
-      String(d.getMonth() + 1).padStart(2, "0") +
-      String(d.getDate()).padStart(2, "0");
     var a = document.createElement("a");
-    a.href = url;
-    a.download = "행정전화부-백업-" + stamp + ".json";
-    document.body.appendChild(a);
-    a.click();
-    document.body.removeChild(a);
+    a.href = url; a.download = filename;
+    document.body.appendChild(a); a.click(); document.body.removeChild(a);
     setTimeout(function () { URL.revokeObjectURL(url); }, 1000);
+  }
+  // ---------- 백업 암호화 (WebCrypto: PBKDF2-SHA256 → AES-256-GCM) ----------
+  var BACKUP_KDF_ITER = 150000;
+  function _b64enc(buf) { var b = new Uint8Array(buf), s = ""; for (var i = 0; i < b.length; i++) s += String.fromCharCode(b[i]); return btoa(s); }
+  function _b64dec(b64) { var s = atob(b64), u = new Uint8Array(s.length); for (var i = 0; i < s.length; i++) u[i] = s.charCodeAt(i); return u; }
+  function _deriveKey(pass, salt, iter) {
+    return crypto.subtle.importKey("raw", new TextEncoder().encode(pass), "PBKDF2", false, ["deriveKey"]).then(function (km) {
+      return crypto.subtle.deriveKey({ name: "PBKDF2", salt: salt, iterations: iter, hash: "SHA-256" },
+        km, { name: "AES-GCM", length: 256 }, false, ["encrypt", "decrypt"]);
+    });
+  }
+  function encryptBackup(obj, pass) {
+    var salt = crypto.getRandomValues(new Uint8Array(16));
+    var iv = crypto.getRandomValues(new Uint8Array(12));
+    var pt = new TextEncoder().encode(JSON.stringify(obj));
+    return _deriveKey(pass, salt, BACKUP_KDF_ITER).then(function (key) {
+      return crypto.subtle.encrypt({ name: "AES-GCM", iv: iv }, key, pt);
+    }).then(function (ct) {
+      return { app: "dongguDial", type: "backup-enc", v: 1, kdf: "PBKDF2-SHA256",
+        iter: BACKUP_KDF_ITER, salt: _b64enc(salt), iv: _b64enc(iv), ct: _b64enc(ct) };
+    });
+  }
+  function decryptBackup(env, pass) {
+    return _deriveKey(pass, _b64dec(env.salt), env.iter || BACKUP_KDF_ITER).then(function (key) {
+      return crypto.subtle.decrypt({ name: "AES-GCM", iv: _b64dec(env.iv) }, key, _b64dec(env.ct));
+    }).then(function (pt) { return JSON.parse(new TextDecoder().decode(pt)); });
+  }
+  document.getElementById("export-btn").addEventListener("click", function () {
+    downloadJson(buildBackupData(), "행정전화부-백업-" + dateStamp() + ".json");
   });
+  function exportBackupEncrypted() {
+    if (!(window.crypto && crypto.subtle)) { showSnack("이 브라우저는 백업 암호화를 지원하지 않습니다"); return; }
+    appDialog({ title: "백업 암호 설정", message: "이 암호로 백업 파일을 잠급니다.\n암호를 분실하면 복구할 수 없습니다.", value: "", placeholder: "암호 (4자 이상)", okLabel: "다음", inputType: "password", autocomplete: "off", maxLength: 64 }).then(function (p1) {
+      if (!p1) return;
+      if (p1.length < 4) { showSnack("암호는 4자 이상이어야 합니다"); return; }
+      appDialog({ title: "백업 암호 확인", value: "", placeholder: "암호 다시 입력", okLabel: "내보내기", inputType: "password", autocomplete: "off", maxLength: 64 }).then(function (p2) {
+        if (!p2) return;
+        if (p2 !== p1) { showSnack("암호가 일치하지 않습니다"); return; }
+        encryptBackup(buildBackupData(), p1)
+          .then(function (env) { downloadJson(env, "행정전화부-백업(암호화)-" + dateStamp() + ".json"); showSnack("암호화 백업을 내보냈습니다"); })
+          .catch(function (e) { showSnack("암호화 실패: " + e.message); });
+      });
+    });
+  }
+  var exportEncBtn = document.getElementById("export-enc-btn");
+  if (exportEncBtn) exportEncBtn.addEventListener("click", exportBackupEncrypted);
   var backupImportMode = "merge"; // "merge" | "replace"
   document.getElementById("import-btn").addEventListener("click", function () {
     backupImportMode = "merge";
@@ -1535,32 +1603,45 @@
     if (!file) return;
     var reader = new FileReader();
     reader.onload = function () {
-      var data;
-      try { data = JSON.parse(String(reader.result)); }
+      var parsed;
+      try { parsed = JSON.parse(String(reader.result)); }
       catch (e) { showSnack("가져오기 실패: " + e.message); return; }
-      function proceed() {
-        try {
-          var result = Storage.importData(data, backupImportMode);
-          Data.rebuild();
-          applyTheme(Storage.getTheme());
-          setThemeUI(Storage.getTheme());
-          refreshCounts();
-          render();
-          if (window.Photos) {
-            if (backupImportMode === "replace") Photos.importMap(data.photos || {}, true).then(render);
-            else if (data.photos) Photos.importMap(data.photos, false).then(render);
+      function continueImport(data) {
+        function proceed() {
+          try {
+            var result = Storage.importData(data, backupImportMode);
+            Data.rebuild();
+            applyTheme(Storage.getTheme());
+            setThemeUI(Storage.getTheme());
+            refreshCounts();
+            render();
+            if (window.Photos) {
+              if (backupImportMode === "replace") Photos.importMap(data.photos || {}, true).then(render);
+              else if (data.photos) Photos.importMap(data.photos, false).then(render);
+            }
+            showSnack((backupImportMode === "replace" ? "대체 복구 완료: " : "복구 완료: ") +
+              "즐겨찾기 " + result.favorites + ", 최근 " + result.recent +
+              ", 편집 " + result.edits + ", 추가 " + result.custom);
+          } catch (e) {
+            showSnack("가져오기 실패: " + e.message);
           }
-          showSnack((backupImportMode === "replace" ? "대체 복구 완료: " : "복구 완료: ") +
-            "즐겨찾기 " + result.favorites + ", 최근 " + result.recent +
-            ", 편집 " + result.edits + ", 추가 " + result.custom);
-        } catch (e) {
-          showSnack("가져오기 실패: " + e.message);
         }
+        if (backupImportMode === "replace") {
+          appDialog({ title: "초기화 후 복구", message: "기존 즐겨찾기·편집·추가·부서·사진을 모두 비우고 이 백업으로 대체합니다. 계속할까요?", okLabel: "대체", danger: true })
+            .then(function (ok) { if (ok) proceed(); });
+        } else proceed();
       }
-      if (backupImportMode === "replace") {
-        appDialog({ title: "초기화 후 복구", message: "기존 즐겨찾기·편집·추가·부서·사진을 모두 비우고 이 백업으로 대체합니다. 계속할까요?", okLabel: "대체", danger: true })
-          .then(function (ok) { if (ok) proceed(); });
-      } else proceed();
+      if (parsed && parsed.type === "backup-enc") {
+        // 암호화 백업 → 암호 입력받아 복호화 후 진행
+        if (!(window.crypto && crypto.subtle)) { showSnack("이 브라우저는 암호화 백업을 열 수 없습니다"); return; }
+        appDialog({ title: "백업 암호 입력", message: "암호화된 백업입니다. 암호를 입력하세요.", value: "", placeholder: "암호", okLabel: "복호화", inputType: "password", autocomplete: "off", maxLength: 64 }).then(function (pass) {
+          if (!pass) return;
+          decryptBackup(parsed, pass).then(function (dec) { continueImport(dec); })
+            .catch(function () { showSnack("암호가 올바르지 않거나 손상된 파일입니다."); });
+        });
+      } else {
+        continueImport(parsed);
+      }
     };
     reader.onerror = function () { showSnack("파일을 읽지 못했습니다."); };
     reader.readAsText(file);

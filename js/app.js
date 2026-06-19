@@ -4,7 +4,7 @@
 (function () {
   "use strict";
 
-  var APP_VERSION = "97"; // SW 캐시(donggu-dial-vNN)와 함께 갱신
+  var APP_VERSION = "98"; // SW 캐시(donggu-dial-vNN)와 함께 갱신
   // 조직도 헤더 높이: CSS 토큰(--org-hdr-h)을 단일 소스로 읽어 JS 상수 이중정의(동기화 누락)를 제거
   var ORG_HDR_H = (function () {
     var v = parseInt(getComputedStyle(document.documentElement).getPropertyValue("--org-hdr-h"), 10);
@@ -280,7 +280,24 @@
     scrollRegion.scrollTo({ top: Math.max(0, top), behavior: behavior || "smooth" });
   }
 
-  function render() { renderBody(); updateFab(); }
+  function render() {
+    // 렌더 중 예외가 나면 화면 전환이 멈춘 것처럼 보이므로(탭만 활성·리스트 그대로),
+    // 오류를 삼키지 말고 화면에 노출해 원인을 바로 파악할 수 있게 한다.
+    try {
+      renderBody();
+    } catch (e) {
+      if (window.console && console.error) console.error("[render] 오류:", e);
+      try {
+        listEl.textContent = "";
+        var box = document.createElement("div");
+        box.setAttribute("style", "padding:24px;white-space:pre-wrap;font-size:13px;line-height:1.5;color:var(--on-surface)");
+        box.textContent = "화면을 그리는 중 오류가 발생했습니다.\n\n" +
+          ((e && e.stack) || (e && e.message) || String(e));
+        listEl.appendChild(box);
+      } catch (e2) {}
+    }
+    updateFab();
+  }
 
   // ---------- 행 sub 텍스트 마퀴(흐름) ----------
   // 평소엔 1줄 말줄임(높이 균일). 마우스 호버 / 키보드 포커스 / 모바일 길게누름(홀드) 시,

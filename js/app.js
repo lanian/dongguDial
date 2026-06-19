@@ -4,7 +4,7 @@
 (function () {
   "use strict";
 
-  var APP_VERSION = "106"; // SW 캐시(donggu-dial-vNN)와 함께 갱신
+  var APP_VERSION = "107"; // SW 캐시(donggu-dial-vNN)와 함께 갱신
   // 조직도 헤더 높이: CSS 토큰(--org-hdr-h)을 단일 소스로 읽어 JS 상수 이중정의(동기화 누락)를 제거
   var ORG_HDR_H = (function () {
     var v = parseInt(getComputedStyle(document.documentElement).getPropertyValue("--org-hdr-h"), 10);
@@ -1922,23 +1922,27 @@
     return d.getFullYear() + String(d.getMonth() + 1).padStart(2, "0") + String(d.getDate()).padStart(2, "0");
   }
   function exportContactsCSV() {
-    var contacts = (window.Data && Data.getAllContacts) ? Data.getAllContacts() : [];
-    if (!contacts.length) { showSnack("내보낼 연락처가 없습니다."); return; }
-    // 조직 경로 1회 계산 후 조직순 → 이름순 정렬(보기 편하게)
-    var rows = contacts.map(function (c) {
-      var path = (Data.deptPath ? Data.deptPath(c.deptId) : []).map(function (p) { return p.name; });
-      return { c: c, pathKey: path.join("/"), h3: hier3(path) };
-    });
-    rows.sort(function (a, b) {
-      return a.pathKey.localeCompare(b.pathKey, "ko") ||
-        (a.c.name || "").localeCompare(b.c.name || "", "ko");
-    });
+    // 조직도(직제) 순서 그대로 평탄화 — 가나다 정렬로 내보내면 재가져오기 시 부서가
+    // 그 순서로 생성돼 조직 구조가 흐트러지므로, 화면 조직도와 동일 순서로 출력한다.
+    var ordered = [];
+    if (window.Data && Data.groupedByOrg) {
+      (function flat(nodes) {
+        nodes.forEach(function (n) {
+          (n.members || []).forEach(function (m) { ordered.push(m); }); // 부모 직속 인원 먼저
+          if (n.children && n.children.length) flat(n.children);        // 그 다음 하위 부서
+        });
+      })(Data.groupedByOrg());
+    } else if (window.Data && Data.getAllContacts) {
+      ordered = Data.getAllContacts();
+    }
+    if (!ordered.length) { showSnack("내보낼 연락처가 없습니다."); return; }
     var headers = ["이름", "상위부서", "부서", "팀", "직책", "직급", "담당업무", "휴대전화", "행정번호", "생년월일", "재직상태"];
     var lines = [headers.join(",")];
-    rows.forEach(function (r) {
-      var c = r.c, status = (c.status && c.status !== "미설정") ? c.status : "";
+    ordered.forEach(function (c) {
+      var path = (Data.deptPath ? Data.deptPath(c.deptId) : []).map(function (p) { return p.name; });
+      var h3 = hier3(path), status = (c.status && c.status !== "미설정") ? c.status : "";
       lines.push([
-        c.name || "", r.h3[0], r.h3[1], r.h3[2],
+        c.name || "", h3[0], h3[1], h3[2],
         c.position || "", c.grade || "", c.work || "",
         c.phone || "", c.tel || "", c.birth || "", status,
       ].map(csvCell).join(","));
@@ -1950,7 +1954,7 @@
     a.href = url; a.download = "행정전화부-연락처-" + dateStamp() + ".csv";
     document.body.appendChild(a); a.click(); document.body.removeChild(a);
     setTimeout(function () { URL.revokeObjectURL(url); }, 1000);
-    showSnack(contacts.length + "건을 CSV로 내보냈습니다.");
+    showSnack(ordered.length + "건을 CSV로 내보냈습니다.");
   }
   document.getElementById("export-contacts-csv-btn").addEventListener("click", exportContactsCSV);
 

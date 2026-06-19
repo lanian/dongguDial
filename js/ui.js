@@ -973,8 +973,10 @@
       container.textContent = "";
 
       var hero = el("div", "detail-hero");
-      var av = makeAvatar(contact, "");
-      var photo = (window.Photos && Photos.get) ? Photos.get(contact.id) : null;
+      var av = makeAvatar(contact, ""); // 아바타는 썸네일
+      // '사진 크게 보기'는 원본(full)을 넘겨 전체화면에서 선명하게(없으면 썸네일 폴백)
+      var photo = (window.Photos && Photos.getFull) ? Photos.getFull(contact.id)
+        : ((window.Photos && Photos.get) ? Photos.get(contact.id) : null);
       if (photo && opts.onPhoto) {
         av.setAttribute("role", "button");
         av.tabIndex = 0;

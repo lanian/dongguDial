@@ -41,8 +41,20 @@
         });
       }).catch(function () { return cache; });
     },
-    /** 동기 조회(캐시) — 렌더링용 */
-    get: function (id) { return cache[id] != null ? cache[id] : (cache[String(id)] || null); },
+    // 저장 값은 { thumb, full } 객체(신규) 또는 dataURL 문자열(legacy). 아래 두 헬퍼가 모두 수용.
+    _raw: function (id) { return cache[id] != null ? cache[id] : (cache[String(id)] != null ? cache[String(id)] : null); },
+    /** 썸네일 dataURL(동기) — 리스트·아바타 렌더용 */
+    get: function (id) {
+      var v = Photos._raw(id);
+      if (v == null) return null;
+      return typeof v === "string" ? v : (v.thumb || v.full || null);
+    },
+    /** 원본(긴 변 ≤1280) dataURL — 전체화면 뷰어용. 없으면 썸네일 폴백 */
+    getFull: function (id) {
+      var v = Photos._raw(id);
+      if (v == null) return null;
+      return typeof v === "string" ? v : (v.full || v.thumb || null);
+    },
     has: function (id) { return !!Photos.get(id); },
     /** 저장(캐시 즉시 + IndexedDB 비동기) */
     set: function (id, dataURL) {

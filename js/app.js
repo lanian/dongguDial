@@ -4,7 +4,7 @@
 (function () {
   "use strict";
 
-  var APP_VERSION = "100"; // SW 캐시(donggu-dial-vNN)와 함께 갱신
+  var APP_VERSION = "101"; // SW 캐시(donggu-dial-vNN)와 함께 갱신
   // 조직도 헤더 높이: CSS 토큰(--org-hdr-h)을 단일 소스로 읽어 JS 상수 이중정의(동기화 누락)를 제거
   var ORG_HDR_H = (function () {
     var v = parseInt(getComputedStyle(document.documentElement).getPropertyValue("--org-hdr-h"), 10);
@@ -50,7 +50,7 @@
   var editId = null;
   var searchPushed = false; // 검색 활성 시 히스토리 항목 push 여부(뒤로가기로 검색어부터 비우기 위함)
   var orgInit = _orgStored !== null; // 저장된 상태가 있으면 '첫 진입 전부 접기'를 건너뜀
-  var pendingPhoto; // undefined=변경없음, null=제거, string=새 dataURL
+  var pendingPhoto; // undefined=변경없음, null=제거, {thumb,full}=새 사진(legacy string도 허용)
   var pendingDefaultIcon; // undefined=변경없음, true=기본 아이콘(실루엣), false=아님
   var bgEls = [appBar, tabsNav, listEl];
   var focusStack = [];
@@ -1115,24 +1115,64 @@
     });
   }
 
-  // 파일 → 256px 정사각 JPEG dataURL(중앙 크롭, 압축)
-  function fileToAvatar(file) {
+  // 파일 → { thumb, full } dataURL.
+  //  thumb: 256² 중앙크롭(리스트·아바타용)  /  full: 긴 변 ≤1280 비크롭(전체화면 뷰어용)
+  //  - createImageBitmap 으로 EXIF 회전 자동 보정 + <img>가 못 읽는 포맷 일부 디코드(실패 시 <img> 폴백)
+  //  - 투명 PNG 는 흰 배경으로 합성, 인코딩은 WebP 우선(미지원 시 JPEG)
+  var _webpOK = null;
+  function webpSupported() {
+    if (_webpOK == null) {
+      try { _webpOK = document.createElement("canvas").toDataURL("image/webp").indexOf("data:image/webp") === 0; }
+      catch (e) { _webpOK = false; }
+    }
+    return _webpOK;
+  }
+  function encodeCanvas(cv, q) {
+    return cv.toDataURL(webpSupported() ? "image/webp" : "image/jpeg", q);
+  }
+  function decodeImage(file) {
+    // createImageBitmap: 회전(EXIF) 보정 옵션 + 넓은 디코드. 동기/비동기 실패 모두 <img> 폴백.
+    if (window.createImageBitmap) {
+      try {
+        return createImageBitmap(file, { imageOrientation: "from-image" }).catch(function () { return imgDecode(file); });
+      } catch (e) { return imgDecode(file); }
+    }
+    return imgDecode(file);
+  }
+  function imgDecode(file) {
     return new Promise(function (res, rej) {
-      if (!file.type || file.type.indexOf("image/") !== 0) { rej(new Error("이미지 파일이 아닙니다")); return; }
       var img = new Image(), url = URL.createObjectURL(file);
-      img.onload = function () {
-        try {
-          var S = 256, cv = document.createElement("canvas");
-          cv.width = S; cv.height = S;
-          var ctx = cv.getContext("2d");
-          var m = Math.min(img.width, img.height), sx = (img.width - m) / 2, sy = (img.height - m) / 2;
-          ctx.drawImage(img, sx, sy, m, m, 0, 0, S, S);
-          URL.revokeObjectURL(url);
-          res(cv.toDataURL("image/jpeg", 0.8));
-        } catch (e) { URL.revokeObjectURL(url); rej(e); }
-      };
-      img.onerror = function () { URL.revokeObjectURL(url); rej(new Error("이미지를 읽지 못했습니다")); };
+      img.onload = function () { URL.revokeObjectURL(url); res(img); };
+      img.onerror = function () { URL.revokeObjectURL(url); rej(new Error("이미지를 읽지 못했습니다 (HEIC 등 미지원 형식일 수 있어요)")); };
       img.src = url;
+    });
+  }
+  function drawSquare(src, S, q) {
+    var cv = document.createElement("canvas"); cv.width = S; cv.height = S;
+    var ctx = cv.getContext("2d");
+    ctx.fillStyle = "#fff"; ctx.fillRect(0, 0, S, S); // 투명 영역 흰 배경
+    var w = src.width, h = src.height, m = Math.min(w, h), sx = (w - m) / 2, sy = (h - m) / 2;
+    ctx.drawImage(src, sx, sy, m, m, 0, 0, S, S);
+    return encodeCanvas(cv, q);
+  }
+  function drawScaled(src, MAX, q) {
+    var w = src.width, h = src.height, scale = Math.min(1, MAX / Math.max(w, h));
+    var dw = Math.max(1, Math.round(w * scale)), dh = Math.max(1, Math.round(h * scale));
+    var cv = document.createElement("canvas"); cv.width = dw; cv.height = dh;
+    var ctx = cv.getContext("2d");
+    ctx.fillStyle = "#fff"; ctx.fillRect(0, 0, dw, dh);
+    ctx.drawImage(src, 0, 0, dw, dh);
+    return encodeCanvas(cv, q);
+  }
+  function processPhoto(file) {
+    if (!file || !file.type || file.type.indexOf("image/") !== 0) {
+      return Promise.reject(new Error("이미지 파일이 아닙니다"));
+    }
+    return decodeImage(file).then(function (src) {
+      if (!src.width || !src.height) throw new Error("이미지를 읽지 못했습니다");
+      var out = { thumb: drawSquare(src, 256, 0.82), full: drawScaled(src, 1280, 0.85) };
+      if (src.close) src.close(); // ImageBitmap 메모리 해제
+      return out;
     });
   }
 
@@ -1143,8 +1183,9 @@
     function paint() {
       prev.textContent = ""; prev.className = "ef-photo-prev"; prev.style.background = "";
       var cur = pendingPhoto !== undefined ? pendingPhoto : ((window.Photos && contact.id != null) ? Photos.get(contact.id) : null);
+      var thumb = cur ? (typeof cur === "string" ? cur : cur.thumb) : null; // {thumb,full}·legacy string 모두 수용
       var useDefault = pendingDefaultIcon !== undefined ? pendingDefaultIcon : !!contact.defaultIcon;
-      if (cur) { var im = document.createElement("img"); im.src = cur; im.alt = "미리보기"; prev.appendChild(im); }
+      if (thumb) { var im = document.createElement("img"); im.src = thumb; im.alt = "미리보기"; prev.appendChild(im); }
       else if (useDefault) {
         prev.classList.add("ef-photo-default");
         prev.appendChild(UI.defaultIcon());
@@ -1162,7 +1203,7 @@
     fileInp.addEventListener("change", function () {
       var f = fileInp.files && fileInp.files[0];
       if (!f) return;
-      fileToAvatar(f).then(function (d) { pendingPhoto = d; pendingDefaultIcon = false; paint(); })
+      processPhoto(f).then(function (p) { pendingPhoto = p; pendingDefaultIcon = false; paint(); })
         .catch(function (e) { showSnack("사진 처리 실패: " + e.message); });
     });
   }

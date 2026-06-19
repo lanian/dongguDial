@@ -1012,8 +1012,10 @@
       var c1 = el("div", "info-card");
       addPhoneRow(c1, "mobile", "휴대전화", contact.phone);
       addPhoneRow(c1, "building", "행정번호", contact.tel);
-      var rep = deptRep(contact);
-      if (rep) addPhoneRow(c1, "users", "부서 대표(" + rep.name + ")", rep.tel);
+      deptReps(contact).forEach(function (r) {
+        var who = (r.position ? r.position + " " : "") + r.name;
+        addPhoneRow(c1, "users", r.deptName + " 대표(" + who + ")", r.tel);
+      });
       addInfo(c1, "cake", "생년월일", contact.birth);
       if (c1.childNodes.length) {
         container.appendChild(sectionTitle("연락처"));
@@ -1059,15 +1061,28 @@
     return node;
   }
 
-  /** 같은 부서 리더(장)의 행정번호 — 본인과 다르면 '부서 대표'로 노출 */
-  function deptRep(contact) {
-    if (!(window.Data && Data.membersOfDept)) return null;
-    var mem = Data.membersOfDept(contact.deptId);
-    for (var i = 0; i < mem.length; i++) {
-      var m = mem[i];
-      if (m.id !== contact.id && isLead(m) && m.tel) return { name: m.name, tel: m.tel };
+  /** 본인 부서에서 상위로 올라가며 각 조직 단위 리더(장)의 행정번호를 수집.
+   *  팀 → 과 → 국 순(가까운 단위 먼저). 본인 제외, 같은 번호는 중복 제거.
+   *  각 항목을 단위명·직책으로 라벨링해 '팀장을 부서 대표로 오인'하는 문제를 없앤다.
+   *  반환: [{ deptName, name, position, tel }] */
+  function deptReps(contact) {
+    if (!(window.Data && Data.membersOfDept && Data.deptPath)) return [];
+    var path = Data.deptPath(contact.deptId); // [최상위 … 본인부서]
+    var out = [], seenTel = {};
+    for (var i = path.length - 1; i >= 0; i--) { // 본인부서(가까운 단위)부터 상위로
+      var dept = path[i];
+      var mem = Data.membersOfDept(dept.id);
+      for (var j = 0; j < mem.length; j++) {
+        var m = mem[j];
+        if (m.id === contact.id || !isLead(m) || !m.tel) continue;
+        var key = clean(m.tel);
+        if (seenTel[key]) break;          // 상위와 동일 번호면 이 단위는 건너뜀
+        seenTel[key] = true;
+        out.push({ deptName: dept.name, name: m.name, position: m.position || "", tel: m.tel });
+        break;                            // 단위별 리더 1명
+      }
     }
-    return null;
+    return out;
   }
 
   /** 조직 경로(국 › 과 › 팀) 행 — onOrg 있으면 탭 시 조직도 이동 */

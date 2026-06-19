@@ -4,7 +4,7 @@
 (function () {
   "use strict";
 
-  var APP_VERSION = "104"; // SW 캐시(donggu-dial-vNN)와 함께 갱신
+  var APP_VERSION = "105"; // SW 캐시(donggu-dial-vNN)와 함께 갱신
   // 조직도 헤더 높이: CSS 토큰(--org-hdr-h)을 단일 소스로 읽어 JS 상수 이중정의(동기화 누락)를 제거
   var ORG_HDR_H = (function () {
     var v = parseInt(getComputedStyle(document.documentElement).getPropertyValue("--org-hdr-h"), 10);
@@ -86,6 +86,11 @@
   }
   function topOverlay() { var o = topOverlayObj(); return o ? o.el : null; }
   function closeTop(fromPop) { var o = topOverlayObj(); if (o) o.close(fromPop); }
+  // 오버레이를 코드에서 직접 닫을 때 호출하는 history.back(). 이 back 으로 생기는 popstate 는
+  // "이미 처리된 우리 back" 이므로 popstate 핸들러가 1회 무시해야 한다(중첩 오버레이에서 아래
+  // 오버레이까지 닫히는 것을 방지). 실제 사용자 뒤로가기(state 변화)는 그대로 closeTop 처리.
+  var selfPops = 0;
+  function backFromOverlay() { selfPops++; history.back(); }
   // 열린 오버레이를 우선순위(topmost-first)대로 z-index 재배치 → DOM 순서와 무관하게 항상 최신이 위
   function restack() {
     var open = overlayList().filter(function (o) { return !o.el.hidden; });
@@ -617,7 +622,7 @@
   function closePhotoViewer(fromPop) {
     photoViewerEl.hidden = true; syncInert(); updateFab(); popFocus();
     document.getElementById("photo-viewer-img").src = "";
-    if (!fromPop && location.hash === "#photo") history.back();
+    if (!fromPop && location.hash === "#photo") backFromOverlay();
   }
   document.getElementById("photo-viewer-close").addEventListener("click", function () { closePhotoViewer(false); });
 
@@ -668,7 +673,7 @@
   function closeDeptPicker(fromPop) {
     deptPickerEl.hidden = true;
     syncInert(); updateFab(); popFocus();
-    if (!fromPop && location.hash === "#dept-pick") history.back();
+    if (!fromPop && location.hash === "#dept-pick") backFromOverlay();
   }
   document.getElementById("dept-picker-back").addEventListener("click", function () { closeDeptPicker(false); });
   var deptPickSearchTimer;
@@ -1080,7 +1085,7 @@
     favGroupPickerEl.hidden = true;
     favGroupPickerContact = null;
     syncInert(); updateFab(); popFocus();
-    if (!fromPop && location.hash === "#fav-group-pick") history.back();
+    if (!fromPop && location.hash === "#fav-group-pick") backFromOverlay();
   }
   document.getElementById("fav-group-picker-back").addEventListener("click", function () { closeFavGroupPicker(false); });
 
@@ -1235,7 +1240,7 @@
     syncInert();
     updateFab();
     popFocus();
-    if (!fromPop && location.hash) history.back();
+    if (!fromPop && location.hash) backFromOverlay();
     if (current.tab === "recent" || current.tab === "favorites") render();
   }
 
@@ -1436,7 +1441,7 @@
     syncInert();
     updateFab();
     popFocus();
-    if (!fromPop && location.hash === "#settings") history.back();
+    if (!fromPop && location.hash === "#settings") backFromOverlay();
   }
 
   document.getElementById("settings-btn").addEventListener("click", openSettings);
@@ -1553,7 +1558,7 @@
     syncInert();
     updateFab();
     popFocus();
-    if (!fromPop && location.hash === "#edit") history.back();
+    if (!fromPop && location.hash === "#edit") backFromOverlay();
   }
   function val(id) { var e = document.getElementById(id); return e ? e.value.trim() : ""; }
   // select의 문자열 value를 실제 부서 id(숫자 base / 문자열 custom)로 복원
@@ -1661,7 +1666,7 @@
   }
   function closeDeptMgr(fromPop) {
     deptMgrEl.hidden = true; syncInert(); updateFab(); popFocus();
-    if (!fromPop && location.hash === "#depts") history.back();
+    if (!fromPop && location.hash === "#depts") backFromOverlay();
   }
   document.getElementById("deptmgr-btn").addEventListener("click", openDeptMgr);
   document.getElementById("deptmgr-back").addEventListener("click", function () { closeDeptMgr(false); });
@@ -1697,7 +1702,7 @@
   }
   function closeDeptEditor(fromPop) {
     deptEditorEl.hidden = true; syncInert(); updateFab(); popFocus();
-    if (!fromPop && location.hash === "#dept-edit") history.back();
+    if (!fromPop && location.hash === "#dept-edit") backFromOverlay();
   }
   function saveDeptEditor() {
     var name = val("df-name");
@@ -1923,6 +1928,9 @@
 
   // ---------- 히스토리(뒤로가기로 오버레이 닫기) ----------
   window.addEventListener("popstate", function (e) {
+    // 코드에서 오버레이를 직접 닫으며 부른 back 의 popstate 는 이미 처리됨 → 1회 무시
+    // (중첩 오버레이에서 아래 오버레이까지 닫히는 버그 방지).
+    if (selfPops > 0) { selfPops--; return; }
     if (anyOverlayOpen()) {
       closeTop(true);
     } else if (searchPushed) {

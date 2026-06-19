@@ -4,7 +4,7 @@
 (function () {
   "use strict";
 
-  var APP_VERSION = "113"; // SW 캐시(donggu-dial-vNN)와 함께 갱신
+  var APP_VERSION = "114"; // SW 캐시(donggu-dial-vNN)와 함께 갱신
   // 조직도 헤더 높이: CSS 토큰(--org-hdr-h)을 단일 소스로 읽어 JS 상수 이중정의(동기화 누락)를 제거
   var ORG_HDR_H = (function () {
     var v = parseInt(getComputedStyle(document.documentElement).getPropertyValue("--org-hdr-h"), 10);
@@ -46,7 +46,7 @@
   var _orgStored = Storage.getOrgCollapsed(); // null=한 번도 초기화 안 됨(=첫 진입)
   var current = { tab: "all", query: "", detailId: null, sort: "dept", collapsed: {},
     orgCollapsed: _orgStored || {}, favCollapsed: Storage.getFavCollapsed(),
-    orgReorder: false, deptMgrCollapsed: {} };
+    orgReorder: false, deptMgrCollapsed: {}, selectMode: false, selected: {} };
   var editId = null;
   var searchPushed = false; // 검색 활성 시 히스토리 항목 push 여부(뒤로가기로 검색어부터 비우기 위함)
   var orgInit = _orgStored !== null; // 저장된 상태가 있으면 '첫 진입 전부 접기'를 건너뜀
@@ -109,7 +109,7 @@
   }
   function updateFab() {
     // FAB(사원 추가)는 '전체' 탭에서만. 조직도는 보기/구조 전용이라 노출하지 않음
-    var show = !anyOverlayOpen() && !current.query && current.tab === "all";
+    var show = !anyOverlayOpen() && !current.query && current.tab === "all" && !current.selectMode;
     fab.hidden = !show;
   }
 
@@ -305,6 +305,7 @@
         listEl.appendChild(box);
       } catch (e2) {}
     }
+    if (current.selectMode) applySelectionToRows(); // 재렌더 후 선택 표시 복원
     updateFab();
   }
 
@@ -1395,6 +1396,96 @@
   }
   searchInput.addEventListener("focus", rebuildSearchSuggest); // 포커스 시 최신화(데이터 변경 자동 반영)
 
+  // ---------- 다중선택 → 일괄 공유/저장 ----------
+  var selectBar = document.getElementById("select-bar");
+  var selectCountEl = document.getElementById("select-count");
+  var selectShareBtn = document.getElementById("select-share");
+  var selectSaveBtn = document.getElementById("select-save");
+  var selectModeBtn = document.getElementById("select-mode-btn");
+  function selectedContacts() {
+    return Object.keys(current.selected).map(function (id) { return Data.getById(id); }).filter(Boolean);
+  }
+  function updateSelectBar() {
+    var n = Object.keys(current.selected).length;
+    if (selectCountEl) selectCountEl.textContent = n + "명 선택";
+    if (selectShareBtn) selectShareBtn.disabled = !n;
+    if (selectSaveBtn) selectSaveBtn.disabled = !n;
+  }
+  function applySelectionToRows() {
+    listEl.classList.toggle("is-selecting", !!current.selectMode);
+    var rows = listEl.querySelectorAll(".row[data-id]");
+    Array.prototype.forEach.call(rows, function (r) {
+      r.classList.toggle("is-selected", !!current.selected[r.dataset.id]);
+    });
+  }
+  function enterSelectMode() {
+    if (current.selectMode) return;
+    current.selectMode = true;
+    if (selectBar) selectBar.hidden = false;
+    if (selectModeBtn) selectModeBtn.classList.add("is-active");
+    applySelectionToRows(); updateSelectBar(); updateFab();
+  }
+  function exitSelectMode() {
+    if (!current.selectMode) return;
+    current.selectMode = false; current.selected = {};
+    if (selectBar) selectBar.hidden = true;
+    if (selectModeBtn) selectModeBtn.classList.remove("is-active");
+    listEl.classList.remove("is-selecting");
+    applySelectionToRows(); updateFab();
+  }
+  if (selectModeBtn) selectModeBtn.addEventListener("click", function () {
+    if (current.selectMode) exitSelectMode(); else enterSelectMode();
+  });
+  // 선택 모드: listEl 캡처 단계에서 행 클릭을 가로채 토글(상세 열림·전화 동작 방지)
+  listEl.addEventListener("click", function (e) {
+    if (!current.selectMode) return;
+    var row = e.target.closest && e.target.closest(".row[data-id]");
+    if (!row) return;
+    e.preventDefault(); e.stopPropagation();
+    var id = row.dataset.id;
+    if (current.selected[id]) delete current.selected[id]; else current.selected[id] = true;
+    row.classList.toggle("is-selected", !!current.selected[id]);
+    updateSelectBar();
+  }, true);
+  var selCancel = document.getElementById("select-cancel");
+  if (selCancel) selCancel.addEventListener("click", exitSelectMode);
+  var selAll = document.getElementById("select-all");
+  if (selAll) selAll.addEventListener("click", function () {
+    var rows = listEl.querySelectorAll(".row[data-id]");
+    var allOn = rows.length && Array.prototype.every.call(rows, function (r) { return current.selected[r.dataset.id]; });
+    Array.prototype.forEach.call(rows, function (r) {
+      if (allOn) delete current.selected[r.dataset.id]; else current.selected[r.dataset.id] = true;
+    });
+    applySelectionToRows(); updateSelectBar();
+  });
+  if (selectSaveBtn) selectSaveBtn.addEventListener("click", function () {
+    var list = selectedContacts();
+    if (!list.length) return;
+    UI.downloadVCards(list, "행정전화부-연락처-" + dateStamp() + ".vcf");
+    showSnack(list.length + "명을 vCard로 저장했습니다");
+    exitSelectMode();
+  });
+  if (selectShareBtn) selectShareBtn.addEventListener("click", function () {
+    var list = selectedContacts();
+    if (!list.length) return;
+    var fname = "행정전화부-연락처-" + dateStamp() + ".vcf";
+    try {
+      var file = new File([UI.buildVCards(list)], fname, { type: "text/vcard" });
+      if (navigator.canShare && navigator.canShare({ files: [file] })) {
+        navigator.share({ files: [file], title: "연락처 " + list.length + "명" }).then(exitSelectMode).catch(function () {});
+        return;
+      }
+    } catch (e) {}
+    if (navigator.share) {
+      navigator.share({ title: "연락처 " + list.length + "명",
+        text: list.map(function (c) { return c.name + " " + (c.phone || c.tel || ""); }).join("\n") }).then(exitSelectMode).catch(function () {});
+    } else {
+      UI.downloadVCards(list, fname); // 공유 미지원 → 저장 폴백
+      showSnack("공유를 지원하지 않아 파일로 저장했습니다");
+      exitSelectMode();
+    }
+  });
+
   // ---------- 어디서나 타이핑 → 검색 (type-anywhere-to-search) ----------
   // 리스트 화면에서 입력 필드가 아닌 곳에 포커스가 있을 때 인쇄 가능한 키를 누르면
   // 검색창으로 포커스를 옮기고 그 글자를 검색어에 넣는다.
@@ -1485,6 +1576,7 @@
     settingsCounts.textContent = parts.length ? parts.join(" · ") : "저장된 개인 데이터 없음";
   }
   function openSettings() {
+    exitSelectMode(); // 선택 모드 중 설정 진입 시 정리
     refreshCounts();
     document.getElementById("settings-version").textContent = "v" + APP_VERSION;
     var settingsBody = settingsEl.querySelector(".detail-body");

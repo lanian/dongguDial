@@ -224,6 +224,7 @@
     var row = el("div", "row");
     row.setAttribute("role", "button");
     row.tabIndex = 0;
+    if (contact.id != null) row.dataset.id = contact.id; // 다중선택 식별용
     var subParts = [contact.dept, contact.position, contact.grade, contact.work].filter(Boolean);
     row.setAttribute("aria-label", (contact.name || "") + ", " + subParts.join(" ") + ", 상세 보기");
 
@@ -413,6 +414,10 @@
     formatPhone: formatPhone,
     renderRow: renderRow,
 
+    /** 여러 연락처를 하나의 vCard 텍스트로 직렬화 */
+    buildVCards: function (contacts) {
+      return (contacts || []).filter(Boolean).map(buildVCard).join("\r\n") + "\r\n";
+    },
     /** 여러 연락처를 하나의 .vcf 파일로 일괄 내보내기. 반환: 내보낸 건수 */
     downloadVCards: function (contacts, filename) {
       contacts = (contacts || []).filter(Boolean);

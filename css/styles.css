@@ -252,6 +252,42 @@ body {
 }
 .seg-btn.is-active { background: var(--brand); color: #fff; }
 
+/* ---------- 다중선택 ---------- */
+.row.is-selected {
+  background: rgba(120, 120, 120, .14);
+  background: color-mix(in srgb, var(--brand) 14%, transparent);
+  box-shadow: inset 3px 0 0 var(--brand);
+}
+.list.is-selecting .row { cursor: pointer; }
+.select-bar {
+  position: fixed;
+  left: 0; right: 0; bottom: 0;
+  z-index: var(--z-tabs);
+  display: flex;
+  align-items: center;
+  gap: var(--sp-2);
+  padding: var(--sp-2) var(--sp-3);
+  padding-bottom: calc(var(--sp-2) + var(--safe-bottom, 0px));
+  background: var(--surface);
+  border-top: 1px solid var(--divider, rgba(0, 0, 0, .12));
+  box-shadow: 0 -2px 12px rgba(0, 0, 0, .12);
+}
+.select-count { flex: 1; font-size: var(--fs-md); font-weight: var(--fw-med); color: var(--on-surface); }
+.select-act {
+  border: 1px solid var(--divider, rgba(0, 0, 0, .14));
+  background: none;
+  color: var(--on-surface);
+  font: inherit;
+  font-size: var(--fs-sm);
+  font-weight: var(--fw-med);
+  padding: 8px 14px;
+  min-height: 40px;
+  border-radius: var(--r-pill);
+  cursor: pointer;
+}
+.select-act--primary { background: var(--brand); color: #fff; border-color: var(--brand); }
+.select-act:disabled { opacity: .45; cursor: default; }
+
 /* ---------- Alpha rail (가나다 바로가기) ---------- */
 .alpha-rail {
   position: fixed;

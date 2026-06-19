@@ -246,6 +246,26 @@
       return state.contacts.slice();
     },
 
+    /** 데이터 품질 점검(읽기 전용): 중복 전화·부서 미배정·생일형식 오류·빈 부서명 */
+    validateContacts: function () {
+      var byPhone = {}, dupPhones = [], orphans = [], badBirth = [];
+      state.contacts.forEach(function (c) {
+        [c.phone, c.tel].forEach(function (p) {
+          var d = normalizeDigits(p);
+          if (d.length < 7) return; // 내선 등 짧은 번호는 중복 판정 제외
+          (byPhone[d] = byPhone[d] || {})[c.id] = c;
+        });
+        if (!state.deptById[c.deptId]) orphans.push(c);
+        if (c.birth && !/^\d{4}-\d{2}-\d{2}$/.test(c.birth)) badBirth.push(c);
+      });
+      Object.keys(byPhone).forEach(function (d) {
+        var m = byPhone[d], ids = Object.keys(m);
+        if (ids.length > 1) dupPhones.push({ phone: d, people: ids.map(function (id) { return m[id]; }) });
+      });
+      var emptyDepts = (state.departments || []).filter(function (d) { return !(d.name || "").trim(); });
+      return { dupPhones: dupPhones, orphans: orphans, badBirth: badBirth, emptyDepts: emptyDepts };
+    },
+
     getDepartments: function () {
       return state.departmentsTree || state.departments;
     },

@@ -4,7 +4,7 @@
 (function () {
   "use strict";
 
-  var APP_VERSION = "108"; // SW 캐시(donggu-dial-vNN)와 함께 갱신
+  var APP_VERSION = "109"; // SW 캐시(donggu-dial-vNN)와 함께 갱신
   // 조직도 헤더 높이: CSS 토큰(--org-hdr-h)을 단일 소스로 읽어 JS 상수 이중정의(동기화 누락)를 제거
   var ORG_HDR_H = (function () {
     var v = parseInt(getComputedStyle(document.documentElement).getPropertyValue("--org-hdr-h"), 10);
@@ -1322,6 +1322,7 @@
   searchInput.addEventListener("input", function () {
     current.query = searchInput.value;
     searchClear.hidden = !searchInput.value;
+    refreshChipStates();
     if (searchInput.value) beginSearchHistory();
     else unwindSearchHistory(); // 사용자가 직접 글자를 모두 지움
     clearTimeout(searchTimer);
@@ -1329,9 +1330,49 @@
   });
   searchClear.addEventListener("click", function () {
     resetSearchUI();
+    refreshChipStates();
     unwindSearchHistory();
     searchInput.focus();
   });
+
+  // ---------- 재직상태 빠른 필터 칩 (검색창의 '상태:' 연산자를 표면화) ----------
+  var STATUS_CHIPS = ["재직", "휴직", "파견", "교육"];
+  var filterChipsEl = document.getElementById("filter-chips");
+  function activeStatusInQuery() {
+    var m = searchInput.value.match(/상태:(\S+)/);
+    return m ? m[1] : null;
+  }
+  function setStatusFilter(status) {
+    // 기존 '상태:' 토큰 제거 후 선택값 추가(상호배타). 검색창을 직접 구동해 기존 검색 경로 재사용.
+    var q = searchInput.value.replace(/(^|\s)상태:\S+/g, "").trim();
+    if (status) q = (q ? q + " " : "") + "상태:" + status;
+    searchInput.value = q;
+    searchInput.dispatchEvent(new Event("input", { bubbles: true }));
+  }
+  function refreshChipStates() {
+    if (!filterChipsEl) return;
+    var active = activeStatusInQuery();
+    Array.prototype.forEach.call(filterChipsEl.children, function (b) {
+      var on = b.dataset.status === active;
+      b.classList.toggle("is-active", on);
+      b.setAttribute("aria-pressed", on ? "true" : "false");
+    });
+  }
+  if (filterChipsEl) {
+    STATUS_CHIPS.forEach(function (s) {
+      var b = document.createElement("button");
+      b.type = "button";
+      b.className = "filter-chip";
+      b.textContent = s;
+      b.dataset.status = s;
+      b.setAttribute("aria-pressed", "false");
+      b.addEventListener("click", function () {
+        setStatusFilter(activeStatusInQuery() === s ? null : s);
+      });
+      filterChipsEl.appendChild(b);
+    });
+    refreshChipStates();
+  }
 
   // ---------- 어디서나 타이핑 → 검색 (type-anywhere-to-search) ----------
   // 리스트 화면에서 입력 필드가 아닌 곳에 포커스가 있을 때 인쇄 가능한 키를 누르면
@@ -1922,9 +1963,9 @@
     var d = new Date();
     return d.getFullYear() + String(d.getMonth() + 1).padStart(2, "0") + String(d.getDate()).padStart(2, "0");
   }
-  function exportContactsCSV() {
-    // 조직도(직제) 순서 그대로 평탄화 — 가나다 정렬로 내보내면 재가져오기 시 부서가
-    // 그 순서로 생성돼 조직 구조가 흐트러지므로, 화면 조직도와 동일 순서로 출력한다.
+  // 조직도(직제) 순서 그대로 평탄화 — 가나다 정렬로 내보내면 재가져오기 시 부서가
+  // 그 순서로 생성돼 조직 구조가 흐트러지므로, 화면 조직도와 동일 순서로 출력한다.
+  function orgOrderedContacts() {
     var ordered = [];
     if (window.Data && Data.groupedByOrg) {
       (function flat(nodes) {
@@ -1936,6 +1977,10 @@
     } else if (window.Data && Data.getAllContacts) {
       ordered = Data.getAllContacts();
     }
+    return ordered;
+  }
+  function exportContactsCSV() {
+    var ordered = orgOrderedContacts();
     if (!ordered.length) { showSnack("내보낼 연락처가 없습니다."); return; }
     var headers = ["이름", "상위부서", "부서", "팀", "직책", "직급", "담당업무", "휴대전화", "행정번호", "생년월일", "재직상태"];
     var lines = [headers.join(",")];
@@ -1958,6 +2003,43 @@
     showSnack(ordered.length + "건을 CSV로 내보냈습니다.");
   }
   document.getElementById("export-contacts-csv-btn").addEventListener("click", exportContactsCSV);
+
+  // 연락처 vCard(.vcf) 일괄 내보내기 — 폰/Outlook 주소록에 바로 추가
+  function exportContactsVCard() {
+    var ordered = orgOrderedContacts();
+    if (!ordered.length) { showSnack("내보낼 연락처가 없습니다."); return; }
+    var n = UI.downloadVCards(ordered, "행정전화부-연락처-" + dateStamp() + ".vcf");
+    showSnack(n + "건을 vCard로 내보냈습니다.");
+  }
+  var vcardBtn = document.getElementById("export-contacts-vcard-btn");
+  if (vcardBtn) vcardBtn.addEventListener("click", exportContactsVCard);
+
+  // 데이터 점검 리포트(읽기 전용): 중복 전화·부서 미배정·생일형식·빈 부서명
+  function showDataCheck() {
+    if (!(window.Data && Data.validateContacts)) return;
+    var r = Data.validateContacts();
+    var parts = [];
+    if (r.dupPhones.length) {
+      parts.push("● 중복 전화 " + r.dupPhones.length + "건");
+      r.dupPhones.slice(0, 8).forEach(function (d) {
+        parts.push("   " + UI.formatPhone(d.phone) + " — " + d.people.map(function (c) { return c.name; }).join(", "));
+      });
+      if (r.dupPhones.length > 8) parts.push("   …외 " + (r.dupPhones.length - 8) + "건");
+    }
+    if (r.orphans.length) {
+      parts.push("● 부서 미배정 " + r.orphans.length + "명: " +
+        r.orphans.slice(0, 10).map(function (c) { return c.name; }).join(", ") + (r.orphans.length > 10 ? " …" : ""));
+    }
+    if (r.badBirth.length) {
+      parts.push("● 생년월일 형식 오류 " + r.badBirth.length + "건(YYYY-MM-DD 아님): " +
+        r.badBirth.slice(0, 10).map(function (c) { return c.name + "(" + c.birth + ")"; }).join(", ") + (r.badBirth.length > 10 ? " …" : ""));
+    }
+    if (r.emptyDepts.length) parts.push("● 이름 없는 부서 " + r.emptyDepts.length + "개");
+    var msg = parts.length ? parts.join("\n") : "발견된 문제가 없습니다. 데이터가 깨끗합니다 👍";
+    appDialog({ title: "데이터 점검", message: msg, okLabel: "확인", cancelLabel: "" });
+  }
+  var checkBtn = document.getElementById("data-check-btn");
+  if (checkBtn) checkBtn.addEventListener("click", showDataCheck);
 
   // ---------- 전역 키보드 (Esc 닫기 / 오버레이 포커스 트랩) ----------
   document.addEventListener("keydown", function (e) {

@@ -413,6 +413,20 @@
     formatPhone: formatPhone,
     renderRow: renderRow,
 
+    /** 여러 연락처를 하나의 .vcf 파일로 일괄 내보내기. 반환: 내보낸 건수 */
+    downloadVCards: function (contacts, filename) {
+      contacts = (contacts || []).filter(Boolean);
+      if (!contacts.length) return 0;
+      var text = contacts.map(buildVCard).join("\r\n") + "\r\n";
+      var blob = new Blob([text], { type: "text/vcard;charset=utf-8" });
+      var url = URL.createObjectURL(blob);
+      var a = el("a");
+      a.href = url; a.download = filename || "contacts.vcf";
+      document.body.appendChild(a); a.click(); document.body.removeChild(a);
+      setTimeout(function () { URL.revokeObjectURL(url); }, 1000);
+      return contacts.length;
+    },
+
     /** 부서 뷰 (접기/펼치기). opts: onOpen,onFav,collapsed,onToggle */
     renderDeptView: function (container, groups, opts) {
       container.textContent = "";

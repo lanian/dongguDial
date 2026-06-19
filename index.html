@@ -99,6 +99,9 @@
             aria-selected="false" aria-controls="list" tabindex="-1">조직도</button>
   </nav>
 
+  <!-- 재직상태 빠른 필터(검색창의 상태: 연산자를 표면화) -->
+  <div id="filter-chips" class="filter-chips" aria-label="재직상태 필터"></div>
+
   <!-- 스크롤 영역: 앱바·탭은 고정, 이 안만 스크롤(설정 오버레이와 동일한 패턴) -->
   <div id="scroll-region" class="scroll-region">
     <main id="list" class="list" role="tabpanel" tabindex="0" aria-labelledby="tab-all"></main>
@@ -331,6 +334,20 @@
           <div class="info-text">
             <div class="info-value">연락처 CSV 내보내기</div>
             <div class="info-label">현재 연락처 전체를 CSV로 저장(다시 가져오기 가능)</div>
+          </div>
+        </button>
+        <button class="settings-action" id="export-contacts-vcard-btn">
+          <span class="info-ico"><svg class="ic" aria-hidden="true"><use href="#ic-contacts"/></svg></span>
+          <div class="info-text">
+            <div class="info-value">연락처 vCard(.vcf) 내보내기</div>
+            <div class="info-label">폰·Outlook 주소록에 바로 추가할 수 있는 형식</div>
+          </div>
+        </button>
+        <button class="settings-action" id="data-check-btn">
+          <span class="info-ico"><svg class="ic" aria-hidden="true"><use href="#ic-status"/></svg></span>
+          <div class="info-text">
+            <div class="info-value">데이터 점검</div>
+            <div class="info-label">중복 전화·부서 미배정·생일 형식 오류 확인</div>
           </div>
         </button>
         <button class="settings-action" id="import-template-btn">

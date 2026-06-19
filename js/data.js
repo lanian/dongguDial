@@ -241,6 +241,11 @@
       return state.byId[id];
     },
 
+    /** 오버레이 적용된 유효 연락처 전체(사본) — 내보내기 등 */
+    getAllContacts: function () {
+      return state.contacts.slice();
+    },
+
     getDepartments: function () {
       return state.departmentsTree || state.departments;
     },

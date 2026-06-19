@@ -4,7 +4,7 @@
 (function () {
   "use strict";
 
-  var APP_VERSION = "105"; // SW 캐시(donggu-dial-vNN)와 함께 갱신
+  var APP_VERSION = "106"; // SW 캐시(donggu-dial-vNN)와 함께 갱신
   // 조직도 헤더 높이: CSS 토큰(--org-hdr-h)을 단일 소스로 읽어 JS 상수 이중정의(동기화 누락)를 제거
   var ORG_HDR_H = (function () {
     var v = parseInt(getComputedStyle(document.documentElement).getPropertyValue("--org-hdr-h"), 10);
@@ -1904,6 +1904,55 @@
     document.body.appendChild(a); a.click(); document.body.removeChild(a);
     setTimeout(function () { URL.revokeObjectURL(url); }, 1000);
   });
+
+  // ---------- 연락처 CSV 내보내기 (가져오기 양식과 동일 열 → 재가져오기 호환) ----------
+  function csvCell(v) {
+    v = (v == null ? "" : String(v));
+    return /[",\n\r]/.test(v) ? '"' + v.replace(/"/g, '""') + '"' : v;
+  }
+  // 조직 경로(top→leaf) 이름들을 [상위부서, 부서, 팀] 3열로 매핑.
+  // 3단 이하: 앞에서부터 채움(양식 관례). 3단 초과: 가장 가까운 3단(상위2+말단).
+  function hier3(names) {
+    var p = (names || []).filter(Boolean);
+    if (p.length <= 3) return [p[0] || "", p[1] || "", p[2] || ""];
+    return [p[p.length - 3], p[p.length - 2], p[p.length - 1]];
+  }
+  function dateStamp() {
+    var d = new Date();
+    return d.getFullYear() + String(d.getMonth() + 1).padStart(2, "0") + String(d.getDate()).padStart(2, "0");
+  }
+  function exportContactsCSV() {
+    var contacts = (window.Data && Data.getAllContacts) ? Data.getAllContacts() : [];
+    if (!contacts.length) { showSnack("내보낼 연락처가 없습니다."); return; }
+    // 조직 경로 1회 계산 후 조직순 → 이름순 정렬(보기 편하게)
+    var rows = contacts.map(function (c) {
+      var path = (Data.deptPath ? Data.deptPath(c.deptId) : []).map(function (p) { return p.name; });
+      return { c: c, pathKey: path.join("/"), h3: hier3(path) };
+    });
+    rows.sort(function (a, b) {
+      return a.pathKey.localeCompare(b.pathKey, "ko") ||
+        (a.c.name || "").localeCompare(b.c.name || "", "ko");
+    });
+    var headers = ["이름", "상위부서", "부서", "팀", "직책", "직급", "담당업무", "휴대전화", "행정번호", "생년월일", "재직상태"];
+    var lines = [headers.join(",")];
+    rows.forEach(function (r) {
+      var c = r.c, status = (c.status && c.status !== "미설정") ? c.status : "";
+      lines.push([
+        c.name || "", r.h3[0], r.h3[1], r.h3[2],
+        c.position || "", c.grade || "", c.work || "",
+        c.phone || "", c.tel || "", c.birth || "", status,
+      ].map(csvCell).join(","));
+    });
+    var csv = "﻿" + lines.join("\r\n") + "\r\n"; // BOM(엑셀 한글) + CRLF
+    var blob = new Blob([csv], { type: "text/csv;charset=utf-8" });
+    var url = URL.createObjectURL(blob);
+    var a = document.createElement("a");
+    a.href = url; a.download = "행정전화부-연락처-" + dateStamp() + ".csv";
+    document.body.appendChild(a); a.click(); document.body.removeChild(a);
+    setTimeout(function () { URL.revokeObjectURL(url); }, 1000);
+    showSnack(contacts.length + "건을 CSV로 내보냈습니다.");
+  }
+  document.getElementById("export-contacts-csv-btn").addEventListener("click", exportContactsCSV);
 
   // ---------- 전역 키보드 (Esc 닫기 / 오버레이 포커스 트랩) ----------
   document.addEventListener("keydown", function (e) {

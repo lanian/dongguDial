@@ -4,7 +4,7 @@
 (function () {
   "use strict";
 
-  var APP_VERSION = "101"; // SW 캐시(donggu-dial-vNN)와 함께 갱신
+  var APP_VERSION = "102"; // SW 캐시(donggu-dial-vNN)와 함께 갱신
   // 조직도 헤더 높이: CSS 토큰(--org-hdr-h)을 단일 소스로 읽어 JS 상수 이중정의(동기화 누락)를 제거
   var ORG_HDR_H = (function () {
     var v = parseInt(getComputedStyle(document.documentElement).getPropertyValue("--org-hdr-h"), 10);
@@ -1323,6 +1323,56 @@
     unwindSearchHistory();
     searchInput.focus();
   });
+
+  // ---------- 어디서나 타이핑 → 검색 (type-anywhere-to-search) ----------
+  // 리스트 화면에서 입력 필드가 아닌 곳에 포커스가 있을 때 인쇄 가능한 키를 누르면
+  // 검색창으로 포커스를 옮기고 그 글자를 검색어에 넣는다.
+  //   · '/'        → 검색창 포커스(글자 삽입 안 함)
+  //   · Backspace  → 검색어가 있을 때 끝 글자 삭제
+  //   · Space      → 무시(버튼/행의 스페이스 동작 보존, 선두 공백 검색 무의미)
+  //   · 화살표/Enter 등 → 통과(리스트·탭 키보드 내비게이션 보존)
+  function isTypeToSearchContext() {
+    if (!searchInput || searchInput.offsetParent === null) return false; // 검색창이 보일 때만
+    if (!detailEl.hidden || !settingsEl.hidden || !editorEl.hidden ||
+        !deptMgrEl.hidden || !deptEditorEl.hidden) return false;          // 전체화면 뷰 제외
+    if (isLocked) return false;                                           // 잠금화면 제외
+    if (photoViewerEl && !photoViewerEl.hidden) return false;
+    if (deptPickerEl && !deptPickerEl.hidden) return false;
+    if (favGroupPickerEl && !favGroupPickerEl.hidden) return false;
+    if (document.querySelector(".app-dialog-backdrop")) return false;     // 다이얼로그 제외
+    return true;
+  }
+  function isEditableTarget(el) {
+    if (!el) return false;
+    var t = el.tagName;
+    return t === "INPUT" || t === "TEXTAREA" || t === "SELECT" || el.isContentEditable;
+  }
+  document.addEventListener("keydown", function (e) {
+    if (e.ctrlKey || e.metaKey || e.altKey) return;   // 단축키는 통과
+    if (isEditableTarget(e.target)) return;           // 이미 입력 필드(검색창 포함)면 통과
+    if (e.key === " ") return;                         // 스페이스는 가로채지 않음
+    if (!isTypeToSearchContext()) return;
+
+    if (e.key === "/") { e.preventDefault(); searchInput.focus(); return; }
+
+    if (e.key === "Backspace") {
+      if (!searchInput.value) return;
+      e.preventDefault();
+      searchInput.focus();
+      searchInput.value = searchInput.value.slice(0, -1);
+      searchInput.dispatchEvent(new Event("input", { bubbles: true }));
+      return;
+    }
+    // IME(한글 등) 조합 입력: 포커스만 옮겨 이어지는 조합이 검색창에 들어가게 한다.
+    if (e.isComposing || e.keyCode === 229 || e.key === "Process") { searchInput.focus(); return; }
+    // 인쇄 가능한 단일 문자(영문/숫자/기호): 검색창에 직접 삽입
+    if (e.key && e.key.length === 1) {
+      e.preventDefault();
+      searchInput.focus();
+      searchInput.value += e.key;
+      searchInput.dispatchEvent(new Event("input", { bubbles: true }));
+    }
+  }, false);
 
   // ---------- 설정 / 백업·복구 (전부 로컬 처리, 네트워크 없음) ----------
   var settingsCounts = document.getElementById("settings-counts");

@@ -366,6 +366,12 @@
       return nameInitial(name);
     },
 
+    /** 문자열의 초성열(한글→초성, 그 외 글자 그대로). 입력 1글자당 출력 1글자라
+     *  인덱스가 원문과 1:1 정렬됨 → 초성 검색 결과의 강조 위치 매핑에 사용. */
+    chosung: function (s) {
+      return chosung(s || "");
+    },
+
     /** 초성별 그룹 [{key, members}] (이름 가나다순) */
     groupedByName: function () {
       var map = {};

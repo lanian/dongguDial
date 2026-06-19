@@ -77,18 +77,31 @@
     return n;
   }
 
+  // 초성만으로 이루어진 검색어(ㄱ~ㅎ) 판별 — 초성 강조 적용 대상
+  var CHO_ONLY = /^[ㄱ-ㅎ]+$/;
+
   /** text 안의 검색어 일치 부분을 <mark>로 강조하여 parent 에 추가.
-   *  terms 는 문자열 또는 문자열 배열(연산자 검색의 다중 긍정어). 겹치는 구간은 병합. */
-  function highlightInto(parent, text, terms) {
+   *  terms 는 문자열 또는 문자열 배열(연산자 검색의 다중 긍정어). 겹치는 구간은 병합.
+   *  cho=true 면 초성 검색어를 표시 텍스트의 초성열에서도 찾아 해당 음절을 강조한다
+   *  (검색이 초성 매칭을 '이름'에만 하므로 이름 필드에서만 켠다). */
+  function highlightInto(parent, text, terms, cho) {
     text = text || "";
     if (typeof terms === "string") terms = terms ? [terms] : [];
     terms = (terms || []).filter(Boolean);
     if (!terms.length) { parent.appendChild(document.createTextNode(text)); return; }
     var lower = text.toLowerCase(), ranges = [];
+    // 초성열은 초성 검색어가 하나라도 있을 때만 1회 계산(불필요한 변환 방지)
+    var choText = (cho && window.Data && window.Data.chosung &&
+      terms.some(function (t) { return CHO_ONLY.test(t); })) ? window.Data.chosung(text) : null;
     terms.forEach(function (t) {
       var ql = ("" + t).toLowerCase(), idx = 0, pos;
       if (!ql) return;
       while ((pos = lower.indexOf(ql, idx)) !== -1) { ranges.push([pos, pos + ql.length]); idx = pos + ql.length; }
+      // 초성 검색어: 초성열 인덱스가 원문과 1:1 정렬 → 찾은 구간을 그대로 음절 강조에 사용
+      if (choText && CHO_ONLY.test(t)) {
+        var term = "" + t, j = 0, p;
+        while ((p = choText.indexOf(term, j)) !== -1) { ranges.push([p, p + term.length]); j = p + term.length; }
+      }
     });
     if (!ranges.length) { parent.appendChild(document.createTextNode(text)); return; }
     ranges.sort(function (a, b) { return a[0] - b[0] || a[1] - b[1]; });
@@ -219,7 +232,7 @@
     var main = el("div", "row-main");
     var name = el("div", "row-name");
     var nameText = el("span");
-    highlightInto(nameText, contact.name || "", opts.query);
+    highlightInto(nameText, contact.name || "", opts.query, true); // 이름: 초성 강조 켬
     name.appendChild(nameText);
     var badge = statusBadge(contact.status);
     if (badge) name.appendChild(badge);

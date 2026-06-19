@@ -252,32 +252,6 @@ body {
 }
 .seg-btn.is-active { background: var(--brand); color: #fff; }
 
-/* ---------- 재직상태 빠른 필터 칩 ---------- */
-.filter-chips {
-  flex: 0 0 auto;
-  display: flex;
-  gap: 6px;
-  padding: 8px 12px 2px;
-  overflow-x: auto;
-  scrollbar-width: none;
-}
-.filter-chips::-webkit-scrollbar { display: none; }
-.filter-chip {
-  flex: 0 0 auto;
-  border: 1px solid var(--divider, rgba(0, 0, 0, .14));
-  background: none;
-  color: var(--on-surface-muted);
-  font: inherit;
-  font-size: var(--fs-sm);
-  font-weight: var(--fw-med);
-  padding: 5px 14px;
-  min-height: 32px;
-  border-radius: var(--r-pill);
-  cursor: pointer;
-  white-space: nowrap;
-}
-.filter-chip.is-active { background: var(--brand); color: #fff; border-color: var(--brand); }
-
 /* ---------- Alpha rail (가나다 바로가기) ---------- */
 .alpha-rail {
   position: fixed;

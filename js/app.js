@@ -4,7 +4,7 @@
 (function () {
   "use strict";
 
-  var APP_VERSION = "111"; // SW 캐시(donggu-dial-vNN)와 함께 갱신
+  var APP_VERSION = "112"; // SW 캐시(donggu-dial-vNN)와 함께 갱신
   // 조직도 헤더 높이: CSS 토큰(--org-hdr-h)을 단일 소스로 읽어 JS 상수 이중정의(동기화 누락)를 제거
   var ORG_HDR_H = (function () {
     var v = parseInt(getComputedStyle(document.documentElement).getPropertyValue("--org-hdr-h"), 10);
@@ -1369,7 +1369,6 @@
   searchInput.addEventListener("input", function () {
     current.query = searchInput.value;
     searchClear.hidden = !searchInput.value;
-    refreshChipStates();
     if (searchInput.value) beginSearchHistory();
     else unwindSearchHistory(); // 사용자가 직접 글자를 모두 지움
     clearTimeout(searchTimer);
@@ -1377,49 +1376,9 @@
   });
   searchClear.addEventListener("click", function () {
     resetSearchUI();
-    refreshChipStates();
     unwindSearchHistory();
     searchInput.focus();
   });
-
-  // ---------- 재직상태 빠른 필터 칩 (검색창의 '상태:' 연산자를 표면화) ----------
-  var STATUS_CHIPS = ["재직", "휴직", "파견", "교육"];
-  var filterChipsEl = document.getElementById("filter-chips");
-  function activeStatusInQuery() {
-    var m = searchInput.value.match(/상태:(\S+)/);
-    return m ? m[1] : null;
-  }
-  function setStatusFilter(status) {
-    // 기존 '상태:' 토큰 제거 후 선택값 추가(상호배타). 검색창을 직접 구동해 기존 검색 경로 재사용.
-    var q = searchInput.value.replace(/(^|\s)상태:\S+/g, "").trim();
-    if (status) q = (q ? q + " " : "") + "상태:" + status;
-    searchInput.value = q;
-    searchInput.dispatchEvent(new Event("input", { bubbles: true }));
-  }
-  function refreshChipStates() {
-    if (!filterChipsEl) return;
-    var active = activeStatusInQuery();
-    Array.prototype.forEach.call(filterChipsEl.children, function (b) {
-      var on = b.dataset.status === active;
-      b.classList.toggle("is-active", on);
-      b.setAttribute("aria-pressed", on ? "true" : "false");
-    });
-  }
-  if (filterChipsEl) {
-    STATUS_CHIPS.forEach(function (s) {
-      var b = document.createElement("button");
-      b.type = "button";
-      b.className = "filter-chip";
-      b.textContent = s;
-      b.dataset.status = s;
-      b.setAttribute("aria-pressed", "false");
-      b.addEventListener("click", function () {
-        setStatusFilter(activeStatusInQuery() === s ? null : s);
-      });
-      filterChipsEl.appendChild(b);
-    });
-    refreshChipStates();
-  }
 
   // ---------- 검색 자동완성(datalist): 부서명·직책 + 연산자 힌트 ----------
   // 라이브 목록이 이름 매칭을 이미 보여주므로, 숨은 연산자와 부서/직책 완성에 집중.

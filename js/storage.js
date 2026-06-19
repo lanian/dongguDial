@@ -8,6 +8,7 @@
   var FAV_KEY = "dongguDial.favorites.v1";
   var RECENT_KEY = "dongguDial.recent.v1";
   var THEME_KEY = "dongguDial.theme.v1";
+  var FONT_SCALE_KEY = "dongguDial.fontScale.v1"; // 글자 크기 배율 "1" | "1.15" | "1.3"
   var SHOW_DEFAULT_ICON_KEY = "dongguDial.showDefaultIcon.v1"; // true면 사진 없는 모든 연락처를 기본 아이콘(실루엣)으로 표시
   var EDITS_KEY = "dongguDial.edits.v1";     // { [id]: {field:val,..., __deleted?:true} }  (기본 연락처 오버레이)
   var CUSTOM_KEY = "dongguDial.custom.v1";   // [ {id, ...} ]  (사용자가 추가한 연락처)
@@ -245,6 +246,10 @@
     // ---------- 테마 ----------
     getTheme: function () { return read(THEME_KEY, "system"); },
     setTheme: function (t) { write(THEME_KEY, t); },
+
+    // ---------- 글자 크기(접근성) ----------
+    getFontScale: function () { var v = read(FONT_SCALE_KEY, "1"); return /^(1|1\.15|1\.3)$/.test(String(v)) ? String(v) : "1"; },
+    setFontScale: function (v) { write(FONT_SCALE_KEY, String(v)); },
 
     // ---------- 조직도·즐겨찾기 접힘 상태(콜드스타트에도 유지) ----------
     // 조직도는 "키 존재 여부"로 최초 진입(전부 접기)을 판별한다. null=미초기화.

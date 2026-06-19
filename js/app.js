@@ -4,7 +4,7 @@
 (function () {
   "use strict";
 
-  var APP_VERSION = "110"; // SW 캐시(donggu-dial-vNN)와 함께 갱신
+  var APP_VERSION = "111"; // SW 캐시(donggu-dial-vNN)와 함께 갱신
   // 조직도 헤더 높이: CSS 토큰(--org-hdr-h)을 단일 소스로 읽어 JS 상수 이중정의(동기화 누락)를 제거
   var ORG_HDR_H = (function () {
     var v = parseInt(getComputedStyle(document.documentElement).getPropertyValue("--org-hdr-h"), 10);
@@ -548,6 +548,26 @@
   });
   applyTheme(Storage.getTheme());
   setThemeUI(Storage.getTheme());
+
+  // ---------- 글자 크기(접근성) ----------
+  var fontScaleBtns = Array.prototype.slice.call(document.querySelectorAll("#font-scale-seg .seg-btn[data-scale]"));
+  function applyFontScale(s) { document.documentElement.style.setProperty("--ui-scale", String(s)); }
+  function setFontScaleUI(s) {
+    fontScaleBtns.forEach(function (b) {
+      var on = b.dataset.scale === String(s);
+      b.classList.toggle("is-active", on);
+      b.setAttribute("aria-pressed", on ? "true" : "false");
+    });
+  }
+  fontScaleBtns.forEach(function (b) {
+    b.addEventListener("click", function () {
+      Storage.setFontScale(b.dataset.scale);
+      applyFontScale(b.dataset.scale);
+      setFontScaleUI(b.dataset.scale);
+    });
+  });
+  applyFontScale(Storage.getFontScale());
+  setFontScaleUI(Storage.getFontScale());
 
   // ---------- 프로필 기본 아이콘(실루엣) 전역 표시 ----------
   var defaultIconBtns = Array.prototype.slice.call(document.querySelectorAll("#default-icon-seg .seg-btn"));
@@ -1401,6 +1421,21 @@
     refreshChipStates();
   }
 
+  // ---------- 검색 자동완성(datalist): 부서명·직책 + 연산자 힌트 ----------
+  // 라이브 목록이 이름 매칭을 이미 보여주므로, 숨은 연산자와 부서/직책 완성에 집중.
+  function rebuildSearchSuggest() {
+    var dl = document.getElementById("search-suggest");
+    if (!dl) return;
+    var seen = {}, opts = [];
+    function add(v) { v = (v || "").toString().trim(); if (v && !seen[v]) { seen[v] = 1; opts.push(v); } }
+    ["상태:재직", "상태:휴직", "상태:파견", "상태:교육", "부서:", "직책:", "직급:"].forEach(add);
+    if (window.Data && Data.getDepartments) Data.getDepartments().forEach(function (d) { add(d.name); });
+    if (window.Data && Data.getAllContacts) Data.getAllContacts().forEach(function (c) { add(c.position); });
+    dl.textContent = "";
+    opts.forEach(function (v) { var o = document.createElement("option"); o.value = v; dl.appendChild(o); });
+  }
+  searchInput.addEventListener("focus", rebuildSearchSuggest); // 포커스 시 최신화(데이터 변경 자동 반영)
+
   // ---------- 어디서나 타이핑 → 검색 (type-anywhere-to-search) ----------
   // 리스트 화면에서 입력 필드가 아닌 곳에 포커스가 있을 때 인쇄 가능한 키를 누르면
   // 검색창으로 포커스를 옮기고 그 글자를 검색어에 넣는다.
@@ -2184,6 +2219,7 @@
     .then(function () {
       render();
       openFromHash();
+      rebuildSearchSuggest();
       focusSearchIfIdle(); // 부팅 직후 리스트면 검색창 선포커스(한글 첫 글자 유실 방지)
     })
     .catch(function (err) {

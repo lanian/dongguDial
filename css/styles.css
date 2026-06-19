@@ -33,7 +33,8 @@
   /* radius */
   --r-sm: 8px; --r-md: 12px; --r-lg: 16px; --r-pill: 999px;
   /* type */
-  --fs-cap: 11px; --fs-sm: 13px; --fs-md: 15px; --fs-lg: 16px; --fs-title: 24px;
+  --ui-scale: 1; /* 글자 크기(접근성) 배율 — 설정에서 조정, 모든 fs 토큰에 곱해짐 */
+  --fs-cap: calc(11px * var(--ui-scale)); --fs-sm: calc(13px * var(--ui-scale)); --fs-md: calc(15px * var(--ui-scale)); --fs-lg: calc(16px * var(--ui-scale)); --fs-title: calc(24px * var(--ui-scale));
   --fw-reg: 400; --fw-med: 600; --fw-bold: 700;
   /* 조직도 헤더 높이(계단식 sticky top 계산 기준 — JS ORG_HDR_H 와 동기화) */
   --org-hdr-h: 44px;

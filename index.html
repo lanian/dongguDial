@@ -80,8 +80,9 @@
     <div class="search-wrap">
       <svg class="ic search-ico" aria-hidden="true"><use href="#ic-search"/></svg>
       <input id="search-input" class="search-input" type="search" role="searchbox"
-             aria-label="연락처 검색"
+             aria-label="연락처 검색" list="search-suggest"
              placeholder="이름·부서·전화번호 검색" autocomplete="off" enterkeyhint="search" />
+      <datalist id="search-suggest"></datalist>
       <button id="search-clear" class="search-clear" aria-label="검색 지우기" hidden>
         <svg class="ic" aria-hidden="true"><use href="#ic-close"/></svg>
       </button>
@@ -238,6 +239,15 @@
           <button class="seg-btn" data-theme="system" aria-pressed="true">시스템</button>
           <button class="seg-btn" data-theme="light" aria-pressed="false">라이트</button>
           <button class="seg-btn" data-theme="dark" aria-pressed="false">다크</button>
+        </div>
+      </div>
+
+      <div class="settings-section-title">글자 크기</div>
+      <div class="info-card">
+        <div class="theme-seg" id="font-scale-seg" role="group" aria-label="글자 크기 선택">
+          <button class="seg-btn" data-scale="1" aria-pressed="true">보통</button>
+          <button class="seg-btn" data-scale="1.15" aria-pressed="false">크게</button>
+          <button class="seg-btn" data-scale="1.3" aria-pressed="false">아주 크게</button>
         </div>
       </div>
 

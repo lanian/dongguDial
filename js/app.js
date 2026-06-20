@@ -4,7 +4,7 @@
 (function () {
   "use strict";
 
-  var APP_VERSION = "117"; // SW 캐시(donggu-dial-vNN)와 함께 갱신
+  var APP_VERSION = "118"; // SW 캐시(donggu-dial-vNN)와 함께 갱신
   // 조직도 헤더 높이: CSS 토큰(--org-hdr-h)을 단일 소스로 읽어 JS 상수 이중정의(동기화 누락)를 제거
   var ORG_HDR_H = (function () {
     var v = parseInt(getComputedStyle(document.documentElement).getPropertyValue("--org-hdr-h"), 10);
@@ -2354,14 +2354,23 @@
 
   // ---------- 부팅 ----------
   UI.renderSkeleton(listEl, 8);
+  // 사진 적재는 백그라운드로 — 데이터만 준비되면 목록을 즉시 표시하고(아바타는 이니셜로),
+  // 사진이 로드되면 아바타만 재렌더해 채운다. (사진 적재가 초기 표시를 막지 않게 함)
   var photosReady = (window.Photos && Photos.loadAll) ? Photos.loadAll() : Promise.resolve();
   Data.load()
-    .then(function () { return photosReady; })
     .then(function () {
       render();
       openFromHash();
       rebuildSearchSuggest();
       focusSearchIfIdle(); // 부팅 직후 리스트면 검색창 선포커스(한글 첫 글자 유실 방지)
+      photosReady.then(function () {
+        if (!(window.Photos && Photos.count && Photos.count() > 0)) return; // 사진 없으면 재렌더 불필요
+        render();
+        if (!detailEl.hidden && current.detailId != null) { // 콜드 딥링크로 상세가 열려 있으면 사진 반영
+          var c = Data.getById(current.detailId);
+          if (c) UI.renderDetail(detailBody, c, { onOrg: goToOrg, onPhoto: openPhotoViewer });
+        }
+      });
     })
     .catch(function (err) {
       listEl.textContent = "";

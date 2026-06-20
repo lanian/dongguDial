@@ -279,15 +279,7 @@
       star.setAttribute("aria-label", isFav ? "즐겨찾기 해제" : "즐겨찾기 추가");
       star.setAttribute("aria-pressed", isFav ? "true" : "false");
       star.appendChild(icon("star"));
-      star.addEventListener("click", function (e) {
-        e.stopPropagation();
-        var nowFav = Storage.toggleFavorite(contact.id);
-        star.classList.toggle("is-on", nowFav);
-        star.setAttribute("aria-pressed", nowFav ? "true" : "false");
-        star.setAttribute("aria-label", nowFav ? "즐겨찾기 해제" : "즐겨찾기 추가");
-        if (navigator.vibrate) navigator.vibrate(10);
-        if (opts.onFav) opts.onFav();
-      });
+      star.dataset.act = "fav"; // 클릭은 listEl 이벤트 위임에서 처리(행마다 리스너 안 닮)
       actions.appendChild(star);
 
       if (opts.onAssign) {
@@ -307,10 +299,7 @@
         call.href = "tel:" + clean(contact.phone);
         call.setAttribute("aria-label", contact.name + " 전화 걸기");
         call.appendChild(icon("phone"));
-        call.addEventListener("click", function (e) {
-          e.stopPropagation();
-          Storage.pushRecent(contact.id);
-        });
+        call.dataset.act = "call"; // 위임에서 pushRecent (기본 tel: 동작은 유지)
         actions.appendChild(call);
       }
 
@@ -325,11 +314,8 @@
       }
     }
     row.appendChild(actions);
-
-    row.addEventListener("click", function () { opts.onOpen(contact); });
-    row.addEventListener("keydown", function (e) {
-      if (e.key === "Enter" || e.key === " ") { e.preventDefault(); opts.onOpen(contact); }
-    });
+    // 행 열기(클릭/Enter/Space)와 즐겨찾기·전화 클릭은 listEl 이벤트 위임에서 처리한다.
+    // (행마다 리스너를 달지 않아 긴 목록 재렌더 비용·GC 부담 감소)
     return row;
   }
 

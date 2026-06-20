@@ -4,7 +4,7 @@
 (function () {
   "use strict";
 
-  var APP_VERSION = "115"; // SW 캐시(donggu-dial-vNN)와 함께 갱신
+  var APP_VERSION = "116"; // SW 캐시(donggu-dial-vNN)와 함께 갱신
   // 조직도 헤더 높이: CSS 토큰(--org-hdr-h)을 단일 소스로 읽어 JS 상수 이중정의(동기화 누락)를 제거
   var ORG_HDR_H = (function () {
     var v = parseInt(getComputedStyle(document.documentElement).getPropertyValue("--org-hdr-h"), 10);
@@ -369,6 +369,44 @@
   listEl.addEventListener("touchcancel", endHold);
   // 스크롤하면 진행 중인 마퀴 정리(남아있는 애니메이션 방지)
   scrollRegion.addEventListener("scroll", stopAllMarquee, { passive: true });
+
+  // ---------- 행 상호작용 이벤트 위임 ----------
+  // 행마다 리스너를 달지 않고 listEl 한 곳에서 처리(긴 목록 재렌더 비용·GC 부담↓).
+  // 즐겨찾기(data-act=fav)·전화(data-act=call)는 위임, 그 외 행 클릭은 상세 열기.
+  // (그룹지정·최근제거·순서이동 버튼은 자체 리스너에서 stopPropagation 하므로 여기 안 옴.
+  //  선택 모드는 캡처 단계 핸들러가 먼저 가로채므로 여기서는 무시한다.)
+  listEl.addEventListener("click", function (e) {
+    if (current.selectMode) return;
+    var t = e.target;
+    var actEl = t && t.closest ? t.closest("[data-act]") : null;
+    if (actEl && listEl.contains(actEl)) {
+      var arow = actEl.closest(".row[data-id]");
+      var ac = arow && Data.getById(arow.dataset.id);
+      if (!ac) return;
+      if (actEl.dataset.act === "fav") {
+        var nowFav = Storage.toggleFavorite(ac.id);
+        actEl.classList.toggle("is-on", nowFav);
+        actEl.setAttribute("aria-pressed", nowFav ? "true" : "false");
+        actEl.setAttribute("aria-label", nowFav ? "즐겨찾기 해제" : "즐겨찾기 추가");
+        if (navigator.vibrate) navigator.vibrate(10);
+        onFavChanged();
+      } else if (actEl.dataset.act === "call") {
+        Storage.pushRecent(ac.id); // 기본 tel: 동작은 그대로 진행
+      }
+      return;
+    }
+    var row = t && t.closest ? t.closest(".row[data-id]") : null;
+    if (row) { var c = Data.getById(row.dataset.id); if (c) openDetail(c); }
+  });
+  listEl.addEventListener("keydown", function (e) {
+    if (current.selectMode) return;
+    if (e.key !== "Enter" && e.key !== " ") return;
+    var row = e.target && e.target.closest ? e.target.closest(".row[data-id]") : null;
+    if (!row || e.target !== row) return; // 행 자체 포커스일 때만(내부 버튼은 네이티브 처리)
+    e.preventDefault();
+    var c = Data.getById(row.dataset.id);
+    if (c) openDetail(c);
+  });
 
   function renderBody() {
     var q = current.query.trim();

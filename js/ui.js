@@ -989,17 +989,24 @@
       container.textContent = "";
 
       var hero = el("div", "detail-hero");
-      var av = makeAvatar(contact, ""); // 아바타는 썸네일
-      // '사진 크게 보기'는 원본(full)을 넘겨 전체화면에서 선명하게(없으면 썸네일 폴백)
-      var photo = (window.Photos && Photos.getFull) ? Photos.getFull(contact.id)
-        : ((window.Photos && Photos.get) ? Photos.get(contact.id) : null);
-      if (photo && opts.onPhoto) {
+      var av = makeAvatar(contact, ""); // 아바타는 썸네일(동기)
+      var hasPhoto = !!(window.Photos && (Photos.has ? Photos.has(contact.id) : (Photos.get && Photos.get(contact.id))));
+      if (hasPhoto && opts.onPhoto) {
         av.setAttribute("role", "button");
         av.tabIndex = 0;
         av.setAttribute("aria-label", "사진 크게 보기");
         av.style.cursor = "zoom-in";
-        av.addEventListener("click", function () { opts.onPhoto(photo, contact.name); });
-        av.addEventListener("keydown", function (e) { if (e.key === "Enter" || e.key === " ") { e.preventDefault(); opts.onPhoto(photo, contact.name); } });
+        // 원본(full)은 뷰어 열 때 지연 로드(getFull 은 Promise). 동기 반환(레거시)도 호환.
+        var openFull = function () {
+          var thumb = (window.Photos && Photos.get) ? Photos.get(contact.id) : null;
+          if (window.Photos && Photos.getFull) {
+            var r = Photos.getFull(contact.id);
+            if (r && typeof r.then === "function") r.then(function (url) { opts.onPhoto(url || thumb, contact.name); });
+            else opts.onPhoto(r || thumb, contact.name);
+          } else opts.onPhoto(thumb, contact.name);
+        };
+        av.addEventListener("click", openFull);
+        av.addEventListener("keydown", function (e) { if (e.key === "Enter" || e.key === " ") { e.preventDefault(); openFull(); } });
       }
       hero.appendChild(av);
       hero.appendChild(el("h2", "detail-name", contact.name || ""));

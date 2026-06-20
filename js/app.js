@@ -4,7 +4,7 @@
 (function () {
   "use strict";
 
-  var APP_VERSION = "118"; // SW 캐시(donggu-dial-vNN)와 함께 갱신
+  var APP_VERSION = "119"; // SW 캐시(donggu-dial-vNN)와 함께 갱신
   // 조직도 헤더 높이: CSS 토큰(--org-hdr-h)을 단일 소스로 읽어 JS 상수 이중정의(동기화 누락)를 제거
   var ORG_HDR_H = (function () {
     var v = parseInt(getComputedStyle(document.documentElement).getPropertyValue("--org-hdr-h"), 10);
@@ -1421,16 +1421,27 @@
 
   // ---------- 검색 자동완성(datalist): 부서명·직책 + 연산자 힌트 ----------
   // 라이브 목록이 이름 매칭을 이미 보여주므로, 숨은 연산자와 부서/직책 완성에 집중.
+  // 자동완성 datalist 빌드는 첫 표시·포커스를 막지 않도록 idle 로 미룬다(대형 명부 O(n) 작업).
+  var _suggestScheduled = false;
   function rebuildSearchSuggest() {
-    var dl = document.getElementById("search-suggest");
-    if (!dl) return;
-    var seen = {}, opts = [];
-    function add(v) { v = (v || "").toString().trim(); if (v && !seen[v]) { seen[v] = 1; opts.push(v); } }
-    ["상태:재직", "상태:휴직", "상태:파견", "상태:교육", "부서:", "직책:", "직급:"].forEach(add);
-    if (window.Data && Data.getDepartments) Data.getDepartments().forEach(function (d) { add(d.name); });
-    if (window.Data && Data.getAllContacts) Data.getAllContacts().forEach(function (c) { add(c.position); });
-    dl.textContent = "";
-    opts.forEach(function (v) { var o = document.createElement("option"); o.value = v; dl.appendChild(o); });
+    if (_suggestScheduled) return;
+    _suggestScheduled = true;
+    var run = function () {
+      _suggestScheduled = false;
+      var dl = document.getElementById("search-suggest");
+      if (!dl) return;
+      var seen = {}, opts = [];
+      function add(v) { v = (v || "").toString().trim(); if (v && !seen[v]) { seen[v] = 1; opts.push(v); } }
+      ["상태:재직", "상태:휴직", "상태:파견", "상태:교육", "부서:", "직책:", "직급:"].forEach(add);
+      if (window.Data && Data.getDepartments) Data.getDepartments().forEach(function (d) { add(d.name); });
+      if (window.Data && Data.getAllContacts) Data.getAllContacts().forEach(function (c) { add(c.position); });
+      var frag = document.createDocumentFragment();
+      opts.forEach(function (v) { var o = document.createElement("option"); o.value = v; frag.appendChild(o); });
+      dl.textContent = "";
+      dl.appendChild(frag);
+    };
+    if (window.requestIdleCallback) requestIdleCallback(run, { timeout: 800 });
+    else setTimeout(run, 200);
   }
   searchInput.addEventListener("focus", rebuildSearchSuggest); // 포커스 시 최신화(데이터 변경 자동 반영)
 
@@ -1653,10 +1664,11 @@
     closeSettings(false);
   });
 
+  // 사진(full 포함)은 IDB에서 비동기로 읽어 백업에 담는다. 반환: Promise<data>
   function buildBackupData() {
     var data = Storage.exportData();
-    if (window.Photos) data.photos = Photos.all();
-    return data;
+    if (!(window.Photos && Photos.all)) return Promise.resolve(data);
+    return Promise.resolve(Photos.all()).then(function (photos) { data.photos = photos; return data; });
   }
   function downloadJson(obj, filename) {
     var blob = new Blob([JSON.stringify(obj, null, 2)], { type: "application/json" });
@@ -1693,7 +1705,7 @@
     }).then(function (pt) { return JSON.parse(new TextDecoder().decode(pt)); });
   }
   document.getElementById("export-btn").addEventListener("click", function () {
-    downloadJson(buildBackupData(), "행정전화부-백업-" + dateStamp() + ".json");
+    buildBackupData().then(function (data) { downloadJson(data, "행정전화부-백업-" + dateStamp() + ".json"); });
   });
   function exportBackupEncrypted() {
     if (!(window.crypto && crypto.subtle)) { showSnack("이 브라우저는 백업 암호화를 지원하지 않습니다"); return; }
@@ -1703,7 +1715,7 @@
       appDialog({ title: "백업 암호 확인", value: "", placeholder: "암호 다시 입력", okLabel: "내보내기", inputType: "password", autocomplete: "off", maxLength: 64 }).then(function (p2) {
         if (!p2) return;
         if (p2 !== p1) { showSnack("암호가 일치하지 않습니다"); return; }
-        encryptBackup(buildBackupData(), p1)
+        buildBackupData().then(function (data) { return encryptBackup(data, p1); })
           .then(function (env) { downloadJson(env, "행정전화부-백업(암호화)-" + dateStamp() + ".json"); showSnack("암호화 백업을 내보냈습니다"); })
           .catch(function (e) { showSnack("암호화 실패: " + e.message); });
       });

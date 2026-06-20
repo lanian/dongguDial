@@ -8,8 +8,11 @@
 
   var DB_NAME = "dongguDial-photos";
   var STORE = "photos";
-  var cache = {};      // id(string) -> dataURL  (동기 조회용)
+  var cache = {};      // id(string) -> thumb dataURL  (동기 렌더용 — full 은 메모리에 안 올림)
+  var fullIds = {};    // id -> true : full 원본이 IDB 에 별도로 존재(뷰어 열 때 지연 로드)
   var dbp = null;
+  function thumbOf(v) { return v == null ? null : (typeof v === "string" ? v : (v.thumb || v.full || null)); }
+  function hasFullVal(v) { return !!(v && typeof v === "object" && v.full); }
 
   function openDB() {
     if (dbp) return dbp;
@@ -27,53 +30,65 @@
   }
 
   var Photos = {
-    /** 부팅 시 모든 사진을 메모리 캐시로 적재 */
+    /** 부팅 시 썸네일만 메모리 캐시로 적재(full 은 안 올림 → 부팅 빠름·메모리↓) */
     loadAll: function () {
       return store("readonly").then(function (os) {
         return new Promise(function (res) {
           var req = os.openCursor();
           req.onsuccess = function (e) {
             var c = e.target.result;
-            if (c) { cache[c.key] = c.value; c.continue(); }
+            if (c) { cache[c.key] = thumbOf(c.value); if (hasFullVal(c.value)) fullIds[c.key] = true; c.continue(); }
             else res(cache);
           };
           req.onerror = function () { res(cache); };
         });
       }).catch(function () { return cache; });
     },
-    // 저장 값은 { thumb, full } 객체(신규) 또는 dataURL 문자열(legacy). 아래 두 헬퍼가 모두 수용.
-    _raw: function (id) { return cache[id] != null ? cache[id] : (cache[String(id)] != null ? cache[String(id)] : null); },
     /** 썸네일 dataURL(동기) — 리스트·아바타 렌더용 */
-    get: function (id) {
-      var v = Photos._raw(id);
-      if (v == null) return null;
-      return typeof v === "string" ? v : (v.thumb || v.full || null);
-    },
-    /** 원본(긴 변 ≤1280) dataURL — 전체화면 뷰어용. 없으면 썸네일 폴백 */
+    get: function (id) { return cache[id] != null ? cache[id] : (cache[String(id)] != null ? cache[String(id)] : null); },
+    has: function (id) { return Photos.get(id) != null; },
+    /** 원본(full) dataURL — 전체화면 뷰어용. 비동기 지연 로드(IDB). 없으면 썸네일 폴백.
+     *  반환: Promise<dataURL|null> */
     getFull: function (id) {
-      var v = Photos._raw(id);
-      if (v == null) return null;
-      return typeof v === "string" ? v : (v.full || v.thumb || null);
+      var thumb = Photos.get(id);
+      if (!(fullIds[id] || fullIds[String(id)])) return Promise.resolve(thumb); // full 없음 → 썸네일
+      return store("readonly").then(function (os) {
+        return new Promise(function (res) {
+          var r = os.get(id);
+          r.onsuccess = function () { var v = r.result; res((v && typeof v === "object" && v.full) || thumb); };
+          r.onerror = function () { res(thumb); };
+        });
+      }).catch(function () { return thumb; });
     },
-    has: function (id) { return !!Photos.get(id); },
-    /** 저장(캐시 즉시 + IndexedDB 비동기) */
-    set: function (id, dataURL) {
-      cache[id] = dataURL;
+    /** 저장: 캐시엔 썸네일만, IDB엔 { thumb, full } 전체 */
+    set: function (id, val) {
+      cache[id] = thumbOf(val);
+      if (hasFullVal(val)) fullIds[id] = true; else { delete fullIds[id]; delete fullIds[String(id)]; }
       return store("readwrite").then(function (os) {
-        return new Promise(function (res) { var r = os.put(dataURL, id); r.onsuccess = function () { res(); }; r.onerror = function () { res(); }; });
+        return new Promise(function (res) { var r = os.put(val, id); r.onsuccess = function () { res(); }; r.onerror = function () { res(); }; });
       }).catch(function () {});
     },
     remove: function (id) {
       delete cache[id]; delete cache[String(id)];
+      delete fullIds[id]; delete fullIds[String(id)];
       return store("readwrite").then(function (os) {
         return new Promise(function (res) { var r = os.delete(id); r.onsuccess = function () { res(); }; r.onerror = function () { res(); }; });
       }).catch(function () {});
     },
-    /** 전체 캐시 사본(백업용) */
-    all: function () { return Object.assign({}, cache); },
+    /** 전체(thumb+full) 사본 — 백업용. 비동기(IDB 전체 읽기). 반환: Promise<map> */
+    all: function () {
+      return store("readonly").then(function (os) {
+        return new Promise(function (res) {
+          var out = {}, req = os.openCursor();
+          req.onsuccess = function (e) { var c = e.target.result; if (c) { out[c.key] = c.value; c.continue(); } else res(out); };
+          req.onerror = function () { res(out); };
+        });
+      }).catch(function () { return {}; });
+    },
     count: function () { return Object.keys(cache).length; },
     clearAll: function () {
       Object.keys(cache).forEach(function (k) { delete cache[k]; });
+      Object.keys(fullIds).forEach(function (k) { delete fullIds[k]; });
       return store("readwrite").then(function (os) {
         return new Promise(function (res) { var r = os.clear(); r.onsuccess = function () { res(); }; r.onerror = function () { res(); }; });
       }).catch(function () {});

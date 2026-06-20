@@ -132,6 +132,7 @@
   // 기본 아이콘 = 앱 아이콘(로고). 색상 원+이니셜 대신 쓰는 중립 placeholder
   function defaultIconNode() {
     var im = el("img");
+    im.loading = "lazy"; im.decoding = "async";
     im.src = "icons/icon-192.png";
     im.alt = "기본 아이콘";
     return im;
@@ -143,6 +144,7 @@
     if (photo) {
       a.classList.add("avatar--photo");
       var im = el("img");
+      im.loading = "lazy"; im.decoding = "async"; // 화면 밖 사진 디코드 지연 → 긴 목록 가속
       im.src = photo;
       im.alt = (contact.name || "") + " 사진";
       a.appendChild(im);

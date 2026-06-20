@@ -448,6 +448,10 @@ mark {
   padding: 10px var(--sp-4);
   background: var(--surface);
   cursor: pointer;
+  /* 화면 밖 행은 레이아웃·페인트를 건너뛰어 긴 목록의 로딩/스크롤을 가속(전체 DOM은 유지).
+     실제 행 높이≈64px → 추정치로 스크롤 위치 안정화. */
+  content-visibility: auto;
+  contain-intrinsic-size: auto 64px;
 }
 .row:not(:last-child) {
   border-bottom: 1px solid var(--divider);

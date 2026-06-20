@@ -4,7 +4,7 @@
 (function () {
   "use strict";
 
-  var APP_VERSION = "114"; // SW 캐시(donggu-dial-vNN)와 함께 갱신
+  var APP_VERSION = "115"; // SW 캐시(donggu-dial-vNN)와 함께 갱신
   // 조직도 헤더 높이: CSS 토큰(--org-hdr-h)을 단일 소스로 읽어 JS 상수 이중정의(동기화 누락)를 제거
   var ORG_HDR_H = (function () {
     var v = parseInt(getComputedStyle(document.documentElement).getPropertyValue("--org-hdr-h"), 10);

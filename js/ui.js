@@ -683,6 +683,9 @@
      *  opts: onOpen,onFav,collapsed,onToggle,reorder,onToggleReorder,onMove */
     renderOrgView: function (container, tree, opts) {
       container.textContent = "";
+      // 툴바(요약+버튼)를 둘 곳: opts.toolbarHost(스크롤 밖 고정 바) 우선, 없으면 목록 상단.
+      var toolHost = opts.toolbarHost || container;
+      if (opts.toolbarHost) opts.toolbarHost.textContent = "";
       if (!tree.length) {
         container.appendChild(UI.emptyState("조직 정보가 없습니다.",
           opts.onManage ? "부서 관리" : null, opts.onManage));
@@ -715,7 +718,7 @@
         if (opts.onManage) tbtn("building", "부서 관리", null, opts.onManage);
       }
       summary.appendChild(bar);
-      container.appendChild(summary);
+      toolHost.appendChild(summary);
       if (opts.reorder) {
         // 힌트의 버튼 지칭을 이모지 대신 실제 아이콘으로 → 화면 버튼과 1:1 매칭.
         var hint = el("div", "org-reorder-hint");

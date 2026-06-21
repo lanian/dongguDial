@@ -4,13 +4,14 @@
 (function () {
   "use strict";
 
-  var APP_VERSION = "132"; // SW 캐시(donggu-dial-vNN)와 함께 갱신
+  var APP_VERSION = "133"; // SW 캐시(donggu-dial-vNN)와 함께 갱신
   // 조직도 헤더 높이: CSS 토큰(--org-hdr-h)을 단일 소스로 읽어 JS 상수 이중정의(동기화 누락)를 제거
   var ORG_HDR_H = (function () {
     var v = parseInt(getComputedStyle(document.documentElement).getPropertyValue("--org-hdr-h"), 10);
     return v > 0 ? v : 44; // 폴백
   })();
   var listEl = document.getElementById("list");
+  var orgBar = document.getElementById("org-bar"); // 조직도 전용 고정 툴바(탭 아래)
   var scrollRegion = document.getElementById("scroll-region");
   // 스크롤은 #scroll-region 컨테이너가 직접 관리하므로 브라우저의 자동 스크롤 복원을 끈다.
   // (뒤로가기로 상세를 닫을 때 브라우저가 옛 위치로 되돌려 점프를 덮어쓰는 것을 방지)
@@ -420,6 +421,7 @@
   function renderBody() {
     var q = current.query.trim();
     listEl.classList.remove("list--cols"); // 데스크톱 다열은 '전체' 탭(비검색)에서만
+    if (orgBar) orgBar.hidden = true; // 조직도 고정 툴바는 조직도 탭에서만 노출
     if (q) {
       showTools(false); showAlphaRail(false);
       var results = Data.search(q);
@@ -520,8 +522,9 @@
         onToggleReorder: function () { current.orgReorder = !current.orgReorder; render(); },
         onMove: moveMember,
         onMoveDept: moveMemberToDept,
+        toolbarHost: orgBar, // 툴바를 스크롤 밖 고정 바에 렌더
       });
-      syncOrgBarHeight(); // 고정 툴바 높이를 측정해 부서 헤더 계단 top 기준(--org-bar-h) 갱신
+      if (orgBar) orgBar.hidden = !orgBar.firstChild; // 내용 있을 때만 표시(빈 조직도면 숨김)
     } else if (current.tab === "favorites") {
       showTools(false); showAlphaRail(false);
       UI.renderFavView(listEl, favSections(), {
@@ -659,17 +662,6 @@
   }
   window.showSnack = showSnack;
 
-  // 조직도 고정 툴바(.org-summary) 실제 높이 → 부서 헤더 계단 sticky 기준(--org-bar-h).
-  // 툴바는 화면 폭에 따라 한 줄/두 줄로 줄바꿈되어 높이가 가변이라 렌더 후 측정한다.
-  function syncOrgBarHeight() {
-    var bar = listEl.querySelector(".org-summary");
-    listEl.style.setProperty("--org-bar-h", (bar ? bar.offsetHeight : 0) + "px");
-  }
-  function orgBarHeight() {
-    var bar = listEl.querySelector(".org-summary");
-    return bar ? bar.offsetHeight : 0;
-  }
-
   // ---------- 상세 ----------
   // 조직도 탭으로 이동 + 해당 부서 경로를 펼치고 스크롤 + 도착 강조. (상세/리스트 공용)
   function showDeptInOrg(deptId) {
@@ -678,13 +670,13 @@
     current.orgCollapsed[deptId] = false; // 대상 부서 자체도 펼침
     Storage.setOrgCollapsed(current.orgCollapsed);
     render();
-    // 고정 툴바 + 계단식 sticky 헤더 높이만큼 아래로 띄워 부서 헤더를 상단 정렬.
-    // content-visibility 를 제거해 offsetTop 이 정확하므로 한 번에 정확히 안착한다(누적 드리프트 없음).
+    // 계단식 sticky 헤더 높이만큼만 아래로 띄워 부서 헤더를 상단 정렬(툴바는 스크롤 밖 고정 바라
+    // 스크롤 위치 계산과 무관). content-visibility 제거로 offsetTop 정확 → 한 번에 안착(드리프트 없음).
     var depth = (Data.depthOf ? Math.min(Data.depthOf(deptId), 2) : 0);
     setTimeout(function () {
       var elH = document.getElementById("org-" + deptId);
       if (!elH) return;
-      scrollToEl(elH, "smooth", orgBarHeight() + depth * ORG_HDR_H);
+      scrollToEl(elH, "smooth", depth * ORG_HDR_H);
       // 도착한 부서를 잠깐 강조해 "여기로 왔다"를 시각적으로 알림
       elH.classList.remove("is-flash"); // 연속 점프 시 애니메이션 재시작
       void elH.offsetWidth;             // reflow 강제 → 애니메이션 재트리거

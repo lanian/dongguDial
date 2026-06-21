@@ -106,6 +106,9 @@
             aria-selected="false" aria-controls="list" tabindex="-1">조직도</button>
   </nav>
 
+  <!-- 조직도 전용 고정 툴바: 탭 아래에 고정되어 스크롤해도 항상 보임(조직도 탭에서만 표시) -->
+  <div id="org-bar" class="org-bar" hidden></div>
+
   <!-- 스크롤 영역: 앱바·탭은 고정, 이 안만 스크롤(설정 오버레이와 동일한 패턴) -->
   <div id="scroll-region" class="scroll-region">
     <main id="list" class="list" role="tabpanel" tabindex="0" aria-labelledby="tab-all"></main>

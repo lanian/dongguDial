@@ -831,14 +831,15 @@ html[data-theme="dark"] .info-card { box-shadow: none; border: 1px solid var(--d
   padding: var(--sp-2) var(--sp-4);
   color: var(--on-surface-muted);
   font-size: var(--fs-sm);
-  /* 조직도 툴바(모두 펼치기/사원 순서/부서 관리)를 상단에 고정 → 스크롤해도 항상 접근 가능.
-     부서 헤더 계단(.org-dept/.org-team-header)은 JS 가 측정한 --org-bar-h 만큼 아래로 밀려 쌓인다. */
-  position: sticky;
-  top: 0;
-  z-index: 13; /* 부서 헤더(11~12)보다 위 */
-  background: var(--bg);
+}
+/* 조직도 전용 고정 툴바: 탭 아래 한 줄로 고정(스크롤 영역 밖) → 스크롤해도 항상 접근 가능. */
+.org-bar {
+  flex: 0 0 auto;
+  z-index: var(--z-tabs);
+  background: var(--surface);
   border-bottom: 1px solid var(--divider);
 }
+.org-bar[hidden] { display: none; }
 .org-node { margin-bottom: var(--sp-3); }
 
 /* 최상위(국/실/관) 헤더: 브랜드 틴트 캡 — 위계상 가장 또렷하게.
@@ -855,7 +856,6 @@ html[data-theme="dark"] .info-card { box-shadow: none; border: 1px solid var(--d
   /* 떠 있는 입체감: 최상위가 그림자를 가장 강하게 드리워 목록 위에 뜬 느낌 */
   box-shadow: 0 4px 12px -6px rgba(0, 0, 0, 0.24);
   z-index: 12; /* 경로 계단에서 최상위 헤더가 항상 위 */
-  top: var(--org-bar-h, 0px); /* 고정 툴바 아래에 붙도록 */
 }
 /* 긴 부서명은 헤더가 좁아지면 말줄임표로(헤더 overflow:hidden 으로 그냥 잘리던 문제 보완) */
 .org-dept-name { min-width: 0; overflow: hidden; text-overflow: ellipsis; white-space: nowrap; }
@@ -907,7 +907,7 @@ html[data-theme="dark"] .info-card { box-shadow: none; border: 1px solid var(--d
   /* 과/팀 헤더도 깊이만큼 아래로 쌓이게 고정 → '국 ▸ 과 ▸ 팀' 경로가 항상 보임.
      얕을수록 위(z-index)라 빠져나가는 하위 헤더를 상위가 덮는다. */
   position: sticky;
-  top: calc(var(--org-bar-h, 0px) + var(--org-hdr-h) * var(--depth, 1));
+  top: calc(var(--org-hdr-h) * var(--depth, 1));
   z-index: calc(11 - var(--depth, 1));
   /* 헤더 띠: 연락처 행(흰 surface)과 또렷이 구분되도록 실제 회색 토큰(divider)으로 당긴다.
      (bg 는 흰색과 거의 같아 구분이 약했음.) divider 는 라이트·다크 모두 가시적 회색.

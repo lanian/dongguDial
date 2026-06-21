@@ -4,7 +4,7 @@
 (function () {
   "use strict";
 
-  var APP_VERSION = "119"; // SW 캐시(donggu-dial-vNN)와 함께 갱신
+  var APP_VERSION = "120"; // SW 캐시(donggu-dial-vNN)와 함께 갱신
   // 조직도 헤더 높이: CSS 토큰(--org-hdr-h)을 단일 소스로 읽어 JS 상수 이중정의(동기화 누락)를 제거
   var ORG_HDR_H = (function () {
     var v = parseInt(getComputedStyle(document.documentElement).getPropertyValue("--org-hdr-h"), 10);
@@ -1326,7 +1326,7 @@
     syncInert();
     updateFab();
     popFocus();
-    if (!fromPop && location.hash) backFromOverlay();
+    if (!fromPop && location.hash.indexOf("#contact/") === 0) backFromOverlay(); // 상세 해시일 때만 되감기(selfPops 어긋남 방지)
     if (current.tab === "recent" || current.tab === "favorites") render();
   }
 
@@ -1744,23 +1744,23 @@
       catch (e) { showSnack("가져오기 실패: " + e.message); return; }
       function continueImport(data) {
         function proceed() {
+          var result;
           try {
-            var result = Storage.importData(data, backupImportMode);
+            result = Storage.importData(data, backupImportMode);
             Data.rebuild();
             applyTheme(Storage.getTheme());
             setThemeUI(Storage.getTheme());
             refreshCounts();
             render();
-            if (window.Photos) {
-              if (backupImportMode === "replace") Photos.importMap(data.photos || {}, true).then(render);
-              else if (data.photos) Photos.importMap(data.photos, false).then(render);
-            }
-            showSnack((backupImportMode === "replace" ? "대체 복구 완료: " : "복구 완료: ") +
-              "즐겨찾기 " + result.favorites + ", 최근 " + result.recent +
-              ", 편집 " + result.edits + ", 추가 " + result.custom);
-          } catch (e) {
-            showSnack("가져오기 실패: " + e.message);
-          }
+          } catch (e) { showSnack("가져오기 실패: " + e.message); return; }
+          var base = (backupImportMode === "replace" ? "대체 복구 완료: " : "복구 완료: ") +
+            "즐겨찾기 " + result.favorites + ", 최근 " + result.recent +
+            ", 편집 " + result.edits + ", 추가 " + result.custom;
+          // 사진 복원은 비동기 → 완료(또는 실패)된 뒤에 재렌더·스낵바를 띄운다.
+          if (!(window.Photos && (backupImportMode === "replace" || data.photos))) { showSnack(base); return; }
+          Photos.importMap(data.photos || {}, backupImportMode === "replace")
+            .then(function () { render(); showSnack(base); })
+            .catch(function () { render(); showSnack(base + " (사진 일부 복원 실패)"); });
         }
         if (backupImportMode === "replace") {
           appDialog({ title: "초기화 후 복구", message: "기존 즐겨찾기·편집·추가·부서·사진을 모두 비우고 이 백업으로 대체합니다. 계속할까요?", okLabel: "대체", danger: true })
@@ -2349,9 +2349,9 @@
   });
 
   function openFromHash() {
-    var m = location.hash.match(/^#contact\/(\d+)$/);
+    var m = location.hash.match(/^#contact\/(.+)$/); // 숫자 id + 커스텀(u…) 문자 id 모두 수용
     if (m) {
-      var c = Data.getById(parseInt(m[1], 10));
+      var c = Data.getById(decodeURIComponent(m[1]));
       if (c) openDetail(c);
     } else if (location.hash === "#settings") {
       openSettings();

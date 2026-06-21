@@ -841,13 +841,14 @@ html[data-theme="dark"] .info-card { box-shadow: none; border: 1px solid var(--d
   border: none;
   background: transparent;
   color: #fff;
-  min-width: 40px;
-  min-height: 40px;
-  padding: 0 8px;
-  border-radius: var(--r-md);
+  width: var(--touch-min);   /* 설정 버튼과 동일 44px */
+  height: var(--touch-min);
+  padding: 0;
+  font-size: 22px;           /* 설정 버튼과 동일 → .ic 1.25em = 28px */
+  border-radius: 50%;
 }
 .org-actions .org-tbtn-label { display: none; }   /* 앱바에서는 아이콘만 */
-.org-actions .org-tbtn .ic { width: 1.3em; height: 1.3em; }
+.org-actions .org-tbtn .ic { width: 1.25em; height: 1.25em; } /* 설정 아이콘과 동일 크기 */
 .org-actions .org-tbtn:active { background: rgba(255, 255, 255, 0.18); }
 .org-actions .org-tbtn--done.is-active { background: #fff; color: var(--brand); }
 /* 스크롤 콘텐츠로 내린 요약 텍스트 줄 */

@@ -4,7 +4,7 @@
 (function () {
   "use strict";
 
-  var APP_VERSION = "137"; // SW 캐시(donggu-dial-vNN)와 함께 갱신
+  var APP_VERSION = "138"; // SW 캐시(donggu-dial-vNN)와 함께 갱신
   // 조직도 헤더 높이: CSS 토큰(--org-hdr-h)을 단일 소스로 읽어 JS 상수 이중정의(동기화 누락)를 제거
   var ORG_HDR_H = (function () {
     var v = parseInt(getComputedStyle(document.documentElement).getPropertyValue("--org-hdr-h"), 10);
@@ -35,6 +35,7 @@
   var deptEditorBody = document.getElementById("dept-editor-body");
   var deptEditId = null;
   var fab = document.getElementById("fab-add");
+  var toTop = document.getElementById("to-top");
   var sortSeg = document.getElementById("sort-seg");
   var alphaRail = document.getElementById("alpha-rail");
   var snackbar = document.getElementById("snackbar");
@@ -115,7 +116,18 @@
     // FAB(사원 추가)는 '전체' 탭에서만. 조직도는 보기/구조 전용이라 노출하지 않음
     var show = !anyOverlayOpen() && !current.query && current.tab === "all" && !current.selectMode;
     fab.hidden = !show;
+    updateToTop();
   }
+  // 맨 위로 버튼: 스크롤을 충분히 내렸고 오버레이가 없을 때만 표시. FAB 있으면 그 위에 배치.
+  function updateToTop() {
+    if (!toTop) return;
+    toTop.hidden = !(scrollRegion.scrollTop > 320 && !anyOverlayOpen());
+    toTop.classList.toggle("above-fab", !!(fab && !fab.hidden));
+  }
+  if (toTop) toTop.addEventListener("click", function () {
+    scrollRegion.scrollTo({ top: 0, behavior: "smooth" });
+  });
+  scrollRegion.addEventListener("scroll", updateToTop, { passive: true });
 
   // ---------- 배경 비활성화(오버레이용) ----------
   function setBgInert(on) {
@@ -1953,6 +1965,13 @@
     if (!fromPop && location.hash === "#depts") backFromOverlay();
   }
   document.getElementById("deptmgr-btn").addEventListener("click", openDeptMgr);
+  var reorderMembersBtn = document.getElementById("reorder-members-btn");
+  if (reorderMembersBtn) reorderMembersBtn.addEventListener("click", function () {
+    closeSettings(false);       // 설정 닫고
+    switchTab(tabs[3]);         // 조직도로(여기서 orgReorder=false 로 초기화됨)
+    current.orgReorder = true;  // 사원 순서 편집 모드 켜기
+    render();
+  });
   document.getElementById("deptmgr-back").addEventListener("click", function () { closeDeptMgr(false); });
   document.getElementById("deptmgr-add").addEventListener("click", function () { openDeptEditor(null); });
 

@@ -239,6 +239,11 @@
     <svg class="ic" aria-hidden="true"><use href="#ic-plus"/></svg>
   </button>
 
+  <!-- 맨 위로 이동(스크롤 내렸을 때만 표시) -->
+  <button id="to-top" class="to-top" aria-label="맨 위로" hidden>
+    <svg class="ic to-top-ic" aria-hidden="true"><use href="#ic-chevron"/></svg>
+  </button>
+
   <!-- 설정 / 백업·복구 (오버레이) -->
   <section id="settings" class="detail" role="dialog" aria-modal="true"
            aria-labelledby="settings-bar-title" hidden>
@@ -400,6 +405,13 @@
           <div class="info-text">
             <div class="info-value">부서 관리</div>
             <div class="info-label">부서·직제(국/과/팀) 추가·수정·순서 변경</div>
+          </div>
+        </button>
+        <button class="settings-action" id="reorder-members-btn">
+          <span class="info-ico"><svg class="ic" aria-hidden="true"><use href="#ic-grip"/></svg></span>
+          <div class="info-text">
+            <div class="info-value">사원 순서 편집</div>
+            <div class="info-label">조직도에서 같은 부서 안 사원 순서 변경</div>
           </div>
         </button>
       </div>

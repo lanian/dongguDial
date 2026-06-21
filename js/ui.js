@@ -714,8 +714,7 @@
           tbtn(opts.allCollapsed ? "expand-all" : "collapse-all",
             opts.allCollapsed ? "모두 펼치기" : "모두 접기", null, opts.onToggleAll);
         }
-        if (opts.onToggleReorder) tbtn("grip", "사원 순서", null, opts.onToggleReorder);
-        if (opts.onManage) tbtn("building", "부서 관리", null, opts.onManage);
+        // 사원 순서·부서 관리는 설정 화면에서만 제공(앱바 간소화)
       }
       if (opts.toolbarHost) {
         // 고정 바: 버튼만 한 줄로(컴팩트). 요약 텍스트는 스크롤 콘텐츠 상단에 작게 표시.

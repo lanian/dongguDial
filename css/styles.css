@@ -844,6 +844,7 @@ html[data-theme="dark"] .info-card { box-shadow: none; border: 1px solid var(--d
   width: var(--touch-min);   /* 설정 버튼과 동일 44px */
   height: var(--touch-min);
   padding: 0;
+  margin: -4px 0;            /* 설정/선택 아이콘(.icon-btn--bar)과 동일한 세로 음수 마진 → 앱바 높이 일치 */
   font-size: 22px;           /* 설정 버튼과 동일 → .ic 1.25em = 28px */
   border-radius: 50%;
 }
@@ -1160,6 +1161,26 @@ select.ef-input { appearance: none; }
 .deptmgr-del:active { background: rgba(217, 48, 37, 0.14); }
 
 /* ---------- FAB ---------- */
+/* 맨 위로 버튼: 스크롤 내렸을 때만 표시. FAB 와 겹치지 않도록 기본은 FAB 위쪽에 위치. */
+.to-top {
+  position: fixed;
+  right: var(--sp-4);
+  bottom: calc(var(--sp-4) + var(--safe-bottom));
+  z-index: var(--z-tabs);
+  width: 44px; height: 44px;
+  border: none;
+  border-radius: 50%;
+  background: var(--surface);
+  color: var(--on-surface);
+  display: grid;
+  place-items: center;
+  box-shadow: var(--elev-2);
+  cursor: pointer;
+}
+.to-top[hidden] { display: none; }
+.to-top .to-top-ic { transform: rotate(-90deg); } /* › → ↑ */
+.to-top.above-fab { bottom: calc(var(--sp-4) + var(--safe-bottom) + 56px + var(--sp-2)); } /* FAB 위로 */
+
 .fab {
   position: fixed;
   right: var(--sp-4);

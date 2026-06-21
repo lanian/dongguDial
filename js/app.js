@@ -4,7 +4,7 @@
 (function () {
   "use strict";
 
-  var APP_VERSION = "138"; // SW 캐시(donggu-dial-vNN)와 함께 갱신
+  var APP_VERSION = "139"; // SW 캐시(donggu-dial-vNN)와 함께 갱신
   // 조직도 헤더 높이: CSS 토큰(--org-hdr-h)을 단일 소스로 읽어 JS 상수 이중정의(동기화 누락)를 제거
   var ORG_HDR_H = (function () {
     var v = parseInt(getComputedStyle(document.documentElement).getPropertyValue("--org-hdr-h"), 10);
@@ -679,8 +679,11 @@
   // 조직도 탭으로 이동 + 해당 부서 경로를 펼치고 스크롤 + 도착 강조. (상세/리스트 공용)
   function showDeptInOrg(deptId) {
     switchTab(tabs[3]); // 조직도
-    Data.deptPath(deptId).forEach(function (p) { current.orgCollapsed[p.id] = false; });
+    Data.deptPath(deptId).forEach(function (p) { current.orgCollapsed[p.id] = false; }); // 상위 경로 펼침
     current.orgCollapsed[deptId] = false; // 대상 부서 자체도 펼침
+    // 대상 부서의 하위(과/팀)도 모두 펼쳐 부서 전체 구성을 바로 보여준다.
+    var desc = deptDescendants(deptId);
+    Object.keys(desc).forEach(function (cid) { current.orgCollapsed[cid] = false; });
     Storage.setOrgCollapsed(current.orgCollapsed);
     render();
     // 계단식 sticky 헤더 높이만큼만 아래로 띄워 부서 헤더를 상단 정렬(툴바는 스크롤 밖 고정 바라

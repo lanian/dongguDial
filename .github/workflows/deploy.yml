@@ -18,7 +18,23 @@ concurrency:
   cancel-in-progress: false
 
 jobs:
+  # 배포 전 게이트: 구문 검사 + 단위 테스트(무의존성, Node 내장 러너)
+  test:
+    runs-on: ubuntu-latest
+    steps:
+      - name: Checkout
+        uses: actions/checkout@v4
+      - name: Setup Node
+        uses: actions/setup-node@v4
+        with:
+          node-version: "22"
+      - name: Syntax check
+        run: npm run check
+      - name: Unit tests
+        run: npm test
+
   deploy:
+    needs: test # 테스트 통과해야 배포
     environment:
       name: github-pages
       url: ${{ steps.deployment.outputs.page_url }}

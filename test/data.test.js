@@ -1,0 +1,64 @@
+"use strict";
+const { test } = require("node:test");
+const assert = require("node:assert");
+const { loadApp } = require("./helper");
+
+// 조직 순서 ≠ 가나다 순서가 되도록 구성(자치행정과 sort2 < 안전총괄과 sort4)
+const BASE = {
+  departments: [
+    { id: 1, name: "행정복지국", sortOrder: 1 },
+    { id: 2, name: "자치행정과", parentId: 1, sortOrder: 2 },
+    { id: 3, name: "총무팀", parentId: 2, sortOrder: 3 },
+    { id: 4, name: "안전총괄과", parentId: 1, sortOrder: 4 },
+  ],
+  contacts: [
+    { id: 101, name: "홍길동", deptId: 3, position: "팀장", phone: "010-1111-2222", tel: "062-100-0000" },
+    { id: 102, name: "김영희", deptId: 2, position: "과장", phone: "010-3333-4444" },
+    { id: 103, name: "이순신", deptId: 4, position: "과장", tel: "062-200-0000" },
+    { id: 104, name: "박개똥", deptId: 999, tel: "062-100-0000" }, // 고아 부서 + 101과 동일 행정번호
+  ],
+};
+
+async function loaded() { const a = loadApp(BASE); await a.win.Data.load(); return a.win; }
+
+test("검색: 이름/부서 연산자/제외", async () => {
+  const D = (await loaded()).Data;
+  assert.equal(D.search("홍길동").length, 1);
+  assert.ok(D.search("부서:총무").some((c) => c.name === "홍길동"));
+  assert.equal(D.search("과장 -이순신").filter((c) => c.name === "이순신").length, 0);
+  assert.ok(D.search("과장").length >= 2);
+});
+
+test("조직 경로/깊이", async () => {
+  const D = (await loaded()).Data;
+  assert.deepEqual(D.deptPath(3).map((p) => p.name), ["행정복지국", "자치행정과", "총무팀"]);
+  assert.equal(D.depthOf(3), 2);
+});
+
+test("부서 변경이 rebuild 후 반영(회귀 방지)", async () => {
+  const win = await loaded();
+  const D = win.Data, S = win.Storage;
+  assert.ok(D.membersOfDept(3).some((c) => c.id === 101));
+  S.saveContact(101, { deptId: 4 });
+  D.rebuild();
+  assert.ok(!D.membersOfDept(3).some((c) => c.id === 101), "총무팀에서 빠져야");
+  assert.ok(D.membersOfDept(4).some((c) => c.id === 101), "안전총괄과로 이동");
+  assert.equal(D.getById(101).dept, "안전총괄과");
+});
+
+test("데이터 점검: 중복 전화/고아 부서", async () => {
+  const D = (await loaded()).Data;
+  const r = D.validateContacts();
+  assert.ok(r.dupPhones.some((d) => d.people.length >= 2), "062-100-0000 중복");
+  assert.ok(r.orphans.some((c) => c.name === "박개똥"), "고아 부서 인원");
+});
+
+test("조직도 평탄화 = 직제순(가나다와 다름)", async () => {
+  const D = (await loaded()).Data;
+  const order = [];
+  (function flat(nodes) {
+    nodes.forEach((n) => { (n.members || []).forEach((m) => order.push(m.name)); if (n.children) flat(n.children); });
+  })(D.groupedByOrg());
+  // 직제순이면 자치행정과(김영희)가 안전총괄과(이순신)보다 먼저
+  assert.ok(order.indexOf("김영희") < order.indexOf("이순신"));
+});

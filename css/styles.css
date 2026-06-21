@@ -854,6 +854,21 @@ html[data-theme="dark"] .info-card { box-shadow: none; border: 1px solid var(--d
 .org-actions .org-tbtn--done.is-active { background: #fff; color: var(--brand); }
 /* 스크롤 콘텐츠로 내린 요약 텍스트 줄 */
 .org-summary--scroll { padding-top: var(--sp-2); padding-bottom: var(--sp-1); }
+/* 조직도 요약 통계 칩 (부서 수 · 인원 수) */
+.org-stats { display: flex; align-items: center; gap: var(--sp-2); flex-wrap: wrap; }
+.org-stat {
+  display: inline-flex;
+  align-items: center;
+  gap: 5px;
+  padding: 4px 11px;
+  background: var(--surface);
+  border: 1px solid var(--divider);
+  border-radius: var(--r-pill);
+  font-size: var(--fs-sm);
+  font-weight: var(--fw-med);
+  color: var(--on-surface);
+}
+.org-stat-ic { width: 1.05em; height: 1.05em; color: var(--brand); }
 .org-node { margin-bottom: var(--sp-3); }
 
 /* 최상위(국/실/관) 헤더: 브랜드 틴트 캡 — 위계상 가장 또렷하게.

@@ -692,7 +692,20 @@
         return;
       }
       var totalPeople = tree.reduce(function (a, n) { return a + n.count; }, 0);
-      var infoText = "총 " + tree.length + "개 부서 · " + totalPeople + "명";
+      // 요약 통계 칩(부서 수=전체 부서, 인원 수). 최상위만 세던 기존 '총 N개 부서'는 오해 소지가 있어 전체로.
+      function buildStats() {
+        var deptCount = (window.Data && Data.getDepartments) ? Data.getDepartments().length : tree.length;
+        var stats = el("div", "org-stats");
+        function chip(ico, text) {
+          var c = el("span", "org-stat");
+          c.appendChild(icon(ico, "org-stat-ic"));
+          c.appendChild(el("span", "org-stat-text", text));
+          return c;
+        }
+        stats.appendChild(chip("org", deptCount.toLocaleString() + "개 부서"));
+        stats.appendChild(chip("users", totalPeople.toLocaleString() + "명"));
+        return stats;
+      }
       var bar = el("div", "org-toolbar");
       // 아이콘+라벨 툴바 버튼 헬퍼
       function tbtn(ico, label, cls, fn) {
@@ -717,14 +730,14 @@
         // 사원 순서·부서 관리는 설정 화면에서만 제공(앱바 간소화)
       }
       if (opts.toolbarHost) {
-        // 고정 바: 버튼만 한 줄로(컴팩트). 요약 텍스트는 스크롤 콘텐츠 상단에 작게 표시.
+        // 고정 바: 버튼만(컴팩트). 요약 통계 칩은 스크롤 콘텐츠 상단에.
         toolHost.appendChild(bar);
         var info = el("div", "org-summary org-summary--scroll");
-        info.appendChild(el("span", "org-summary-info", infoText));
+        info.appendChild(buildStats());
         container.appendChild(info);
       } else {
         var summary = el("div", "org-summary");
-        summary.appendChild(el("span", "org-summary-info", infoText));
+        summary.appendChild(buildStats());
         summary.appendChild(bar);
         container.appendChild(summary);
       }

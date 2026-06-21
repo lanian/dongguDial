@@ -448,12 +448,6 @@ mark {
   padding: 10px var(--sp-4);
   background: var(--surface);
   cursor: pointer;
-  /* 성능: 화면 밖 행의 레이아웃·페인트를 건너뛴다(가상 스크롤 대안 — DOM·기능 유지).
-     섹션 헤더는 대상이 아니라 가나다/부서 점프(scrollToEl offset)·sticky 가 그대로 정확.
-     contain-intrinsic-size 의 auto 가 첫 렌더 후 실제 높이를 기억해 스크롤바도 안정적.
-     미지원 브라우저는 무시(점진적 향상). */
-  content-visibility: auto;
-  contain-intrinsic-size: auto 64px;
 }
 .row:not(:last-child) {
   border-bottom: 1px solid var(--divider);

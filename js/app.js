@@ -4,7 +4,7 @@
 (function () {
   "use strict";
 
-  var APP_VERSION = "131"; // SW 캐시(donggu-dial-vNN)와 함께 갱신
+  var APP_VERSION = "132"; // SW 캐시(donggu-dial-vNN)와 함께 갱신
   // 조직도 헤더 높이: CSS 토큰(--org-hdr-h)을 단일 소스로 읽어 JS 상수 이중정의(동기화 누락)를 제거
   var ORG_HDR_H = (function () {
     var v = parseInt(getComputedStyle(document.documentElement).getPropertyValue("--org-hdr-h"), 10);
@@ -678,28 +678,19 @@
     current.orgCollapsed[deptId] = false; // 대상 부서 자체도 펼침
     Storage.setOrgCollapsed(current.orgCollapsed);
     render();
-    // 부서 헤더를 화면 상단으로 정렬한다. 네이티브 scrollIntoView + scroll-margin-top 으로
-    // 계단식 sticky 헤더 높이만큼 띄워 가리지 않게 한다(content-visibility 추정 높이에도 견고).
-    // 스크롤 중 행이 렌더되며 위치가 밀릴 수 있어 안정될 때까지 몇 번 재정렬한다.
-    // (목록 끝부분 부서는 아래 콘텐츠가 부족해 최상단까지는 못 갈 수 있고, 가능한 한 위로 정렬)
+    // 고정 툴바 + 계단식 sticky 헤더 높이만큼 아래로 띄워 부서 헤더를 상단 정렬.
+    // content-visibility 를 제거해 offsetTop 이 정확하므로 한 번에 정확히 안착한다(누적 드리프트 없음).
     var depth = (Data.depthOf ? Math.min(Data.depthOf(deptId), 2) : 0);
-    var wantOffset = orgBarHeight() + depth * ORG_HDR_H; // 고정 툴바 + 계단식 헤더 높이만큼 아래로
-    function settle(tries) {
+    setTimeout(function () {
       var elH = document.getElementById("org-" + deptId);
       if (!elH) return;
-      elH.style.scrollMarginTop = wantOffset + "px";
-      elH.scrollIntoView({ block: "start" });
-      requestAnimationFrame(function () {
-        var cur = elH.getBoundingClientRect().top - scrollRegion.getBoundingClientRect().top;
-        if (tries > 0 && Math.abs(cur - wantOffset) > 2) { settle(tries - 1); return; }
-        // 도착한 부서를 잠깐 강조해 "여기로 왔다"를 시각적으로 알림
-        elH.classList.remove("is-flash"); // 연속 점프 시 애니메이션 재시작
-        void elH.offsetWidth;             // reflow 강제 → 애니메이션 재트리거
-        elH.classList.add("is-flash");
-        setTimeout(function () { elH.classList.remove("is-flash"); }, 1300);
-      });
-    }
-    setTimeout(function () { settle(12); }, 60);
+      scrollToEl(elH, "smooth", orgBarHeight() + depth * ORG_HDR_H);
+      // 도착한 부서를 잠깐 강조해 "여기로 왔다"를 시각적으로 알림
+      elH.classList.remove("is-flash"); // 연속 점프 시 애니메이션 재시작
+      void elH.offsetWidth;             // reflow 강제 → 애니메이션 재트리거
+      elH.classList.add("is-flash");
+      setTimeout(function () { elH.classList.remove("is-flash"); }, 1300);
+    }, 60);
   }
   function goToOrg(deptId) { closeDetail(false); showDeptInOrg(deptId); }
 

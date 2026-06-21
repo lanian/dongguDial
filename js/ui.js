@@ -214,7 +214,12 @@
     if (c.tel) parts.push("행정번호 " + formatPhone(c.tel));
     var text = parts.join("\n");
     if (navigator.share) {
-      navigator.share({ title: c.name, text: text }).catch(function () {});
+      navigator.share({ title: c.name, text: text }).catch(function (err) {
+        // 사용자가 공유 시트를 취소한 경우(AbortError)는 무시. 그 외 실패(데스크톱 등
+        // 공유 미동작)는 클립보드 복사로 폴백해 항상 피드백을 보장한다.
+        if (err && err.name === "AbortError") return;
+        copyText(text);
+      });
     } else {
       copyText(text);
     }

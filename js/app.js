@@ -4,7 +4,7 @@
 (function () {
   "use strict";
 
-  var APP_VERSION = "125"; // SW 캐시(donggu-dial-vNN)와 함께 갱신
+  var APP_VERSION = "126"; // SW 캐시(donggu-dial-vNN)와 함께 갱신
   // 조직도 헤더 높이: CSS 토큰(--org-hdr-h)을 단일 소스로 읽어 JS 상수 이중정의(동기화 누락)를 제거
   var ORG_HDR_H = (function () {
     var v = parseInt(getComputedStyle(document.documentElement).getPropertyValue("--org-hdr-h"), 10);
@@ -1536,20 +1536,26 @@
     var list = selectedContacts();
     if (!list.length) return;
     var fname = "행정전화부-연락처-" + dateStamp() + ".vcf";
+    // 공유 미지원/실패 시 .vcf 파일 저장으로 폴백(피드백 보장)
+    function fallbackSave() {
+      UI.downloadVCards(list, fname);
+      showSnack(list.length + "명을 vCard 파일로 저장했습니다");
+      exitSelectMode();
+    }
+    // 공유 실패 핸들러: 사용자가 취소(AbortError)한 경우만 무시, 그 외엔 저장 폴백
+    function onShareErr(err) { if (err && err.name === "AbortError") return; fallbackSave(); }
     try {
       var file = new File([UI.buildVCards(list)], fname, { type: "text/vcard" });
       if (navigator.canShare && navigator.canShare({ files: [file] })) {
-        navigator.share({ files: [file], title: "연락처 " + list.length + "명" }).then(exitSelectMode).catch(function () {});
+        navigator.share({ files: [file], title: "연락처 " + list.length + "명" }).then(exitSelectMode).catch(onShareErr);
         return;
       }
     } catch (e) {}
     if (navigator.share) {
       navigator.share({ title: "연락처 " + list.length + "명",
-        text: list.map(function (c) { return c.name + " " + (c.phone || c.tel || ""); }).join("\n") }).then(exitSelectMode).catch(function () {});
+        text: list.map(function (c) { return c.name + " " + (c.phone || c.tel || ""); }).join("\n") }).then(exitSelectMode).catch(onShareErr);
     } else {
-      UI.downloadVCards(list, fname); // 공유 미지원 → 저장 폴백
-      showSnack("공유를 지원하지 않아 파일로 저장했습니다");
-      exitSelectMode();
+      fallbackSave(); // 공유 미지원 → 저장 폴백
     }
   });
 

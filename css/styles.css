@@ -1473,6 +1473,12 @@ select.ef-input { appearance: none; }
   }
   /* 스낵바는 left:50%(=컬럼 중앙) 유지, 폭만 컬럼 안으로 제한 */
   .snackbar { max-width: calc(var(--app-w) - 2 * var(--sp-4)); }
+  /* 다중선택 바도 컬럼 폭으로 중앙 정렬(전체화면에서 가로로 늘어나지 않게) */
+  .select-bar {
+    left: 0; right: 0;
+    width: var(--app-w); max-width: 100%;
+    margin-left: auto; margin-right: auto;
+  }
 }
 
 /* ---------- Motion preferences ---------- */

@@ -4,7 +4,7 @@
 (function () {
   "use strict";
 
-  var APP_VERSION = "135"; // SW 캐시(donggu-dial-vNN)와 함께 갱신
+  var APP_VERSION = "136"; // SW 캐시(donggu-dial-vNN)와 함께 갱신
   // 조직도 헤더 높이: CSS 토큰(--org-hdr-h)을 단일 소스로 읽어 JS 상수 이중정의(동기화 누락)를 제거
   var ORG_HDR_H = (function () {
     var v = parseInt(getComputedStyle(document.documentElement).getPropertyValue("--org-hdr-h"), 10);
@@ -422,6 +422,7 @@
     var q = current.query.trim();
     listEl.classList.remove("list--cols"); // 데스크톱 다열은 '전체' 탭(비검색)에서만
     if (orgActions) orgActions.hidden = true; // 조직도 액션은 조직도 탭에서만 노출
+    if (selectModeBtn) selectModeBtn.hidden = current.tab !== "all"; // 여러 명 선택은 전체 탭에서만
     if (q) {
       showTools(false); showAlphaRail(false);
       var results = Data.search(q);
@@ -1375,6 +1376,7 @@
 
   // ---------- 탭 ----------
   function switchTab(tab) {
+    if (current.selectMode) exitSelectMode(); // 선택은 탭별 — 탭 전환 시 종료(여러 명 선택은 전체 전용)
     tabs.forEach(function (t) {
       var sel = t === tab;
       t.classList.toggle("is-active", sel);

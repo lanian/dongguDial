@@ -76,6 +76,8 @@
         <button class="seg-btn is-active" data-sort="dept" aria-pressed="true">부서순</button>
         <button class="seg-btn" data-sort="name" aria-pressed="false">가나다순</button>
       </div>
+      <!-- 조직도 탭 전용 액션(아이콘): 모두 펼치기/접기·사원 순서·부서 관리. 조직도 탭에서만 표시 -->
+      <div id="org-actions" class="org-actions" hidden></div>
       <button id="select-mode-btn" class="icon-btn icon-btn--bar" aria-label="여러 명 선택">
         <svg class="ic" aria-hidden="true"><use href="#ic-check"/></svg>
       </button>
@@ -105,9 +107,6 @@
     <button class="tab" data-tab="org" role="tab" id="tab-org"
             aria-selected="false" aria-controls="list" tabindex="-1">조직도</button>
   </nav>
-
-  <!-- 조직도 전용 고정 툴바: 탭 아래에 고정되어 스크롤해도 항상 보임(조직도 탭에서만 표시) -->
-  <div id="org-bar" class="org-bar" hidden></div>
 
   <!-- 스크롤 영역: 앱바·탭은 고정, 이 안만 스크롤(설정 오버레이와 동일한 패턴) -->
   <div id="scroll-region" class="scroll-region">

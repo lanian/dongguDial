@@ -4,14 +4,14 @@
 (function () {
   "use strict";
 
-  var APP_VERSION = "134"; // SW 캐시(donggu-dial-vNN)와 함께 갱신
+  var APP_VERSION = "135"; // SW 캐시(donggu-dial-vNN)와 함께 갱신
   // 조직도 헤더 높이: CSS 토큰(--org-hdr-h)을 단일 소스로 읽어 JS 상수 이중정의(동기화 누락)를 제거
   var ORG_HDR_H = (function () {
     var v = parseInt(getComputedStyle(document.documentElement).getPropertyValue("--org-hdr-h"), 10);
     return v > 0 ? v : 44; // 폴백
   })();
   var listEl = document.getElementById("list");
-  var orgBar = document.getElementById("org-bar"); // 조직도 전용 고정 툴바(탭 아래)
+  var orgActions = document.getElementById("org-actions"); // 조직도 액션(앱바, 설정 옆)
   var scrollRegion = document.getElementById("scroll-region");
   // 스크롤은 #scroll-region 컨테이너가 직접 관리하므로 브라우저의 자동 스크롤 복원을 끈다.
   // (뒤로가기로 상세를 닫을 때 브라우저가 옛 위치로 되돌려 점프를 덮어쓰는 것을 방지)
@@ -421,7 +421,7 @@
   function renderBody() {
     var q = current.query.trim();
     listEl.classList.remove("list--cols"); // 데스크톱 다열은 '전체' 탭(비검색)에서만
-    if (orgBar) orgBar.hidden = true; // 조직도 고정 툴바는 조직도 탭에서만 노출
+    if (orgActions) orgActions.hidden = true; // 조직도 액션은 조직도 탭에서만 노출
     if (q) {
       showTools(false); showAlphaRail(false);
       var results = Data.search(q);
@@ -522,9 +522,9 @@
         onToggleReorder: function () { current.orgReorder = !current.orgReorder; render(); },
         onMove: moveMember,
         onMoveDept: moveMemberToDept,
-        toolbarHost: orgBar, // 툴바를 스크롤 밖 고정 바에 렌더
+        toolbarHost: orgActions, // 버튼을 앱바(설정 옆)에 렌더
       });
-      if (orgBar) orgBar.hidden = !orgBar.firstChild; // 내용 있을 때만 표시(빈 조직도면 숨김)
+      if (orgActions) orgActions.hidden = !orgActions.firstChild; // 내용 있을 때만 표시(빈 조직도면 숨김)
     } else if (current.tab === "favorites") {
       showTools(false); showAlphaRail(false);
       UI.renderFavView(listEl, favSections(), {

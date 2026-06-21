@@ -698,6 +698,8 @@
       function tbtn(ico, label, cls, fn) {
         var b = el("button", "org-tbtn" + (cls ? " " + cls : ""));
         b.type = "button";
+        b.setAttribute("aria-label", label); // 앱바에서 아이콘만 표시될 때도 접근성 유지
+        b.title = label;                      // 데스크톱 툴팁
         b.appendChild(icon(ico));
         b.appendChild(el("span", "org-tbtn-label", label));
         b.addEventListener("click", fn);

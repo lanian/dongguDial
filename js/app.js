@@ -4,7 +4,7 @@
 (function () {
   "use strict";
 
-  var APP_VERSION = "130"; // SW 캐시(donggu-dial-vNN)와 함께 갱신
+  var APP_VERSION = "131"; // SW 캐시(donggu-dial-vNN)와 함께 갱신
   // 조직도 헤더 높이: CSS 토큰(--org-hdr-h)을 단일 소스로 읽어 JS 상수 이중정의(동기화 누락)를 제거
   var ORG_HDR_H = (function () {
     var v = parseInt(getComputedStyle(document.documentElement).getPropertyValue("--org-hdr-h"), 10);
@@ -521,6 +521,7 @@
         onMove: moveMember,
         onMoveDept: moveMemberToDept,
       });
+      syncOrgBarHeight(); // 고정 툴바 높이를 측정해 부서 헤더 계단 top 기준(--org-bar-h) 갱신
     } else if (current.tab === "favorites") {
       showTools(false); showAlphaRail(false);
       UI.renderFavView(listEl, favSections(), {
@@ -658,6 +659,17 @@
   }
   window.showSnack = showSnack;
 
+  // 조직도 고정 툴바(.org-summary) 실제 높이 → 부서 헤더 계단 sticky 기준(--org-bar-h).
+  // 툴바는 화면 폭에 따라 한 줄/두 줄로 줄바꿈되어 높이가 가변이라 렌더 후 측정한다.
+  function syncOrgBarHeight() {
+    var bar = listEl.querySelector(".org-summary");
+    listEl.style.setProperty("--org-bar-h", (bar ? bar.offsetHeight : 0) + "px");
+  }
+  function orgBarHeight() {
+    var bar = listEl.querySelector(".org-summary");
+    return bar ? bar.offsetHeight : 0;
+  }
+
   // ---------- 상세 ----------
   // 조직도 탭으로 이동 + 해당 부서 경로를 펼치고 스크롤 + 도착 강조. (상세/리스트 공용)
   function showDeptInOrg(deptId) {
@@ -671,7 +683,7 @@
     // 스크롤 중 행이 렌더되며 위치가 밀릴 수 있어 안정될 때까지 몇 번 재정렬한다.
     // (목록 끝부분 부서는 아래 콘텐츠가 부족해 최상단까지는 못 갈 수 있고, 가능한 한 위로 정렬)
     var depth = (Data.depthOf ? Math.min(Data.depthOf(deptId), 2) : 0);
-    var wantOffset = depth * ORG_HDR_H;
+    var wantOffset = orgBarHeight() + depth * ORG_HDR_H; // 고정 툴바 + 계단식 헤더 높이만큼 아래로
     function settle(tries) {
       var elH = document.getElementById("org-" + deptId);
       if (!elH) return;

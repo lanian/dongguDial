@@ -4,7 +4,7 @@
 (function () {
   "use strict";
 
-  var APP_VERSION = "124"; // SW 캐시(donggu-dial-vNN)와 함께 갱신
+  var APP_VERSION = "125"; // SW 캐시(donggu-dial-vNN)와 함께 갱신
   // 조직도 헤더 높이: CSS 토큰(--org-hdr-h)을 단일 소스로 읽어 JS 상수 이중정의(동기화 누락)를 제거
   var ORG_HDR_H = (function () {
     var v = parseInt(getComputedStyle(document.documentElement).getPropertyValue("--org-hdr-h"), 10);
@@ -416,6 +416,7 @@
 
   function renderBody() {
     var q = current.query.trim();
+    listEl.classList.remove("list--cols"); // 데스크톱 다열은 '전체' 탭(비검색)에서만
     if (q) {
       showTools(false); showAlphaRail(false);
       var results = Data.search(q);
@@ -456,6 +457,7 @@
         return;
       }
       showTools(true);
+      listEl.classList.add("list--cols"); // 넓은 화면에서 명부/가나다 섹션을 다열로
       if (current.sort === "name") {
         var ng = Data.groupedByName();
         UI.renderNameView(listEl, ng, { onOpen: openDetail, onFav: onFavChanged });
@@ -1686,42 +1688,37 @@
     if (!(window.Photos && Photos.all)) return Promise.resolve(data);
     return Promise.resolve(Photos.all()).then(function (photos) { data.photos = photos; return data; });
   }
-  function downloadJson(obj, filename) {
-    var blob = new Blob([JSON.stringify(obj, null, 2)], { type: "application/json" });
+  // 평문 백업을 Blob 으로 스트리밍 조립한다. 사진을 IDB 커서로 한 건씩 흘려보내며 Blob 조각으로
+  // 누적하므로, 전체 사진 맵 + 거대한 단일 JSON 문자열이 JS 힙에 동시 상주하지 않는다(모바일 OOM 완화).
+  function buildBackupBlob() {
+    var data = Storage.exportData(); // 사진 제외 본문
+    if (!(window.Photos && Photos.streamAll)) {
+      return Promise.resolve(new Blob([JSON.stringify(data, null, 2)], { type: "application/json" }));
+    }
+    var head = JSON.stringify(data); // 항상 '}' 로 끝남
+    var parts = [head.slice(0, -1), ',"photos":{'];
+    var first = true;
+    return Photos.streamAll(function (id, val) {
+      parts.push((first ? "" : ",") + JSON.stringify(String(id)) + ":" + JSON.stringify(val));
+      first = false;
+    }).then(function () {
+      parts.push("}}");
+      return new Blob(parts, { type: "application/json" });
+    });
+  }
+  function downloadBlob(blob, filename) {
     var url = URL.createObjectURL(blob);
     var a = document.createElement("a");
     a.href = url; a.download = filename;
     document.body.appendChild(a); a.click(); document.body.removeChild(a);
     setTimeout(function () { URL.revokeObjectURL(url); }, 1000);
   }
-  // ---------- 백업 암호화 (WebCrypto: PBKDF2-SHA256 → AES-256-GCM) ----------
-  var BACKUP_KDF_ITER = 150000;
-  function _b64enc(buf) { var b = new Uint8Array(buf), s = ""; for (var i = 0; i < b.length; i++) s += String.fromCharCode(b[i]); return btoa(s); }
-  function _b64dec(b64) { var s = atob(b64), u = new Uint8Array(s.length); for (var i = 0; i < s.length; i++) u[i] = s.charCodeAt(i); return u; }
-  function _deriveKey(pass, salt, iter) {
-    return crypto.subtle.importKey("raw", new TextEncoder().encode(pass), "PBKDF2", false, ["deriveKey"]).then(function (km) {
-      return crypto.subtle.deriveKey({ name: "PBKDF2", salt: salt, iterations: iter, hash: "SHA-256" },
-        km, { name: "AES-GCM", length: 256 }, false, ["encrypt", "decrypt"]);
-    });
+  function downloadJson(obj, filename) {
+    downloadBlob(new Blob([JSON.stringify(obj, null, 2)], { type: "application/json" }), filename);
   }
-  function encryptBackup(obj, pass) {
-    var salt = crypto.getRandomValues(new Uint8Array(16));
-    var iv = crypto.getRandomValues(new Uint8Array(12));
-    var pt = new TextEncoder().encode(JSON.stringify(obj));
-    return _deriveKey(pass, salt, BACKUP_KDF_ITER).then(function (key) {
-      return crypto.subtle.encrypt({ name: "AES-GCM", iv: iv }, key, pt);
-    }).then(function (ct) {
-      return { app: "dongguDial", type: "backup-enc", v: 1, kdf: "PBKDF2-SHA256",
-        iter: BACKUP_KDF_ITER, salt: _b64enc(salt), iv: _b64enc(iv), ct: _b64enc(ct) };
-    });
-  }
-  function decryptBackup(env, pass) {
-    return _deriveKey(pass, _b64dec(env.salt), env.iter || BACKUP_KDF_ITER).then(function (key) {
-      return crypto.subtle.decrypt({ name: "AES-GCM", iv: _b64dec(env.iv) }, key, _b64dec(env.ct));
-    }).then(function (pt) { return JSON.parse(new TextDecoder().decode(pt)); });
-  }
+  // ---------- 백업 암호화 ---------- (구현은 js/backup-crypto.js 의 window.BackupCrypto)
   document.getElementById("export-btn").addEventListener("click", function () {
-    buildBackupData().then(function (data) { downloadJson(data, "행정전화부-백업-" + dateStamp() + ".json"); });
+    buildBackupBlob().then(function (blob) { downloadBlob(blob, "행정전화부-백업-" + dateStamp() + ".json"); });
   });
   function exportBackupEncrypted() {
     if (!(window.crypto && crypto.subtle)) { showSnack("이 브라우저는 백업 암호화를 지원하지 않습니다"); return; }
@@ -1731,7 +1728,7 @@
       appDialog({ title: "백업 암호 확인", value: "", placeholder: "암호 다시 입력", okLabel: "내보내기", inputType: "password", autocomplete: "off", maxLength: 64 }).then(function (p2) {
         if (!p2) return;
         if (p2 !== p1) { showSnack("암호가 일치하지 않습니다"); return; }
-        buildBackupData().then(function (data) { return encryptBackup(data, p1); })
+        buildBackupData().then(function (data) { return BackupCrypto.encrypt(data, p1); })
           .then(function (env) { downloadJson(env, "행정전화부-백업(암호화)-" + dateStamp() + ".json"); showSnack("암호화 백업을 내보냈습니다"); })
           .catch(function (e) { showSnack("암호화 실패: " + e.message); });
       });
@@ -1788,7 +1785,7 @@
         if (!(window.crypto && crypto.subtle)) { showSnack("이 브라우저는 암호화 백업을 열 수 없습니다"); return; }
         appDialog({ title: "백업 암호 입력", message: "암호화된 백업입니다. 암호를 입력하세요.", value: "", placeholder: "암호", okLabel: "복호화", inputType: "password", autocomplete: "off", maxLength: 64 }).then(function (pass) {
           if (!pass) return;
-          decryptBackup(parsed, pass).then(function (dec) { continueImport(dec); })
+          BackupCrypto.decrypt(parsed, pass).then(function (dec) { continueImport(dec); })
             .catch(function () { showSnack("암호가 올바르지 않거나 손상된 파일입니다."); });
         });
       } else {

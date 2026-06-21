@@ -98,6 +98,21 @@
         });
       }).catch(function () { return {}; });
     },
+    /** 백업 스트리밍용: IDB 의 각 사진을 한 건씩 콜백으로 흘려보낸다(전체 맵을 메모리에 올리지 않음).
+     *  onItem(id, value) 가 throw 해도 순회를 멈추지 않는다. 반환: Promise<처리건수>. */
+    streamAll: function (onItem) {
+      return store("readonly").then(function (os) {
+        return new Promise(function (res) {
+          var n = 0, req = os.openCursor();
+          req.onsuccess = function (e) {
+            var c = e.target.result;
+            if (c) { n++; try { onItem(c.key, c.value); } catch (_) {} c.continue(); }
+            else res(n);
+          };
+          req.onerror = function () { res(n); };
+        });
+      }).catch(function () { return 0; });
+    },
     count: function () { return Object.keys(cache).length; },
     clearAll: function () {
       Object.keys(cache).forEach(function (k) { delete cache[k]; });

@@ -448,6 +448,12 @@ mark {
   padding: 10px var(--sp-4);
   background: var(--surface);
   cursor: pointer;
+  /* 성능: 화면 밖 행의 레이아웃·페인트를 건너뛴다(가상 스크롤 대안 — DOM·기능 유지).
+     섹션 헤더는 대상이 아니라 가나다/부서 점프(scrollToEl offset)·sticky 가 그대로 정확.
+     contain-intrinsic-size 의 auto 가 첫 렌더 후 실제 높이를 기억해 스크롤바도 안정적.
+     미지원 브라우저는 무시(점진적 향상). */
+  content-visibility: auto;
+  contain-intrinsic-size: auto 64px;
 }
 .row:not(:last-child) {
   border-bottom: 1px solid var(--divider);
@@ -1446,7 +1452,7 @@ select.ef-input { appearance: none; }
    고정요소(오버레이/FAB/레일/토스트)도 컬럼에 맞춰 정렬.
    (centering은 transform 미사용 — .detail 의 slide-in 트랜스폼과 충돌 방지) */
 @media (min-width: 600px) {
-  :root { --app-w: 100%; } /* 폭 제한 해제 — 전체 폭 사용(데스크톱 2단 레이아웃은 다음 단계) */
+  :root { --app-w: 100%; } /* 폭 제한 해제 — 전체 폭 사용(가로 공간은 아래 다열 레이아웃이 활용) */
   body { background: var(--bg); }
   /* 전체화면 오버레이를 컬럼 폭으로(좌우 0 + width + margin auto = 중앙) */
   .detail {
@@ -1473,6 +1479,22 @@ select.ef-input { appearance: none; }
     width: var(--app-w); max-width: 100%;
     margin-left: auto; margin-right: auto;
   }
+}
+
+/* ---------- 데스크톱 다열(2단+) 레이아웃 ----------
+   넓은 화면에서 '전체' 탭(명부·가나다)의 각 섹션을 반응형 다열 그리드로 배치해
+   가로 공간을 활용한다. 헤더는 두 열을 가로질러 sticky 유지. 행 단위 그리드라
+   가나다/부서 점프(섹션 헤더 offset)와 마퀴·선택모드는 그대로 동작한다.
+   모바일(<700px)은 손대지 않음 — 기존 단일 열 명부 유지. */
+@media (min-width: 700px) {
+  .list--cols .list-section {
+    display: grid;
+    grid-template-columns: repeat(auto-fill, minmax(340px, 1fr));
+    column-gap: var(--sp-5);
+    align-content: start;
+  }
+  .list--cols .list-section > .section-header { grid-column: 1 / -1; }
+  /* 열 경계가 또렷하도록 마지막 행 외에는 구분선 유지(기본값) — 각 열 하단은 자연스레 정리됨 */
 }
 
 /* ---------- Motion preferences ---------- */

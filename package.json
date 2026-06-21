@@ -5,6 +5,6 @@
   "description": "행정전화부 PWA (무의존성 바닐라 JS)",
   "scripts": {
     "test": "node --test",
-    "check": "for f in app ui data storage photos import auth; do node --check js/$f.js || exit 1; done; node --check sw.js"
+    "check": "for f in app ui data storage photos import auth backup-crypto; do node --check js/$f.js || exit 1; done; node --check sw.js"
   }
 }

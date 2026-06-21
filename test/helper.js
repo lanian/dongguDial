@@ -21,8 +21,9 @@ function loadApp(baseData) {
   });
   const win = {};
   const load = (rel) => { new Function("window", fs.readFileSync(path.join(ROOT, rel), "utf8"))(win); };
-  load("js/storage.js"); // window.Storage
-  load("js/auth.js");    // window.Lock
+  load("js/storage.js");       // window.Storage
+  load("js/auth.js");          // window.Lock
+  load("js/backup-crypto.js"); // window.BackupCrypto
   load("js/import.js");  // window.Importer
   load("js/data.js");    // window.Data (rebuild 가 window.Storage 사용)
   return { win, store };

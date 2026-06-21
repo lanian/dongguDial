@@ -406,6 +406,18 @@
     icon: icon,
     formatPhone: formatPhone,
     renderRow: renderRow,
+    copyText: copyText, // 외부(다중선택 공유 폴백)에서 클립보드 복사 + '복사됨' 피드백
+    /** 여러 연락처를 사람이 읽기 좋은 텍스트로(공유/붙여넣기용 — vCard 와 별개) */
+    contactsText: function (list) {
+      return (list || []).filter(Boolean).map(function (c) {
+        var parts = [c.name];
+        var meta = [c.dept, c.team, c.position, c.grade].filter(Boolean).join(" ");
+        if (meta) parts.push(meta);
+        if (c.phone) parts.push("휴대전화 " + formatPhone(c.phone));
+        if (c.tel) parts.push("행정번호 " + formatPhone(c.tel));
+        return parts.join("\n");
+      }).join("\n\n");
+    },
 
     /** 여러 연락처를 하나의 vCard 텍스트로 직렬화 */
     buildVCards: function (contacts) {

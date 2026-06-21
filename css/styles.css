@@ -1446,14 +1446,8 @@ select.ef-input { appearance: none; }
    고정요소(오버레이/FAB/레일/토스트)도 컬럼에 맞춰 정렬.
    (centering은 transform 미사용 — .detail 의 slide-in 트랜스폼과 충돌 방지) */
 @media (min-width: 600px) {
-  :root { --app-w: 480px; }
-  html { background: var(--gutter); }
-  body {
-    max-width: var(--app-w);
-    margin: 0 auto;
-    background: var(--bg);
-    box-shadow: 0 0 0 1px var(--divider);
-  }
+  :root { --app-w: 100%; } /* 폭 제한 해제 — 전체 폭 사용(데스크톱 2단 레이아웃은 다음 단계) */
+  body { background: var(--bg); }
   /* 전체화면 오버레이를 컬럼 폭으로(좌우 0 + width + margin auto = 중앙) */
   .detail {
     left: 0; right: 0;

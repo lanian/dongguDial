@@ -341,6 +341,9 @@ body {
 /* ---------- List ---------- */
 .list { padding: var(--sp-2) 0 calc(var(--sp-6) + var(--safe-bottom)); }
 .list:focus-visible { outline: none; }
+/* 조직도: 하단에 한 화면 분량 여백을 둬, 목록 끝부분 부서로 점프해도 해당 부서 헤더를
+   화면 상단까지 끌어올릴 수 있게 한다(스크롤 컨테이너 최대치 한계 보완). */
+.list--org { padding-bottom: calc(85vh + var(--safe-bottom)); }
 
 /* 섹션 위치 측정 시 sticky 를 잠깐 꺼 '자연 위치'를 얻기 위한 토글(JS 한 틱 내 사용) */
 .measure-no-sticky .section-header,

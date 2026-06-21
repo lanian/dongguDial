@@ -4,7 +4,7 @@
 (function () {
   "use strict";
 
-  var APP_VERSION = "128"; // SW 캐시(donggu-dial-vNN)와 함께 갱신
+  var APP_VERSION = "129"; // SW 캐시(donggu-dial-vNN)와 함께 갱신
   // 조직도 헤더 높이: CSS 토큰(--org-hdr-h)을 단일 소스로 읽어 JS 상수 이중정의(동기화 누락)를 제거
   var ORG_HDR_H = (function () {
     var v = parseInt(getComputedStyle(document.documentElement).getPropertyValue("--org-hdr-h"), 10);
@@ -420,6 +420,7 @@
   function renderBody() {
     var q = current.query.trim();
     listEl.classList.remove("list--cols"); // 데스크톱 다열은 '전체' 탭(비검색)에서만
+    listEl.classList.remove("list--org");  // 조직도 하단 여백(부서 상단 정렬용)은 조직도에서만
     if (q) {
       showTools(false); showAlphaRail(false);
       var results = Data.search(q);
@@ -478,6 +479,7 @@
 
     showTools(false); showAlphaRail(false);
     if (current.tab === "org") {
+      listEl.classList.add("list--org"); // 하단 여백 → 끝부분 부서도 상단으로 점프 가능
       var depts = Data.getDepartments();
       if (!orgInit) { // 처음 조직도 진입 시 모두 접힌 상태로 시작(이후엔 저장된 상태 복원)
         depts.forEach(function (d) { current.orgCollapsed[d.id] = true; });

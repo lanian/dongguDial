@@ -1085,7 +1085,7 @@ select.ef-input { appearance: none; }
 }
 .deptmgr-main:active { background: var(--divider); }
 .deptmgr-acts { display: flex; align-items: center; gap: 2px; flex: 0 0 auto; }
-.deptmgr-acts .mini-btn { width: 38px; height: 38px; }
+.deptmgr-acts .mini-btn { width: var(--touch-min); height: var(--touch-min); }
 .deptmgr-move[disabled] { opacity: 0.25; pointer-events: none; }
 .chev-up { transform: rotate(-90deg); }
 .chev-down { transform: rotate(90deg); }
@@ -1273,7 +1273,7 @@ select.ef-input { appearance: none; }
 .fav-group-ctrls { display: flex; align-items: center; gap: 2px; flex: 0 0 auto; }
 .fav-group-ctrl {
   display: inline-flex; align-items: center; justify-content: center;
-  width: 30px; height: 30px;
+  width: var(--touch-min); height: var(--touch-min);
   border: none; background: transparent; color: var(--on-surface-muted);
   border-radius: var(--r-sm); cursor: pointer;
 }

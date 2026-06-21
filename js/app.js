@@ -4,7 +4,7 @@
 (function () {
   "use strict";
 
-  var APP_VERSION = "120"; // SW 캐시(donggu-dial-vNN)와 함께 갱신
+  var APP_VERSION = "121"; // SW 캐시(donggu-dial-vNN)와 함께 갱신
   // 조직도 헤더 높이: CSS 토큰(--org-hdr-h)을 단일 소스로 읽어 JS 상수 이중정의(동기화 누락)를 제거
   var ORG_HDR_H = (function () {
     var v = parseInt(getComputedStyle(document.documentElement).getPropertyValue("--org-hdr-h"), 10);
@@ -399,11 +399,17 @@
     if (row) { var c = Data.getById(row.dataset.id); if (c) openDetail(c); }
   });
   listEl.addEventListener("keydown", function (e) {
-    if (current.selectMode) return;
     if (e.key !== "Enter" && e.key !== " ") return;
     var row = e.target && e.target.closest ? e.target.closest(".row[data-id]") : null;
     if (!row || e.target !== row) return; // 행 자체 포커스일 때만(내부 버튼은 네이티브 처리)
     e.preventDefault();
+    if (current.selectMode) { // 선택 모드: 키보드로 토글
+      var id = row.dataset.id;
+      if (current.selected[id]) delete current.selected[id]; else current.selected[id] = true;
+      row.classList.toggle("is-selected", !!current.selected[id]);
+      updateSelectBar();
+      return;
+    }
     var c = Data.getById(row.dataset.id);
     if (c) openDetail(c);
   });
@@ -1467,20 +1473,24 @@
       r.classList.toggle("is-selected", !!current.selected[r.dataset.id]);
     });
   }
+  var selectPushed = false; // 선택 모드 시 히스토리 항목 push 여부(뒤로가기로 이탈)
   function enterSelectMode() {
     if (current.selectMode) return;
     current.selectMode = true;
     if (selectBar) selectBar.hidden = false;
     if (selectModeBtn) selectModeBtn.classList.add("is-active");
+    if (!anyOverlayOpen()) { history.pushState({ select: true }, ""); selectPushed = true; } // 뒤로가기=이탈
     applySelectionToRows(); updateSelectBar(); updateFab();
   }
-  function exitSelectMode() {
+  function exitSelectMode(fromPop) {
     if (!current.selectMode) return;
     current.selectMode = false; current.selected = {};
     if (selectBar) selectBar.hidden = true;
     if (selectModeBtn) selectModeBtn.classList.remove("is-active");
     listEl.classList.remove("is-selecting");
     applySelectionToRows(); updateFab();
+    if (!fromPop && selectPushed) { selectPushed = false; backFromOverlay(); } // 직접 종료 시 push한 항목 되감기
+    else selectPushed = false;
   }
   if (selectModeBtn) selectModeBtn.addEventListener("click", function () {
     if (current.selectMode) exitSelectMode(); else enterSelectMode();
@@ -1625,7 +1635,7 @@
     settingsCounts.textContent = parts.length ? parts.join(" · ") : "저장된 개인 데이터 없음";
   }
   function openSettings() {
-    exitSelectMode(); // 선택 모드 중 설정 진입 시 정리
+    exitSelectMode(true); // 선택 모드 중 설정 진입 시 정리(자체 history.back 없이 — 직후 #settings push 와 경합 방지)
     refreshCounts();
     document.getElementById("settings-version").textContent = "v" + APP_VERSION;
     var settingsBody = settingsEl.querySelector(".detail-body");
@@ -2314,6 +2324,7 @@
   document.addEventListener("keydown", function (e) {
     if (e.key === "Escape") {
       if (anyOverlayOpen()) { closeTop(false); return; }
+      if (current.selectMode) { exitSelectMode(); return; }
       if (searchInput.value) { searchClear.click(); }
       return;
     }
@@ -2336,6 +2347,7 @@
     // 코드에서 오버레이를 직접 닫으며 부른 back 의 popstate 는 이미 처리됨 → 1회 무시
     // (중첩 오버레이에서 아래 오버레이까지 닫히는 버그 방지).
     if (selfPops > 0) { selfPops--; return; }
+    if (current.selectMode) { exitSelectMode(true); return; } // 선택 모드 중 뒤로가기 = 이탈
     if (anyOverlayOpen()) {
       closeTop(true);
     } else if (searchPushed) {

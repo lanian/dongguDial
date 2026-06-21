@@ -452,6 +452,8 @@
         }
         // 섹션 래퍼: sticky 헤더의 범위를 자기 섹션으로 한정해 헤더가 누적(겹침)되지 않게 함
         var section = el("div", "list-section");
+        section.setAttribute("role", "group");
+        section.setAttribute("aria-labelledby", header.id); // 스크린리더 그룹 경계(부서)
         section.appendChild(header);
         appendRows(section, g.members, opts);
         frag.appendChild(section);
@@ -474,6 +476,8 @@
         header.appendChild(el("span", "count", "(" + g.members.length + ")"));
         // 섹션 래퍼: sticky 헤더 누적(겹침) 방지 — 헤더 범위를 자기 섹션으로 한정
         var section = el("div", "list-section");
+        section.setAttribute("role", "group");
+        section.setAttribute("aria-labelledby", header.id); // 스크린리더 그룹 경계(가나다)
         section.appendChild(header);
         appendRows(section, g.members, opts);
         frag.appendChild(section);

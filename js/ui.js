@@ -692,9 +692,7 @@
         return;
       }
       var totalPeople = tree.reduce(function (a, n) { return a + n.count; }, 0);
-      var summary = el("div", "org-summary");
-      summary.appendChild(el("span", "org-summary-info",
-        "총 " + tree.length + "개 부서 · " + totalPeople + "명"));
+      var infoText = "총 " + tree.length + "개 부서 · " + totalPeople + "명";
       var bar = el("div", "org-toolbar");
       // 아이콘+라벨 툴바 버튼 헬퍼
       function tbtn(ico, label, cls, fn) {
@@ -717,8 +715,18 @@
         if (opts.onToggleReorder) tbtn("grip", "사원 순서", null, opts.onToggleReorder);
         if (opts.onManage) tbtn("building", "부서 관리", null, opts.onManage);
       }
-      summary.appendChild(bar);
-      toolHost.appendChild(summary);
+      if (opts.toolbarHost) {
+        // 고정 바: 버튼만 한 줄로(컴팩트). 요약 텍스트는 스크롤 콘텐츠 상단에 작게 표시.
+        toolHost.appendChild(bar);
+        var info = el("div", "org-summary org-summary--scroll");
+        info.appendChild(el("span", "org-summary-info", infoText));
+        container.appendChild(info);
+      } else {
+        var summary = el("div", "org-summary");
+        summary.appendChild(el("span", "org-summary-info", infoText));
+        summary.appendChild(bar);
+        container.appendChild(summary);
+      }
       if (opts.reorder) {
         // 힌트의 버튼 지칭을 이모지 대신 실제 아이콘으로 → 화면 버튼과 1:1 매칭.
         var hint = el("div", "org-reorder-hint");

@@ -832,14 +832,20 @@ html[data-theme="dark"] .info-card { box-shadow: none; border: 1px solid var(--d
   color: var(--on-surface-muted);
   font-size: var(--fs-sm);
 }
-/* 조직도 전용 고정 툴바: 탭 아래 한 줄로 고정(스크롤 영역 밖) → 스크롤해도 항상 접근 가능. */
+/* 조직도 전용 고정 툴바: 탭 아래 한 줄로 고정(스크롤 영역 밖) → 스크롤해도 항상 접근 가능.
+   버튼만 한 줄로 컴팩트하게(요약 텍스트는 스크롤 콘텐츠로 분리). 좁으면 가로 스크롤. */
 .org-bar {
   flex: 0 0 auto;
   z-index: var(--z-tabs);
   background: var(--surface);
   border-bottom: 1px solid var(--divider);
+  padding: var(--sp-1) var(--sp-3);
+  overflow-x: auto;
 }
+.org-bar .org-toolbar { flex-wrap: nowrap; }
 .org-bar[hidden] { display: none; }
+/* 스크롤 콘텐츠로 내린 요약 텍스트 줄 */
+.org-summary--scroll { padding-top: var(--sp-2); padding-bottom: var(--sp-1); }
 .org-node { margin-bottom: var(--sp-3); }
 
 /* 최상위(국/실/관) 헤더: 브랜드 틴트 캡 — 위계상 가장 또렷하게.

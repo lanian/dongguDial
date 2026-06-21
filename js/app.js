@@ -4,7 +4,7 @@
 (function () {
   "use strict";
 
-  var APP_VERSION = "127"; // SW 캐시(donggu-dial-vNN)와 함께 갱신
+  var APP_VERSION = "128"; // SW 캐시(donggu-dial-vNN)와 함께 갱신
   // 조직도 헤더 높이: CSS 토큰(--org-hdr-h)을 단일 소스로 읽어 JS 상수 이중정의(동기화 누락)를 제거
   var ORG_HDR_H = (function () {
     var v = parseInt(getComputedStyle(document.documentElement).getPropertyValue("--org-hdr-h"), 10);
@@ -12,6 +12,9 @@
   })();
   var listEl = document.getElementById("list");
   var scrollRegion = document.getElementById("scroll-region");
+  // 스크롤은 #scroll-region 컨테이너가 직접 관리하므로 브라우저의 자동 스크롤 복원을 끈다.
+  // (뒤로가기로 상세를 닫을 때 브라우저가 옛 위치로 되돌려 점프를 덮어쓰는 것을 방지)
+  try { if ("scrollRestoration" in history) history.scrollRestoration = "manual"; } catch (e) {}
   var resultStatus = document.getElementById("result-status");
   var searchInput = document.getElementById("search-input");
   var searchClear = document.getElementById("search-clear");
@@ -663,18 +666,29 @@
     current.orgCollapsed[deptId] = false; // 대상 부서 자체도 펼침
     Storage.setOrgCollapsed(current.orgCollapsed);
     render();
-    setTimeout(function () {
+    // 목표 위치로 스크롤 후 getBoundingClientRect 로 실제 위치를 재서 보정한다.
+    // measuredTop(offsetTop 누적)은 content-visibility 추정 높이·계단식 sticky 등으로
+    // 대량 데이터에서 어긋날 수 있어, 도착 위치를 직접 확인해 목표 offset 에 맞을 때까지
+    // 반복 보정한다(엉뚱한 부서로 점프하는 문제 방지).
+    var depth = (Data.depthOf ? Math.min(Data.depthOf(deptId), 2) : 0);
+    var wantOffset = depth * ORG_HDR_H;
+    function settle(tries) {
       var elH = document.getElementById("org-" + deptId);
       if (!elH) return;
-      // 상위(국▸과) 계단식 sticky 헤더에 가리지 않도록 깊이만큼(최대 2단) 아래로 보정
-      var depth = (Data.depthOf ? Math.min(Data.depthOf(deptId), 2) : 0);
-      scrollToEl(elH, "smooth", depth * ORG_HDR_H);
+      var srTop = scrollRegion.getBoundingClientRect().top;
+      var cur = elH.getBoundingClientRect().top - srTop;
+      if (tries > 0 && Math.abs(cur - wantOffset) > 2) {
+        scrollRegion.scrollBy({ top: cur - wantOffset }); // 즉시 보정
+        requestAnimationFrame(function () { settle(tries - 1); });
+        return;
+      }
       // 도착한 부서를 잠깐 강조해 "여기로 왔다"를 시각적으로 알림
       elH.classList.remove("is-flash"); // 연속 점프 시 애니메이션 재시작
       void elH.offsetWidth;             // reflow 강제 → 애니메이션 재트리거
       elH.classList.add("is-flash");
       setTimeout(function () { elH.classList.remove("is-flash"); }, 1300);
-    }, 60);
+    }
+    setTimeout(function () { settle(6); }, 60);
   }
   function goToOrg(deptId) { closeDetail(false); showDeptInOrg(deptId); }
 

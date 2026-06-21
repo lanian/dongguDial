@@ -13,6 +13,19 @@
   var dbp = null;
   function thumbOf(v) { return v == null ? null : (typeof v === "string" ? v : (v.thumb || v.full || null)); }
   function hasFullVal(v) { return !!(v && typeof v === "object" && v.full); }
+  // 가져오기 검증: base64 이미지 dataURL 만, 비정상 대용량 차단(개당 ~12MB)
+  var MAX_PHOTO_LEN = 12 * 1024 * 1024;
+  function validDataUrl(s) { return typeof s === "string" && s.length <= MAX_PHOTO_LEN && /^data:image\/[a-z0-9.+-]+;base64,/i.test(s); }
+  function sanitizePhoto(v) {
+    if (validDataUrl(v)) return v; // legacy 문자열
+    if (v && typeof v === "object") {
+      var out = {};
+      if (validDataUrl(v.thumb)) out.thumb = v.thumb;
+      if (validDataUrl(v.full)) out.full = v.full;
+      if (out.thumb || out.full) return out;
+    }
+    return null;
+  }
 
   function openDB() {
     if (dbp) return dbp;
@@ -93,14 +106,19 @@
         return new Promise(function (res) { var r = os.clear(); r.onsuccess = function () { res(); }; r.onerror = function () { res(); }; });
       }).catch(function () {});
     },
-    /** 백업에서 복구(map: id->dataURL) */
+    /** 백업에서 복구(map: id->{thumb,full}|dataURL). 악의적/손상 백업 방어: data:image/ 형식·크기 검증 후 저장. */
     importMap: function (map, replace) {
       var p = replace ? Photos.clearAll() : Promise.resolve();
       if (!map || typeof map !== "object") return p;
       return p.then(function () {
         var ids = Object.keys(map);
         var chain = Promise.resolve();
-        ids.forEach(function (id) { chain = chain.then(function () { return Photos.set(id, map[id]); }); });
+        ids.forEach(function (id) {
+          if (id === "__proto__" || id === "constructor" || id === "prototype") return; // 방어
+          var v = sanitizePhoto(map[id]);
+          if (v == null) return; // 형식/크기 위반 → 건너뜀
+          chain = chain.then(function () { return Photos.set(id, v); });
+        });
         return chain;
       });
     },

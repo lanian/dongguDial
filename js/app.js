@@ -4,7 +4,7 @@
 (function () {
   "use strict";
 
-  var APP_VERSION = "121"; // SW 캐시(donggu-dial-vNN)와 함께 갱신
+  var APP_VERSION = "122"; // SW 캐시(donggu-dial-vNN)와 함께 갱신
   // 조직도 헤더 높이: CSS 토큰(--org-hdr-h)을 단일 소스로 읽어 JS 상수 이중정의(동기화 누락)를 제거
   var ORG_HDR_H = (function () {
     var v = parseInt(getComputedStyle(document.documentElement).getPropertyValue("--org-hdr-h"), 10);
@@ -917,7 +917,13 @@
   function verifyPin(pin) {
     var rec = Storage.getLockPin();
     if (!rec) return Promise.resolve(false);
-    return Lock.hashPin(pin, rec.salt).then(function (r) { return r.hash === rec.hash; });
+    return Lock.verifyPin(pin, rec).then(function (ok) {
+      // 레거시(SHA-256) PIN은 검증 성공 시 PBKDF2로 조용히 재해시(업그레이드)
+      if (ok && Lock.isLegacyPin && Lock.isLegacyPin(rec)) {
+        Lock.hashPin(pin).then(function (nr) { Storage.setLockPin(nr); }).catch(function () {});
+      }
+      return ok;
+    });
   }
   // ---------- PIN 무차별 대입 방지(시도 제한 + 지수 지연) ----------
   function lockoutRemainingMs() {

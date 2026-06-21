@@ -86,17 +86,34 @@
     });
   }
 
-  // PIN 해시. saltB64 가 주어지면 검증용으로 같은 salt 재사용.
-  function hashPin(pin, saltB64) {
-    var salt = saltB64 ? b64urlDecode(saltB64) : randBytes(16);
-    var pinBytes = new TextEncoder().encode(String(pin));
-    var data = new Uint8Array(salt.length + pinBytes.length);
-    data.set(salt, 0);
-    data.set(pinBytes, salt.length);
-    return crypto.subtle.digest("SHA-256", data).then(function (digest) {
-      return { salt: b64urlEncode(salt), hash: b64urlEncode(digest) };
+  // PIN 키 스트레칭: PBKDF2-SHA256(고반복) → 저장소 탈취 시 오프라인 전수대조 비용 상향.
+  var PIN_ITER = 150000;
+  function pbkdf2Bits(pin, salt, iter) {
+    return crypto.subtle.importKey("raw", new TextEncoder().encode(String(pin)), "PBKDF2", false, ["deriveBits"])
+      .then(function (km) {
+        return crypto.subtle.deriveBits({ name: "PBKDF2", salt: salt, iterations: iter, hash: "SHA-256" }, km, 256);
+      });
+  }
+  // 신규 PIN 레코드 생성(PBKDF2).
+  function hashPin(pin) {
+    var salt = randBytes(16);
+    return pbkdf2Bits(pin, salt, PIN_ITER).then(function (bits) {
+      return { salt: b64urlEncode(salt), hash: b64urlEncode(bits), kdf: "pbkdf2", iter: PIN_ITER };
     });
   }
+  // PIN 검증. 신규(PBKDF2)·레거시(SHA-256(salt+pin)) 레코드 모두 지원.
+  function verifyPin(pin, rec) {
+    if (!rec || !rec.salt || !rec.hash) return Promise.resolve(false);
+    var salt = b64urlDecode(rec.salt);
+    if (rec.kdf === "pbkdf2") {
+      return pbkdf2Bits(pin, salt, rec.iter || PIN_ITER).then(function (bits) { return b64urlEncode(bits) === rec.hash; });
+    }
+    var pinBytes = new TextEncoder().encode(String(pin)); // 레거시 폴백
+    var data = new Uint8Array(salt.length + pinBytes.length);
+    data.set(salt, 0); data.set(pinBytes, salt.length);
+    return crypto.subtle.digest("SHA-256", data).then(function (digest) { return b64urlEncode(digest) === rec.hash; });
+  }
+  function isLegacyPin(rec) { return !!(rec && rec.kdf !== "pbkdf2"); }
 
   global.Lock = {
     isSupported: isSupported,
@@ -104,5 +121,7 @@
     register: register,
     verify: verify,
     hashPin: hashPin,
+    verifyPin: verifyPin,
+    isLegacyPin: isLegacyPin,
   };
 })(window);

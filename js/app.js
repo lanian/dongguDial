@@ -4,7 +4,7 @@
 (function () {
   "use strict";
 
-  var APP_VERSION = "141"; // SW 캐시(donggu-dial-vNN)와 함께 갱신
+  var APP_VERSION = "142"; // SW 캐시(donggu-dial-vNN)와 함께 갱신
   // 조직도 헤더 높이: CSS 토큰(--org-hdr-h)을 단일 소스로 읽어 JS 상수 이중정의(동기화 누락)를 제거
   var ORG_HDR_H = (function () {
     var v = parseInt(getComputedStyle(document.documentElement).getPropertyValue("--org-hdr-h"), 10);
@@ -1458,9 +1458,9 @@
     searchInput.focus();
   });
 
-  // ---------- 검색 자동완성(datalist): 부서명·직책 + 연산자 힌트 ----------
-  // 라이브 목록이 이름 매칭을 이미 보여주므로, 숨은 연산자와 부서/직책 완성에 집중.
-  // 자동완성 datalist 빌드는 첫 표시·포커스를 막지 않도록 idle 로 미룬다(대형 명부 O(n) 작업).
+  // ---------- 검색 자동완성(datalist): 부서명만 ----------
+  // 라이브 목록이 이름 매칭을 이미 보여주므로, 추천은 가장 유용한 '부서명'만 단순하게 제공.
+  // (연산자 상태:/부서:/직책: 등은 입력하면 그대로 동작하지만 추천 목록은 어지럽혀 제외)
   var _suggestScheduled = false;
   function rebuildSearchSuggest() {
     if (_suggestScheduled) return;
@@ -1471,9 +1471,7 @@
       if (!dl) return;
       var seen = {}, opts = [];
       function add(v) { v = (v || "").toString().trim(); if (v && !seen[v]) { seen[v] = 1; opts.push(v); } }
-      ["상태:재직", "상태:휴직", "상태:파견", "상태:교육", "부서:", "직책:", "직급:"].forEach(add);
       if (window.Data && Data.getDepartments) Data.getDepartments().forEach(function (d) { add(d.name); });
-      if (window.Data && Data.getAllContacts) Data.getAllContacts().forEach(function (c) { add(c.position); });
       var frag = document.createDocumentFragment();
       opts.forEach(function (v) { var o = document.createElement("option"); o.value = v; frag.appendChild(o); });
       dl.textContent = "";

@@ -4,7 +4,7 @@
 (function () {
   "use strict";
 
-  var APP_VERSION = "129"; // SW 캐시(donggu-dial-vNN)와 함께 갱신
+  var APP_VERSION = "130"; // SW 캐시(donggu-dial-vNN)와 함께 갱신
   // 조직도 헤더 높이: CSS 토큰(--org-hdr-h)을 단일 소스로 읽어 JS 상수 이중정의(동기화 누락)를 제거
   var ORG_HDR_H = (function () {
     var v = parseInt(getComputedStyle(document.documentElement).getPropertyValue("--org-hdr-h"), 10);
@@ -420,7 +420,6 @@
   function renderBody() {
     var q = current.query.trim();
     listEl.classList.remove("list--cols"); // 데스크톱 다열은 '전체' 탭(비검색)에서만
-    listEl.classList.remove("list--org");  // 조직도 하단 여백(부서 상단 정렬용)은 조직도에서만
     if (q) {
       showTools(false); showAlphaRail(false);
       var results = Data.search(q);
@@ -479,7 +478,6 @@
 
     showTools(false); showAlphaRail(false);
     if (current.tab === "org") {
-      listEl.classList.add("list--org"); // 하단 여백 → 끝부분 부서도 상단으로 점프 가능
       var depts = Data.getDepartments();
       if (!orgInit) { // 처음 조직도 진입 시 모두 접힌 상태로 시작(이후엔 저장된 상태 복원)
         depts.forEach(function (d) { current.orgCollapsed[d.id] = true; });
@@ -668,29 +666,28 @@
     current.orgCollapsed[deptId] = false; // 대상 부서 자체도 펼침
     Storage.setOrgCollapsed(current.orgCollapsed);
     render();
-    // 목표 위치로 스크롤 후 getBoundingClientRect 로 실제 위치를 재서 보정한다.
-    // measuredTop(offsetTop 누적)은 content-visibility 추정 높이·계단식 sticky 등으로
-    // 대량 데이터에서 어긋날 수 있어, 도착 위치를 직접 확인해 목표 offset 에 맞을 때까지
-    // 반복 보정한다(엉뚱한 부서로 점프하는 문제 방지).
+    // 부서 헤더를 화면 상단으로 정렬한다. 네이티브 scrollIntoView + scroll-margin-top 으로
+    // 계단식 sticky 헤더 높이만큼 띄워 가리지 않게 한다(content-visibility 추정 높이에도 견고).
+    // 스크롤 중 행이 렌더되며 위치가 밀릴 수 있어 안정될 때까지 몇 번 재정렬한다.
+    // (목록 끝부분 부서는 아래 콘텐츠가 부족해 최상단까지는 못 갈 수 있고, 가능한 한 위로 정렬)
     var depth = (Data.depthOf ? Math.min(Data.depthOf(deptId), 2) : 0);
     var wantOffset = depth * ORG_HDR_H;
     function settle(tries) {
       var elH = document.getElementById("org-" + deptId);
       if (!elH) return;
-      var srTop = scrollRegion.getBoundingClientRect().top;
-      var cur = elH.getBoundingClientRect().top - srTop;
-      if (tries > 0 && Math.abs(cur - wantOffset) > 2) {
-        scrollRegion.scrollBy({ top: cur - wantOffset }); // 즉시 보정
-        requestAnimationFrame(function () { settle(tries - 1); });
-        return;
-      }
-      // 도착한 부서를 잠깐 강조해 "여기로 왔다"를 시각적으로 알림
-      elH.classList.remove("is-flash"); // 연속 점프 시 애니메이션 재시작
-      void elH.offsetWidth;             // reflow 강제 → 애니메이션 재트리거
-      elH.classList.add("is-flash");
-      setTimeout(function () { elH.classList.remove("is-flash"); }, 1300);
+      elH.style.scrollMarginTop = wantOffset + "px";
+      elH.scrollIntoView({ block: "start" });
+      requestAnimationFrame(function () {
+        var cur = elH.getBoundingClientRect().top - scrollRegion.getBoundingClientRect().top;
+        if (tries > 0 && Math.abs(cur - wantOffset) > 2) { settle(tries - 1); return; }
+        // 도착한 부서를 잠깐 강조해 "여기로 왔다"를 시각적으로 알림
+        elH.classList.remove("is-flash"); // 연속 점프 시 애니메이션 재시작
+        void elH.offsetWidth;             // reflow 강제 → 애니메이션 재트리거
+        elH.classList.add("is-flash");
+        setTimeout(function () { elH.classList.remove("is-flash"); }, 1300);
+      });
     }
-    setTimeout(function () { settle(6); }, 60);
+    setTimeout(function () { settle(12); }, 60);
   }
   function goToOrg(deptId) { closeDetail(false); showDeptInOrg(deptId); }
 

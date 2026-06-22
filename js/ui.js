@@ -1055,7 +1055,13 @@
         av.addEventListener("keydown", function (e) { if (e.key === "Enter" || e.key === " ") { e.preventDefault(); openFull(); } });
       }
       hero.appendChild(av);
-      hero.appendChild(el("h2", "detail-name", contact.name || ""));
+      var nameEl = el("h2", "detail-name", contact.name || "");
+      if (contact.name) { // 이름 탭 → 복사(공문/메신저 붙여넣기 편의)
+        nameEl.style.cursor = "pointer";
+        nameEl.title = "탭하여 이름 복사";
+        nameEl.addEventListener("click", function () { copyText(contact.name); });
+      }
+      hero.appendChild(nameEl);
       var roleParts = [contact.position, contact.dept].filter(Boolean);
       if (roleParts.length) hero.appendChild(el("p", "detail-role", roleParts.join(" · ")));
       var chips = el("div", "detail-chips");
@@ -1085,7 +1091,7 @@
         var who = (r.position ? r.position + " " : "") + r.name;
         addPhoneRow(c1, "users", r.deptName + " 대표(" + who + ")", r.tel);
       });
-      addInfo(c1, "cake", "생년월일", contact.birth);
+      addInfo(c1, "cake", "생년월일", contact.birth, true);
       if (c1.childNodes.length) {
         container.appendChild(sectionTitle("연락처"));
         container.appendChild(c1);
@@ -1094,8 +1100,8 @@
       // 소속 섹션
       var c2 = el("div", "info-card");
       addOrgRow(c2, contact, opts.onOrg);
-      addInfo(c2, "badge", "직급", contact.grade);
-      addInfo(c2, "work", "담당업무", contact.work);
+      addInfo(c2, "badge", "직급", contact.grade, true);
+      addInfo(c2, "work", "담당업무", contact.work, true);
       addInfo(c2, "status", "재직상태", contact.status && contact.status !== "미설정" ? contact.status : null);
       if (c2.childNodes.length) {
         container.appendChild(sectionTitle("소속"));
@@ -1302,7 +1308,19 @@
     return inp;
   }
 
-  function addInfo(card, iconName, label, value) {
+  // 값 행 우측 [복사] 버튼(전화 행과 동일 스타일). 공문·메신저 붙여넣기 빈도가 높아 전 행에 제공.
+  function addCopyBtn(row, label, value) {
+    var acts = el("div", "info-actions");
+    var copy = el("button", "mini-btn mini-btn--ghost");
+    copy.type = "button";
+    copy.setAttribute("aria-label", label + " 복사");
+    copy.appendChild(icon("copy"));
+    copy.addEventListener("click", function () { copyText(value); });
+    acts.appendChild(copy);
+    row.appendChild(acts);
+  }
+
+  function addInfo(card, iconName, label, value, copyable) {
     if (!value) return;
     var row = el("div", "info-row");
     var ico = el("span", "info-ico");
@@ -1312,6 +1330,7 @@
     text.appendChild(el("div", "info-label", label));
     text.appendChild(el("div", "info-value", value));
     row.appendChild(text);
+    if (copyable) addCopyBtn(row, label, value); // 직급·담당업무·생년월일 등 탭 복사
     card.appendChild(row);
   }
 

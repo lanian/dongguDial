@@ -335,10 +335,13 @@
     members.forEach(function (c) { frag.appendChild(renderRow(c, opts)); });
   }
 
-  // 직책이 '장/담당관/위원/단장'으로 끝나면 리더로 간주(주무관 제외)
+  // 직책이 리더성('…장'·'…관'(감사관/담당관/보좌관 등)·'…위원')이면 리더로 간주.
+  // 단 직급(등급) 명칭(주무관·사무관 등)이 직책 칸에 와도 리더는 아니므로 제외.
   function isLead(c) {
     var p = (c.position || "").trim();
-    return /장$/.test(p) || /담당관$/.test(p) || /위원$/.test(p) || /단장$/.test(p);
+    if (!p) return false;
+    if (/^(주무관|사무관|서기관|주사|주사보|서기|서기보|실무관|사무원)$/.test(p)) return false;
+    return /[장관]$/.test(p) || /위원$/.test(p);
   }
   function orgRow(c, opts) {
     var r = renderRow(c, opts);

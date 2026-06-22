@@ -477,8 +477,9 @@
         section.setAttribute("role", "group");
         section.setAttribute("aria-labelledby", header.id); // 스크린리더 그룹 경계(부서)
         section.appendChild(header);
-        // 섹션 헤더가 부서를 이미 보여주므로 행 보조줄에서는 같은 부서명을 생략(중복 제거)
-        deptRowOpts.hideDeptName = g.dept.name;
+        // 섹션 헤더가 부서를 이미 보여주므로 행 보조줄에서는 같은 부서명을 생략(중복 제거).
+        // 단 검색 결과(rowsKeepDept)에서는 '여기저기서 찾기' 맥락이라 행마다 부서를 유지한다.
+        if (!opts.rowsKeepDept) deptRowOpts.hideDeptName = g.dept.name;
         appendRows(section, g.members, deptRowOpts);
         frag.appendChild(section);
       });

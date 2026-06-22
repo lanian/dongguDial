@@ -437,7 +437,7 @@
         // 부서순일 때는 검색 결과도 부서 섹션으로 묶어서 표시
         UI.renderDeptView(listEl, Data.groupContactsByDept(results), {
           onOpen: openDetail, onFav: onFavChanged, query: hlTerms,
-          onDeptJump: showDeptInOrg,
+          onDeptJump: showDeptInOrg, rowsKeepDept: true, // 검색 결과는 행마다 부서 유지
         });
       } else {
         UI.renderFlat(listEl, results, {

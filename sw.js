@@ -21,6 +21,7 @@ var APP_SHELL = [
   "./js/data.js",
   "./js/import.js",
   "./js/contacts-io.js",
+  "./js/data-check.js",
   "./js/ui.js",
   "./js/app.js",
   "./data/contacts.json",

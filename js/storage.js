@@ -62,6 +62,17 @@
     return out;
   }
 
+  // 가져온 객체 맵에서 프로토타입 오염 키 제거(JSON.parse 는 __proto__ 를 일반 own 키로 둠)
+  function stripProto(o) {
+    if (!o || typeof o !== "object") return {};
+    var clean = {};
+    Object.keys(o).forEach(function (k) {
+      if (k === "__proto__" || k === "constructor" || k === "prototype") return;
+      clean[k] = o[k];
+    });
+    return clean;
+  }
+
   // 즐겨찾기 메모리 캐시: isFavorite 가 행마다 호출되므로(목록 렌더) localStorage
   // 읽기·파싱을 매번 하지 않도록 Set(객체 맵)으로 캐싱. write(FAV_KEY) 시 무효화.
   var _favSet = null;
@@ -329,7 +340,7 @@
     counts: function () {
       return {
         favorites: read(FAV_KEY, []).length,
-        recent: read(RECENT_KEY, []).length,
+        recent: normRecent(read(RECENT_KEY, [])).length, // 중복·삭제분 제외한 실제 건수
         edits: Object.keys(read(EDITS_KEY, {})).length,
         custom: read(CUSTOM_KEY, []).length,
         deptEdits: Object.keys(read(DEPT_EDITS_KEY, {})).length,
@@ -366,13 +377,13 @@
       data = migrateBackup(data); // 구버전 백업을 현재 스키마로 정규화
       var inFav = Array.isArray(data.favorites) ? data.favorites : [];
       var inRecent = Array.isArray(data.recent) ? data.recent : [];
-      var inEdits = (data.edits && typeof data.edits === "object") ? data.edits : {};
+      var inEdits = stripProto(data.edits);
       var inCustom = Array.isArray(data.custom) ? data.custom : [];
-      var inDeptEdits = (data.deptEdits && typeof data.deptEdits === "object") ? data.deptEdits : {};
+      var inDeptEdits = stripProto(data.deptEdits);
       var inDeptCustom = Array.isArray(data.deptCustom) ? data.deptCustom : [];
       var inFavGroups = Array.isArray(data.favGroups) ? data.favGroups : [];
-      var inFavGroupMap = (data.favGroupMap && typeof data.favGroupMap === "object") ? data.favGroupMap : {};
-      var inMemberOrder = (data.memberOrder && typeof data.memberOrder === "object") ? data.memberOrder : {};
+      var inFavGroupMap = stripProto(data.favGroupMap);
+      var inMemberOrder = stripProto(data.memberOrder);
 
       var favs, recent, edits, custom, deptEdits, deptCustom, favGroups, favGroupMap, memberOrder;
       if (mode === "replace") {

@@ -4,7 +4,7 @@
 (function () {
   "use strict";
 
-  var APP_VERSION = "142"; // SW 캐시(donggu-dial-vNN)와 함께 갱신
+  var APP_VERSION = (typeof window !== "undefined" && window.APP_VERSION) || "0"; // js/version.js 단일 출처
   // 조직도 헤더 높이: CSS 토큰(--org-hdr-h)을 단일 소스로 읽어 JS 상수 이중정의(동기화 누락)를 제거
   var ORG_HDR_H = (function () {
     var v = parseInt(getComputedStyle(document.documentElement).getPropertyValue("--org-hdr-h"), 10);
@@ -1239,7 +1239,7 @@
         var dept = Data.getDeptById(newId);
         if (!dept) return;
         var n = Data.membersOfDept(newId).length;
-        Storage.saveContact(contact.id, { deptId: newId, dept: dept.name });
+        Storage.saveContact(contact.id, { deptId: newId, dept: dept.name, team: "" }); // 옛 팀명 잔존 방지
         Storage.setMemberOrder(contact.id, n + 1);
         Data.rebuild();
         render();
@@ -1747,9 +1747,9 @@
   });
   function exportBackupEncrypted() {
     if (!(window.crypto && crypto.subtle)) { showSnack("이 브라우저는 백업 암호화를 지원하지 않습니다"); return; }
-    appDialog({ title: "백업 암호 설정", message: "이 암호로 백업 파일을 잠급니다.\n암호를 분실하면 복구할 수 없습니다.", value: "", placeholder: "암호 (4자 이상)", okLabel: "다음", inputType: "password", autocomplete: "off", maxLength: 64 }).then(function (p1) {
+    appDialog({ title: "백업 암호 설정", message: "이 암호로 백업 파일을 잠급니다.\n암호를 분실하면 복구할 수 없습니다.", value: "", placeholder: "암호 (8자 이상)", okLabel: "다음", inputType: "password", autocomplete: "off", maxLength: 64 }).then(function (p1) {
       if (!p1) return;
-      if (p1.length < 4) { showSnack("암호는 4자 이상이어야 합니다"); return; }
+      if (p1.length < 8) { showSnack("암호는 8자 이상이어야 합니다"); return; }
       appDialog({ title: "백업 암호 확인", value: "", placeholder: "암호 다시 입력", okLabel: "내보내기", inputType: "password", autocomplete: "off", maxLength: 64 }).then(function (p2) {
         if (!p2) return;
         if (p2 !== p1) { showSnack("암호가 일치하지 않습니다"); return; }
@@ -1810,8 +1810,13 @@
         if (!(window.crypto && crypto.subtle)) { showSnack("이 브라우저는 암호화 백업을 열 수 없습니다"); return; }
         appDialog({ title: "백업 암호 입력", message: "암호화된 백업입니다. 암호를 입력하세요.", value: "", placeholder: "암호", okLabel: "복호화", inputType: "password", autocomplete: "off", maxLength: 64 }).then(function (pass) {
           if (!pass) return;
-          BackupCrypto.decrypt(parsed, pass).then(function (dec) { continueImport(dec); })
-            .catch(function () { showSnack("암호가 올바르지 않거나 손상된 파일입니다."); });
+          BackupCrypto.decrypt(parsed, pass).then(function (dec) {
+            // 복호화는 성공했으나 내용이 백업 형식이 아니면 '암호 오류'와 구분해 안내
+            if (!dec || dec.app !== "dongguDial" || dec.type !== "backup") {
+              showSnack("암호는 맞지만 백업 내용을 인식할 수 없습니다(파일 손상)."); return;
+            }
+            continueImport(dec);
+          }).catch(function () { showSnack("암호가 올바르지 않거나 손상된 파일입니다."); });
         });
       } else {
         continueImport(parsed);
@@ -2264,6 +2269,8 @@
   // ---------- 연락처 CSV 내보내기 (가져오기 양식과 동일 열 → 재가져오기 호환) ----------
   function csvCell(v) {
     v = (v == null ? "" : String(v));
+    // CSV 수식 인젝션 방어(CWE-1236): =,+,-,@,탭/CR 로 시작하면 앞에 ' 를 붙여 수식 실행 차단
+    if (/^[=+\-@\t\r]/.test(v)) v = "'" + v;
     return /[",\n\r]/.test(v) ? '"' + v.replace(/"/g, '""') + '"' : v;
   }
   // 조직 경로(top→leaf) 이름들을 [상위부서, 부서, 팀] 3열로 매핑.
@@ -2485,7 +2492,8 @@
   window.addEventListener("beforeinstallprompt", function (e) {
     e.preventDefault();
     deferredPrompt = e;
-    if (!localStorage.getItem(INSTALL_DISMISS_KEY) && document.getElementById("update-toast").hidden) {
+    var ut = document.getElementById("update-toast");
+    if (!localStorage.getItem(INSTALL_DISMISS_KEY) && (!ut || ut.hidden)) {
       installToast.hidden = false;
     }
   });

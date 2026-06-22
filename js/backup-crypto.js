@@ -5,7 +5,8 @@
 (function (global) {
   "use strict";
 
-  var KDF_ITER = 150000;
+  // OWASP 권장(2023) 상향. 봉투에 iter 를 저장하므로 옛 백업(15만)도 그대로 복호화됨.
+  var KDF_ITER = 600000;
 
   function b64enc(buf) { var b = new Uint8Array(buf), s = ""; for (var i = 0; i < b.length; i++) s += String.fromCharCode(b[i]); return btoa(s); }
   function b64dec(b64) { var s = atob(b64), u = new Uint8Array(s.length); for (var i = 0; i < s.length; i++) u[i] = s.charCodeAt(i); return u; }

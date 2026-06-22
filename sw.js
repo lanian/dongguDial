@@ -2,13 +2,18 @@
  * Service Worker — 오프라인 캐싱.
  * 앱 셸은 캐시 우선, 연락처 데이터는 네트워크 우선(오프라인 시 캐시 폴백).
  */
-var CACHE = "donggu-dial-v142";
+// 버전 단일 출처: js/version.js 의 APP_VERSION 을 캐시명에 사용.
+// (importScripts 자원도 SW 업데이트 비교 대상이라 version.js 가 바뀌면 SW 도 갱신된다.
+//  안전망: 설정의 '업데이트 확인'은 reg.update() 로 항상 최신 sw.js+import 를 재검증)
+importScripts("./js/version.js");
+var CACHE = "donggu-dial-v" + (self.APP_VERSION || "0");
 
 var APP_SHELL = [
   "./",
   "./index.html",
   "./manifest.webmanifest",
   "./css/styles.css",
+  "./js/version.js",
   "./js/storage.js",
   "./js/auth.js",
   "./js/backup-crypto.js",

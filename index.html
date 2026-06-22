@@ -291,7 +291,7 @@
           <span class="info-ico"><svg class="ic" aria-hidden="true"><use href="#ic-badge"/></svg></span>
           <div class="info-text">
             <div class="info-value">지문 잠금</div>
-            <div class="info-label">앱을 열 때 지문(생체)인증으로 잠급니다. 지문 미지원·실패 시 PIN으로 해제합니다. 모든 데이터는 기기 안에만 있으며, 잠금은 화면 노출을 막는 보조 수단입니다.</div>
+            <div class="info-label">앱을 열 때 지문(생체)인증으로 잠급니다. 지문 미지원·실패 시 PIN으로 해제합니다. 데이터는 기기 안에만 저장되며 이 잠금은 화면 노출을 막는 보조 수단일 뿐, 데이터 자체를 암호화하지는 않습니다. 분실 대비로 기기 잠금(화면 암호)도 함께 켜고, 중요한 백업은 ‘암호화 백업’으로 내보내세요.</div>
             <div class="info-label" id="lock-status">사용 안 함</div>
           </div>
           <button id="lock-switch" class="switch" role="switch" type="button" aria-checked="false" aria-label="보안 잠금">
@@ -465,6 +465,7 @@
     </button>
   </div>
 
+  <script src="js/version.js"></script>
   <script src="js/storage.js"></script>
   <script src="js/auth.js"></script>
   <script src="js/backup-crypto.js"></script>

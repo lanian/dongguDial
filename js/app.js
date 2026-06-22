@@ -10,6 +10,8 @@
     var v = parseInt(getComputedStyle(document.documentElement).getPropertyValue("--org-hdr-h"), 10);
     return v > 0 ? v : 44; // 폴백
   })();
+  // DOM 참조 규칙: index.html 에 항상 존재하는 필수 요소는 무가드(document.getElementById(...).addEventListener),
+  // 선택·조건부 요소(향후 제거 가능·테스트 누락 대비)는 `var x = ...; if (x) ...` 로 가드한다.
   var listEl = document.getElementById("list");
   var orgActions = document.getElementById("org-actions"); // 조직도 액션(앱바, 설정 옆)
   var scrollRegion = document.getElementById("scroll-region");
@@ -117,10 +119,10 @@
     if (addContactBar) addContactBar.hidden = !(!anyOverlayOpen() && !current.query && current.tab === "all" && !current.selectMode);
     updateToTop();
   }
-  // 맨 위로 버튼: 스크롤을 충분히 내렸고 오버레이가 없을 때만 표시.
+  // 맨 위로 버튼: 스크롤 충분히 내렸고, 오버레이·선택모드(하단 선택바와 겹침) 아닐 때만 표시.
   function updateToTop() {
     if (!toTop) return;
-    toTop.hidden = !(scrollRegion.scrollTop > 320 && !anyOverlayOpen());
+    toTop.hidden = !(scrollRegion.scrollTop > 320 && !anyOverlayOpen() && !current.selectMode);
   }
   if (toTop) toTop.addEventListener("click", function () {
     scrollRegion.scrollTo({ top: 0, behavior: "smooth" });

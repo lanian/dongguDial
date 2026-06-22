@@ -18,6 +18,8 @@
 
       // ---------- 연락처 CSV/Excel 가져오기 (로컬) ----------
       var importContactsFile = document.getElementById("import-contacts-file");
+      // NOTE: CSV 가져오기 열 동의어(필드→별칭 배열). 검색 동의어는 js/data.js 의 FIELD_ALIASES
+      //       (별칭→필드, 역방향·필드셋 다름). 동의어 수정 시 두 곳을 함께 살펴볼 것.
       var FIELD_ALIASES = {
         name: ["이름", "성명", "직원명", "name"],
         position: ["직책", "직위", "position"],

@@ -371,10 +371,10 @@
       var inFav = Array.isArray(data.favorites) ? data.favorites : [];
       var inRecent = Array.isArray(data.recent) ? data.recent : [];
       var inEdits = stripProto(data.edits);
-      var inCustom = Array.isArray(data.custom) ? data.custom : [];
+      var inCustom = Array.isArray(data.custom) ? data.custom.map(stripProto) : []; // 항목 키도 정제(__proto__ 등)
       var inDeptEdits = stripProto(data.deptEdits);
-      var inDeptCustom = Array.isArray(data.deptCustom) ? data.deptCustom : [];
-      var inFavGroups = Array.isArray(data.favGroups) ? data.favGroups : [];
+      var inDeptCustom = Array.isArray(data.deptCustom) ? data.deptCustom.map(stripProto) : [];
+      var inFavGroups = Array.isArray(data.favGroups) ? data.favGroups.map(stripProto) : [];
       var inFavGroupMap = stripProto(data.favGroupMap);
       var inMemberOrder = stripProto(data.memberOrder);
 

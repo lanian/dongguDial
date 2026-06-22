@@ -232,8 +232,8 @@
     row.setAttribute("role", "button");
     row.tabIndex = 0;
     if (contact.id != null) row.dataset.id = contact.id; // 다중선택 식별용
-    var subParts = [contact.dept, contact.position, contact.grade, contact.work].filter(Boolean);
-    row.setAttribute("aria-label", (contact.name || "") + ", " + subParts.join(" ") + ", 상세 보기");
+    var subAll = [contact.dept, contact.position, contact.grade, contact.work].filter(Boolean);
+    row.setAttribute("aria-label", (contact.name || "") + ", " + subAll.join(" ") + ", 상세 보기");
 
     row.appendChild(makeAvatar(contact));
 
@@ -247,6 +247,10 @@
     main.appendChild(name);
     var sub = el("div", "row-sub");
     var subText = el("span", "row-sub-text"); // 마퀴(흐름) 대상 — 평소엔 inline 으로 말줄임 유지
+    // 부서순(섹션 헤더가 부서를 이미 표시)에서는 행 보조줄의 부서를 생략해 중복 제거.
+    // 단, 행의 부서가 섹션 헤더 부서와 실제로 같을 때만(미지정·불일치 행은 부서 텍스트 유지).
+    var omitDept = opts.hideDeptName && contact.dept === opts.hideDeptName;
+    var subParts = omitDept ? [contact.position, contact.grade, contact.work].filter(Boolean) : subAll;
     highlightInto(subText, subParts.join(" · "), opts.query);
     sub.appendChild(subText);
     main.appendChild(sub);
@@ -446,6 +450,7 @@
       }
       // 명부형: 접기/들여쓰기 없이 평면.
       // 헤더 위계: 상위 경로(키커, 윗줄) → 부서명(굵게, 아랫줄) → 인원 배지 → 이동 셰브론
+      var deptRowOpts = {}; for (var k in opts) deptRowOpts[k] = opts[k];
       var frag = document.createDocumentFragment();
       groups.forEach(function (g) {
         var jump = !!opts.onDeptJump;
@@ -472,7 +477,9 @@
         section.setAttribute("role", "group");
         section.setAttribute("aria-labelledby", header.id); // 스크린리더 그룹 경계(부서)
         section.appendChild(header);
-        appendRows(section, g.members, opts);
+        // 섹션 헤더가 부서를 이미 보여주므로 행 보조줄에서는 같은 부서명을 생략(중복 제거)
+        deptRowOpts.hideDeptName = g.dept.name;
+        appendRows(section, g.members, deptRowOpts);
         frag.appendChild(section);
       });
       container.appendChild(frag);

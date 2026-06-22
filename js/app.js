@@ -1476,6 +1476,16 @@
     listEl.setAttribute("aria-labelledby", tab.id);
     render();
     scrollRegion.scrollTo({ top: 0 });
+    maybeOrgHint();
+  }
+  // 조직도 첫 진입 1회: 상단 아이콘(모두 펼치기/접기) 안내(아이콘만이라 의미 보강)
+  function maybeOrgHint() {
+    if (current.tab !== "org" || current.query) return;
+    try {
+      if (localStorage.getItem("dongguDial.orgHint.v1")) return;
+      localStorage.setItem("dongguDial.orgHint.v1", "1");
+    } catch (e) {}
+    showSnack("상단 아이콘으로 부서를 모두 펼치거나 접을 수 있어요");
   }
 
   tabs.forEach(function (tab) {
@@ -1946,6 +1956,17 @@
     openEditor(null);
   });
   if (addContactBar) addContactBar.addEventListener("click", function () { openEditor(null); });
+  // 백업 '고급 옵션' 접이식(암호화·사진제외·초기화후복구)
+  (function () {
+    var t = document.getElementById("backup-advanced-toggle");
+    var box = document.getElementById("backup-advanced");
+    if (!t || !box) return;
+    t.addEventListener("click", function () {
+      var open = box.hidden;
+      box.hidden = !open;
+      t.setAttribute("aria-expanded", open ? "true" : "false");
+    });
+  })();
   document.getElementById("deptmgr-btn").addEventListener("click", openDeptMgr);
   var reorderMembersBtn = document.getElementById("reorder-members-btn");
   if (reorderMembersBtn) reorderMembersBtn.addEventListener("click", function () {

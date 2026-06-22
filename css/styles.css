@@ -396,13 +396,15 @@ body {
   line-height: 1.3; /* min-height 계산과 동기화 */
   white-space: nowrap; overflow: hidden; text-overflow: ellipsis;
 }
+/* 인라인 인원수 배지 — 부서순 헤더(.section-count-badge)와 조직도 헤더(.org-badge)가 같은
+   치수·타이포를 공유해 한 컴포넌트처럼 보이게(색만 맥락별로 달리). */
 .section-count-badge {
   flex: 0 0 auto;
   display: inline-flex; align-items: center; justify-content: center;
-  min-width: 20px; height: 18px; padding: 0 6px;
+  min-width: 22px; height: 20px; padding: 0 7px;
   border-radius: var(--r-pill);
   background: var(--divider); color: var(--on-surface-muted);
-  font-size: var(--fs-cap); font-weight: var(--fw-med);
+  font-size: var(--fs-cap); font-weight: var(--fw-bold);
 }
 
 /* 부서 헤더 탭 → 조직도에서 해당 부서 보기(버튼 리셋만; 레이아웃은 .section-dir) */
@@ -797,6 +799,10 @@ html[data-theme="dark"] .info-card { box-shadow: none; border: 1px solid var(--d
 }
 .settings-action:last-child { border-bottom: none; }
 .settings-action:active { background: var(--divider); }
+/* 접이식(고급 옵션) 셰브론: 닫힘=› 열림=˅ */
+.disclosure-chev { transition: transform 0.15s ease; }
+.settings-disclosure[aria-expanded="true"] .disclosure-chev { transform: rotate(90deg); }
+#backup-advanced .settings-action:last-child { border-bottom: none; }
 .settings-note {
   color: var(--on-surface-muted);
   font-size: var(--fs-sm);

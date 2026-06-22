@@ -1792,7 +1792,8 @@
     var bytes = 0;
     Photos.streamAll(function (id, val) { bytes += (typeof val === "string" ? val.length : JSON.stringify(val).length); })
       .then(function () {
-        var size = bytes >= 1024 * 1024 ? (bytes / (1024 * 1024)).toFixed(1) + "MB" : Math.max(1, Math.round(bytes / 1024)) + "KB";
+        var real = bytes * 0.75; // dataURL(base64) 길이 → 실제 바이트 보정(base64 는 ~4/3 부풀음)
+        var size = real >= 1024 * 1024 ? (real / (1024 * 1024)).toFixed(1) + "MB" : Math.max(1, Math.round(real / 1024)) + "KB";
         el.textContent = "사진 " + n + "장 · 약 " + size + " (백업에 포함)";
       });
   }

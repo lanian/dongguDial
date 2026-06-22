@@ -234,7 +234,9 @@
     if (contact.id != null) row.dataset.id = contact.id; // 다중선택 식별용
     // 부서는 '상위1단계 › 말단'(_deptShort)으로 표시 — 그룹 헤더 없는 가나다순·검색 맥락 보강
     var subAll = [contact._deptShort || contact.dept, contact.position, contact.grade, contact.work].filter(Boolean);
-    row.setAttribute("aria-label", (contact.name || "") + ", " + subAll.join(" ") + ", 상세 보기");
+    // aria-label 은 자연어로(시각용 '›' 구분기호 대신 공백) — 스크린리더가 '보다 큼'으로 읽지 않게
+    var ariaParts = [contact.dept, contact.position, contact.grade, contact.work].filter(Boolean);
+    row.setAttribute("aria-label", (contact.name || "") + ", " + ariaParts.join(" ") + ", 상세 보기");
 
     row.appendChild(makeAvatar(contact));
 
@@ -368,7 +370,9 @@
     }
     header.setAttribute("aria-expanded", collapsed ? "false" : "true");
     header.appendChild(icon("chevron", "section-chevron"));
-    header.appendChild(el("span", "org-dept-name", node.dept.name));
+    var deptNameEl = el("span", "org-dept-name", node.dept.name);
+    deptNameEl.title = node.dept.name; // 긴 부서명 절단 대비 툴팁
+    header.appendChild(deptNameEl);
     var lead = node.members.filter(isLead)[0];
     if (lead) header.appendChild(el("span", "org-lead", lead.name + " " + lead.position));
     // 배지: 직속 인원(주) + 하위 포함 누적(보조). 자손이 있을 때만 누적을 덧붙여
@@ -461,6 +465,7 @@
             path.slice(0, -1).map(function (p) { return p.name; }).join(" › ")));
         }
         txt.appendChild(el("span", "section-leaf", g.dept.name));
+        txt.title = path.map(function (p) { return p.name; }).join(" › "); // 긴 부서명 절단 대비 전체 경로 툴팁
         header.appendChild(txt);
         header.appendChild(el("span", "section-count-badge", String(g.members.length)));
         if (jump) {
@@ -1087,10 +1092,15 @@
       }
       hero.appendChild(avWrap);
       var nameEl = el("h2", "detail-name", contact.name || "");
-      if (contact.name) { // 이름 탭 → 복사(공문/메신저 붙여넣기 편의)
+      if (contact.name) { // 이름 탭/Enter → 복사(공문·메신저 붙여넣기 편의). 키보드 접근 가능.
         nameEl.style.cursor = "pointer";
+        nameEl.setAttribute("role", "button");
+        nameEl.tabIndex = 0;
+        nameEl.setAttribute("aria-label", contact.name + ", 탭하여 이름 복사");
         nameEl.title = "탭하여 이름 복사";
-        nameEl.addEventListener("click", function () { copyText(contact.name); });
+        var copyName = function () { copyText(contact.name); };
+        nameEl.addEventListener("click", copyName);
+        nameEl.addEventListener("keydown", function (e) { if (e.key === "Enter" || e.key === " ") { e.preventDefault(); copyName(); } });
       }
       hero.appendChild(nameEl);
       var roleParts = [contact.position, contact.dept].filter(Boolean);

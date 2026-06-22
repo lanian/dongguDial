@@ -239,8 +239,6 @@
     },
 
     // ---------- 최근 ----------
-    // id 배열만 필요할 때(목록 해석 등). 신규/레거시 포맷 모두 안전.
-    getRecent: function () { return normRecent(read(RECENT_KEY, [])).map(function (e) { return e.id; }); },
     // {id, ts} 항목 배열 — 날짜 그룹화용
     getRecentEntries: function () { return normRecent(read(RECENT_KEY, [])); },
     pushRecent: function (id) {
@@ -310,11 +308,6 @@
       // 최근 목록에 남은 죽은 id 정리(즐겨찾기·그룹과 동일하게 일관 정리)
       write(RECENT_KEY, normRecent(read(RECENT_KEY, [])).filter(function (e) { return e.id !== id; }));
     },
-    resetContact: function (id) {
-      var edits = read(EDITS_KEY, {});
-      if (edits[id]) { delete edits[id]; write(EDITS_KEY, edits); }
-    },
-    isEdited: function (id) { return !!read(EDITS_KEY, {})[id]; },
 
     // ---------- 부서 편집 / 추가 (공통 스토어 위임) ----------
     getDeptEdits: function () { return deptStore.getEdits(); },

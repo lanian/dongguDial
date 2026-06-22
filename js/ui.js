@@ -1257,19 +1257,6 @@
     return b;
   }
 
-  /** dept.id의 모든 하위(자손) id 집합 — 순환 부모 선택 방지용 */
-  function descendantsOf(id, depts) {
-    var set = {};
-    if (!id) return set;
-    var byParent = {};
-    depts.forEach(function (d) { (byParent[d.parentId] = byParent[d.parentId] || []).push(d.id); });
-    (function rec(pid) {
-      (byParent[pid] || []).forEach(function (cid) {
-        if (!set[cid]) { set[cid] = true; rec(cid); }
-      });
-    })(id);
-    return set;
-  }
 
   function field(label, input) {
     var wrap = el("label", "ef-field");

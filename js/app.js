@@ -48,7 +48,7 @@
   var favGroupPickerContact = null;
   // 접힘 상태는 콜드스타트(PWA 재시작)에도 유지되도록 localStorage 에서 복원한다.
   var _orgStored = Storage.getOrgCollapsed(); // null=한 번도 초기화 안 됨(=첫 진입)
-  var current = { tab: "all", query: "", detailId: null, sort: "dept", collapsed: {},
+  var current = { tab: "all", query: "", detailId: null, sort: "dept",
     orgCollapsed: _orgStored || {}, favCollapsed: Storage.getFavCollapsed(),
     orgReorder: false, deptMgrCollapsed: {}, selectMode: false, selected: {} };
   var editId = null;
@@ -458,7 +458,7 @@
         listEl.textContent = "";
         listEl.appendChild(UI.onboarding({
           title: "연락처가 비어 있어요",
-          msg: "명부 파일(CSV·Excel)을 가져오거나\n오른쪽 아래 + 버튼으로 직접 추가할 수 있어요.",
+          msg: "명부 파일(CSV·Excel)을 가져오거나\n아래 ‘직접 추가’ 버튼으로 한 명씩 추가할 수 있어요.",
           actions: [
             { label: "연락처 가져오기", primary: true, onClick: function () {
               document.getElementById("import-contacts-btn").click();
@@ -1356,7 +1356,7 @@
         Data.rebuild();
         var c = Data.getById(contact.id) || contact;
         if (!detailEl.hidden) UI.renderDetail(detailBody, c, detailOpts());
-        render();
+        render(); updatePhotoInfo();
         showSnack("사진을 등록했습니다");
       }).catch(function (e) { showSnack("사진 처리 실패: " + e.message); });
     });
@@ -1365,7 +1365,7 @@
 
   // 사진 일괄 가져오기: 파일명(확장자 제외)을 연락처 '이름'과 매칭해 한 번에 등록. 동명이인은 건너뜀.
   function importPhotosBulk(files) {
-    var byName = {};
+    var byName = Object.create(null); // 프로토타입 키(__proto__ 등) 오매칭 방지
     Data.getAllContacts().forEach(function (c) {
       var nm = (c.name || "").trim(); if (!nm) return;
       byName[nm] = (byName[nm] === undefined) ? c : null; // 중복 이름이면 null(모호 → 제외)
@@ -1387,7 +1387,7 @@
       });
     });
     return chain.then(function () {
-      Data.rebuild(); render();
+      Data.rebuild(); render(); updatePhotoInfo(); // 설정 열려 있으면 사진 개수·용량 갱신
       appDialog({ title: "사진 일괄 가져오기", message:
         "파일 " + total + "개\n· 이름 매칭 " + matched + "명\n· 등록 완료 " + registered + "장"
         + (ambiguous ? "\n· 동명이인(건너뜀) " + ambiguous + "개" : "")

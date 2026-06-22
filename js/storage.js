@@ -435,7 +435,7 @@
       write(MEMBER_ORDER_KEY, memberOrder);
       if (mode === "replace") write(BASE_HIDDEN_KEY, data.baseHidden === true);
       else if (data.baseHidden === true) write(BASE_HIDDEN_KEY, true);
-      if (data.theme) write(THEME_KEY, data.theme);
+      if (["light", "dark", "system"].indexOf(data.theme) >= 0) write(THEME_KEY, data.theme); // 화이트리스트만
       if (typeof data.showDefaultIcon === "boolean") write(SHOW_DEFAULT_ICON_KEY, data.showDefaultIcon);
       return { favorites: favs.length, recent: recent.length,
         edits: Object.keys(edits).length, custom: custom.length,

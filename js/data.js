@@ -63,17 +63,26 @@
     return INDEX_BASE[ch] || ch;
   }
 
+  // 연락처 deptId 의 부서 경로 이름들(말단→최상위). 상위 부서(국/과)로도 검색되게 인덱스에 포함.
+  function deptPathNames(deptId) {
+    var names = [], d = state.deptById[deptId], guard = 0;
+    while (d && guard++ < 64) { if (d.name) names.push(d.name); d = d.parentId ? state.deptById[d.parentId] : null; }
+    return names;
+  }
+
   function buildSearchIndex(c) {
     // 재직상태도 일반어 검색 대상(예: '파견', '-교육'). 기본값 '미설정'은 잡음이라 제외.
     var st = (c.status && c.status !== "미설정") ? c.status : null;
-    var parts = [c.name, c.dept, c.team, c.position, c.grade, c.work, st].filter(Boolean);
+    // 부서는 말단뿐 아니라 상위 경로(국▸과▸팀) 전체를 포함 → 상위 부서명으로도 검색·필터 가능.
+    var deptAll = deptPathNames(c.deptId).join(" ") || c.dept || "";
+    var parts = [c.name, deptAll, c.team, c.position, c.grade, c.work, st].filter(Boolean);
     c._haystack = parts.join(" ").toLowerCase();
     c._choName = chosung(c.name || "");
     c._phoneDigits = normalizeDigits(c.phone) + " " + normalizeDigits(c.tel);
     // 필드 필터(부서:·직책: 등)용 필드별 소문자 인덱스
     c._fields = {
       name: (c.name || "").toLowerCase(),
-      dept: (c.dept || "").toLowerCase(),
+      dept: deptAll.toLowerCase(),
       team: (c.team || "").toLowerCase(),
       position: (c.position || "").toLowerCase(),
       grade: (c.grade || "").toLowerCase(),

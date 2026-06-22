@@ -639,9 +639,29 @@ mark {
 .detail-hero .avatar {
   width: 92px; height: 92px;
   font-size: 34px;
-  margin: 0 auto var(--sp-3);
+  margin: 0;
   box-shadow: 0 0 0 4px var(--surface), var(--elev-1);
 }
+/* 아바타 + 카메라 배지 래퍼 */
+.detail-av-wrap {
+  position: relative;
+  width: 92px; height: 92px;
+  margin: 0 auto var(--sp-3);
+}
+.detail-av-cam {
+  position: absolute;
+  right: -2px; bottom: -2px;
+  width: 30px; height: 30px;
+  border-radius: 50%;
+  border: 2px solid var(--surface);
+  background: var(--brand);
+  color: #fff;
+  display: grid; place-items: center;
+  cursor: pointer;
+  box-shadow: var(--elev-1);
+}
+.detail-av-cam .ic { width: 16px; height: 16px; }
+.detail-av-cam:active { background: var(--brand-dark); }
 .detail-name { font-size: var(--fs-title); font-weight: var(--fw-bold); margin: 0; }
 .detail-role { color: var(--on-surface-muted); margin: 6px 0 0; font-size: var(--fs-md); }
 .detail-chips { display: flex; flex-wrap: wrap; justify-content: center; gap: var(--sp-2); margin-top: var(--sp-2); }

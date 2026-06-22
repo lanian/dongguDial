@@ -1053,8 +1053,28 @@
         };
         av.addEventListener("click", openFull);
         av.addEventListener("keydown", function (e) { if (e.key === "Enter" || e.key === " ") { e.preventDefault(); openFull(); } });
+      } else if (!hasPhoto && opts.onPhotoEdit) {
+        // 사진이 없으면 아바타 탭만으로 바로 등록(편집 단계 생략)
+        av.setAttribute("role", "button");
+        av.tabIndex = 0;
+        av.setAttribute("aria-label", "프로필 사진 등록");
+        av.style.cursor = "pointer";
+        av.addEventListener("click", function () { opts.onPhotoEdit(contact); });
+        av.addEventListener("keydown", function (e) { if (e.key === "Enter" || e.key === " ") { e.preventDefault(); opts.onPhotoEdit(contact); } });
       }
-      hero.appendChild(av);
+      // 사진 등록/변경용 카메라 배지(아바타 모서리) — 사진 유무와 무관하게 한 번에 변경 가능
+      var avWrap = el("div", "detail-av-wrap");
+      avWrap.appendChild(av);
+      if (opts.onPhotoEdit) {
+        var camBtn = el("button", "detail-av-cam");
+        camBtn.type = "button";
+        camBtn.setAttribute("aria-label", hasPhoto ? "프로필 사진 변경" : "프로필 사진 등록");
+        camBtn.title = camBtn.getAttribute("aria-label");
+        camBtn.appendChild(icon("camera"));
+        camBtn.addEventListener("click", function (e) { e.stopPropagation(); opts.onPhotoEdit(contact); });
+        avWrap.appendChild(camBtn);
+      }
+      hero.appendChild(avWrap);
       var nameEl = el("h2", "detail-name", contact.name || "");
       if (contact.name) { // 이름 탭 → 복사(공문/메신저 붙여넣기 편의)
         nameEl.style.cursor = "pointer";

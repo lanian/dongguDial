@@ -648,7 +648,7 @@
       render(); // 목록 즉시 갱신
       if (!detailEl.hidden && current.detailId != null) {
         var c = Data.getById(current.detailId);
-        if (c) UI.renderDetail(detailBody, c, { onOrg: goToOrg, onPhoto: openPhotoViewer });
+        if (c) UI.renderDetail(detailBody, c, detailOpts());
       }
     });
   });
@@ -1268,9 +1268,12 @@
   }
   function imgDecode(file) {
     return new Promise(function (res, rej) {
-      var img = new Image(), url = URL.createObjectURL(file);
-      img.onload = function () { URL.revokeObjectURL(url); res(img); };
-      img.onerror = function () { URL.revokeObjectURL(url); rej(new Error("이미지를 읽지 못했습니다 (HEIC 등 미지원 형식일 수 있어요)")); };
+      var img = new Image(), url = URL.createObjectURL(file), done = false;
+      function fin(ok, v) { if (done) return; done = true; clearTimeout(t); URL.revokeObjectURL(url); ok ? res(v) : rej(v); }
+      // 일부 환경에서 onload/onerror 가 둘 다 안 오는 경우 대비 — 무한 대기(특히 일괄 처리) 방지
+      var t = setTimeout(function () { fin(false, new Error("이미지 디코딩 시간 초과")); }, 15000);
+      img.onload = function () { fin(true, img); };
+      img.onerror = function () { fin(false, new Error("이미지를 읽지 못했습니다 (HEIC 등 미지원 형식일 수 있어요)")); };
       img.src = url;
     });
   }
@@ -1335,10 +1338,81 @@
     });
   }
 
+  // 상세 화면 렌더 옵션(조직 이동·사진 보기·사진 바로 등록 공통)
+  function detailOpts() { return { onOrg: goToOrg, onPhoto: openPhotoViewer, onPhotoEdit: changePhotoFor }; }
+  // 상세 아바타에서 편집 화면 없이 바로 사진 등록/변경(쉬운 등록). 파일 선택 → 처리 → 저장 → 즉시 반영.
+  function changePhotoFor(contact) {
+    var inp = document.createElement("input");
+    inp.type = "file"; inp.accept = "image/*";
+    inp.style.display = "none";
+    document.body.appendChild(inp);
+    inp.addEventListener("change", function () {
+      var f = inp.files && inp.files[0];
+      document.body.removeChild(inp);
+      if (!f) return;
+      processPhoto(f).then(function (p) {
+        if (window.Photos) Photos.set(contact.id, p);
+        Storage.saveContact(contact.id, { defaultIcon: false });
+        Data.rebuild();
+        var c = Data.getById(contact.id) || contact;
+        if (!detailEl.hidden) UI.renderDetail(detailBody, c, detailOpts());
+        render();
+        showSnack("사진을 등록했습니다");
+      }).catch(function (e) { showSnack("사진 처리 실패: " + e.message); });
+    });
+    inp.click();
+  }
+
+  // 사진 일괄 가져오기: 파일명(확장자 제외)을 연락처 '이름'과 매칭해 한 번에 등록. 동명이인은 건너뜀.
+  function importPhotosBulk(files) {
+    var byName = {};
+    Data.getAllContacts().forEach(function (c) {
+      var nm = (c.name || "").trim(); if (!nm) return;
+      byName[nm] = (byName[nm] === undefined) ? c : null; // 중복 이름이면 null(모호 → 제외)
+    });
+    var total = files.length, matched = 0, registered = 0, unmatched = 0, ambiguous = 0;
+    var chain = Promise.resolve();
+    Array.prototype.forEach.call(files, function (f) {
+      var base = f.name.replace(/\.[^.]+$/, "").trim();
+      var c = byName[base];
+      if (c === undefined) { unmatched++; return; }
+      if (c === null) { ambiguous++; return; }
+      matched++;
+      chain = chain.then(function () {
+        return processPhoto(f).then(function (p) {
+          if (window.Photos) Photos.set(c.id, p);
+          Storage.saveContact(c.id, { defaultIcon: false });
+          registered++;
+        }).catch(function () {}); // 개별 사진 실패는 건너뜀
+      });
+    });
+    return chain.then(function () {
+      Data.rebuild(); render();
+      appDialog({ title: "사진 일괄 가져오기", message:
+        "파일 " + total + "개\n· 이름 매칭 " + matched + "명\n· 등록 완료 " + registered + "장"
+        + (ambiguous ? "\n· 동명이인(건너뜀) " + ambiguous + "개" : "")
+        + (unmatched ? "\n· 매칭 실패 " + unmatched + "개" : "")
+        + "\n\n파일명을 연락처 이름과 똑같이 두면 자동 매칭됩니다 (예: 홍길동.jpg).",
+        okLabel: "확인", cancelLabel: "" });
+    });
+  }
+  (function () {
+    var btn = document.getElementById("import-photos-btn");
+    var inp = document.getElementById("import-photos-file");
+    if (!btn || !inp) return;
+    btn.addEventListener("click", function () { inp.value = ""; inp.click(); });
+    inp.addEventListener("change", function () {
+      var files = inp.files;
+      if (!files || !files.length) return;
+      showSnack("사진 처리 중…");
+      importPhotosBulk(files);
+    });
+  })();
+
   function openDetail(contact) {
     current.detailId = contact.id;
     Storage.pushRecent(contact.id);
-    UI.renderDetail(detailBody, contact, { onOrg: goToOrg, onPhoto: openPhotoViewer });
+    UI.renderDetail(detailBody, contact, detailOpts());
     detailEl.setAttribute("aria-label", (contact.name || "연락처") + " 상세");
     updateFavButton();
     pushFocus();
@@ -1909,7 +1983,7 @@
     closeEditor(false);
     if (!detailEl.hidden && current.detailId === id) {
       var c = Data.getById(id);
-      if (c) { UI.renderDetail(detailBody, c, { onOrg: goToOrg, onPhoto: openPhotoViewer }); updateFavButton(); }
+      if (c) { UI.renderDetail(detailBody, c, detailOpts()); updateFavButton(); }
     }
     render();
     showSnack("저장되었습니다");
@@ -2177,7 +2251,7 @@
         render();
         if (!detailEl.hidden && current.detailId != null) { // 콜드 딥링크로 상세가 열려 있으면 사진 반영
           var c = Data.getById(current.detailId);
-          if (c) UI.renderDetail(detailBody, c, { onOrg: goToOrg, onPhoto: openPhotoViewer });
+          if (c) UI.renderDetail(detailBody, c, detailOpts());
         }
       });
     })

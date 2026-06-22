@@ -77,6 +77,10 @@
         <button class="seg-btn is-active" data-sort="dept" aria-pressed="true">부서순</button>
         <button class="seg-btn" data-sort="name" aria-pressed="false">가나다순</button>
       </div>
+      <!-- 연락처 추가(전체 탭에서 표시) -->
+      <button id="add-contact-bar" class="icon-btn icon-btn--bar" aria-label="연락처 추가" hidden>
+        <svg class="ic" aria-hidden="true"><use href="#ic-plus"/></svg>
+      </button>
       <!-- 조직도 탭 전용 액션(아이콘): 모두 펼치기/접기·사원 순서·부서 관리. 조직도 탭에서만 표시 -->
       <div id="org-actions" class="org-actions" hidden></div>
       <button id="select-mode-btn" class="icon-btn icon-btn--bar" aria-label="여러 명 선택">

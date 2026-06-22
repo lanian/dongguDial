@@ -35,6 +35,7 @@
   var deptEditorBody = document.getElementById("dept-editor-body");
   var deptEditId = null;
   var toTop = document.getElementById("to-top");
+  var addContactBar = document.getElementById("add-contact-bar"); // 앱바 연락처 추가(전체 탭)
   var sortSeg = document.getElementById("sort-seg");
   var alphaRail = document.getElementById("alpha-rail");
   var snackbar = document.getElementById("snackbar");
@@ -111,8 +112,11 @@
     swRefreshing = true;
     window.location.reload();
   }
-  // 연락처 추가는 설정 화면 항목으로 이동(FAB 제거). 오버레이 상태 변화 시 '맨 위로' 갱신만 담당.
-  function updateFab() { updateToTop(); }
+  // 앱바 '연락처 추가'는 전체 탭·비검색·비선택·오버레이 없을 때만(옛 FAB 표시 조건). + '맨 위로' 갱신.
+  function updateFab() {
+    if (addContactBar) addContactBar.hidden = !(!anyOverlayOpen() && !current.query && current.tab === "all" && !current.selectMode);
+    updateToTop();
+  }
   // 맨 위로 버튼: 스크롤을 충분히 내렸고 오버레이가 없을 때만 표시.
   function updateToTop() {
     if (!toTop) return;
@@ -2067,6 +2071,7 @@
     closeSettings(false);  // 설정 닫고 새 연락처 편집기 열기
     openEditor(null);
   });
+  if (addContactBar) addContactBar.addEventListener("click", function () { openEditor(null); });
   document.getElementById("deptmgr-btn").addEventListener("click", openDeptMgr);
   var reorderMembersBtn = document.getElementById("reorder-members-btn");
   if (reorderMembersBtn) reorderMembersBtn.addEventListener("click", function () {

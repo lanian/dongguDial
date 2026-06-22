@@ -660,6 +660,8 @@ mark {
   cursor: pointer;
   box-shadow: var(--elev-1);
 }
+/* 시각 크기는 30px 유지하되 터치 히트영역만 44px 로 확장(WCAG 2.5.5) */
+.detail-av-cam::before { content: ""; position: absolute; inset: -7px; border-radius: 50%; }
 .detail-av-cam .ic { width: 16px; height: 16px; }
 .detail-av-cam:active { background: var(--brand-dark); }
 .detail-name { font-size: var(--fs-title); font-weight: var(--fw-bold); margin: 0; }

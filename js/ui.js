@@ -1077,10 +1077,16 @@
       if (opts.onPhotoEdit) {
         var camBtn = el("button", "detail-av-cam");
         camBtn.type = "button";
-        camBtn.setAttribute("aria-label", hasPhoto ? "프로필 사진 변경" : "프로필 사진 등록");
-        camBtn.title = camBtn.getAttribute("aria-label");
         camBtn.appendChild(icon("camera"));
         camBtn.addEventListener("click", function (e) { e.stopPropagation(); opts.onPhotoEdit(contact); });
+        if (hasPhoto) { // 사진 있음: '변경'은 배지가 유일 진입점 → 라벨 있는 버튼
+          camBtn.setAttribute("aria-label", "프로필 사진 변경");
+          camBtn.title = "프로필 사진 변경";
+        } else { // 사진 없음: 아바타 자체가 '등록' 버튼이므로 배지는 시각 표시만(스크린리더 중복 방지)
+          camBtn.setAttribute("aria-hidden", "true");
+          camBtn.tabIndex = -1;
+          camBtn.title = "프로필 사진 등록";
+        }
         avWrap.appendChild(camBtn);
       }
       hero.appendChild(avWrap);

@@ -194,16 +194,16 @@
     return lines.join("\r\n");
   }
 
-  function downloadVCard(c) {
-    var blob = new Blob([buildVCard(c)], { type: "text/vcard;charset=utf-8" });
+  // 공용 파일 다운로드(앵커 + objectURL). app.js·contacts-io 등에서 UI.downloadBlob 으로 재사용.
+  function blobDownload(blob, filename) {
     var url = URL.createObjectURL(blob);
     var a = el("a");
-    a.href = url;
-    a.download = (c.name || "contact") + ".vcf";
-    document.body.appendChild(a);
-    a.click();
-    document.body.removeChild(a);
+    a.href = url; a.download = filename || "download";
+    document.body.appendChild(a); a.click(); document.body.removeChild(a);
     setTimeout(function () { URL.revokeObjectURL(url); }, 1000);
+  }
+  function downloadVCard(c) {
+    blobDownload(new Blob([buildVCard(c)], { type: "text/vcard;charset=utf-8" }), (c.name || "contact") + ".vcf");
     snack("연락처 파일을 저장했어요");
   }
 
@@ -428,17 +428,13 @@
     buildVCards: function (contacts) {
       return (contacts || []).filter(Boolean).map(buildVCard).join("\r\n") + "\r\n";
     },
+    downloadBlob: blobDownload, // 공용 파일 다운로드(외부 모듈 재사용)
     /** 여러 연락처를 하나의 .vcf 파일로 일괄 내보내기. 반환: 내보낸 건수 */
     downloadVCards: function (contacts, filename) {
       contacts = (contacts || []).filter(Boolean);
       if (!contacts.length) return 0;
       var text = contacts.map(buildVCard).join("\r\n") + "\r\n";
-      var blob = new Blob([text], { type: "text/vcard;charset=utf-8" });
-      var url = URL.createObjectURL(blob);
-      var a = el("a");
-      a.href = url; a.download = filename || "contacts.vcf";
-      document.body.appendChild(a); a.click(); document.body.removeChild(a);
-      setTimeout(function () { URL.revokeObjectURL(url); }, 1000);
+      blobDownload(new Blob([text], { type: "text/vcard;charset=utf-8" }), filename || "contacts.vcf");
       return contacts.length;
     },
 

@@ -1804,13 +1804,7 @@
       return new Blob(parts, { type: "application/json" });
     });
   }
-  function downloadBlob(blob, filename) {
-    var url = URL.createObjectURL(blob);
-    var a = document.createElement("a");
-    a.href = url; a.download = filename;
-    document.body.appendChild(a); a.click(); document.body.removeChild(a);
-    setTimeout(function () { URL.revokeObjectURL(url); }, 1000);
-  }
+  function downloadBlob(blob, filename) { UI.downloadBlob(blob, filename); } // 공용 헬퍼 위임
   function downloadJson(obj, filename) {
     downloadBlob(new Blob([JSON.stringify(obj, null, 2)], { type: "application/json" }), filename);
   }

@@ -63,11 +63,15 @@
     return INDEX_BASE[ch] || ch;
   }
 
-  // 연락처 deptId 의 부서 경로 이름들(말단→최상위). 상위 부서(국/과)로도 검색되게 인덱스에 포함.
+  // 부서 조상 체인(말단→최상위) 노드 배열. 모든 경로/깊이 계산의 단일 출처(순환 방어 guard 64).
+  function walkUp(deptId) {
+    var out = [], d = state.deptById[deptId], guard = 0;
+    while (d && guard++ < 64) { out.push(d); d = d.parentId ? state.deptById[d.parentId] : null; }
+    return out;
+  }
+  // 부서 경로 이름들(말단→최상위). 상위 부서(국/과)로도 검색되게 인덱스에 포함.
   function deptPathNames(deptId) {
-    var names = [], d = state.deptById[deptId], guard = 0;
-    while (d && guard++ < 64) { if (d.name) names.push(d.name); d = d.parentId ? state.deptById[d.parentId] : null; }
-    return names;
+    return walkUp(deptId).map(function (d) { return d.name; }).filter(Boolean);
   }
 
   function buildSearchIndex(c) {
@@ -291,22 +295,12 @@
 
     /** parentId 체인으로 계산한 표시용 깊이(0=최상위). level 비정규화 의존 제거 */
     depthOf: function (id) {
-      var d = state.deptById[id], n = 0, guard = 0;
-      while (d && d.parentId && state.deptById[d.parentId] && guard++ < 64) {
-        d = state.deptById[d.parentId];
-        n++;
-      }
-      return n;
+      return Math.max(0, walkUp(id).length - 1);
     },
 
     /** 부서 조직 경로(최상위→해당 부서) [{id,name}...] */
     deptPath: function (id) {
-      var out = [], d = state.deptById[id], guard = 0;
-      while (d && guard++ < 64) {
-        out.unshift({ id: d.id, name: d.name });
-        d = d.parentId ? state.deptById[d.parentId] : null;
-      }
-      return out;
+      return walkUp(id).map(function (d) { return { id: d.id, name: d.name }; }).reverse();
     },
 
     /** 부서 직속 인원(멤버순 정렬) */

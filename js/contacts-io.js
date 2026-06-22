@@ -50,16 +50,21 @@
         s = m[s] || s;
         return ["재직", "휴직", "파견", "교육"].indexOf(s) >= 0 ? s : "미설정";
       }
-      function applyContactImport(rows) {
+      // 헤더 분석(필드맵·위계열·셀 추출기) — 가져오기/미리보기 공용. 이름 열 없으면 throw.
+      function analyzeRows(rows) {
         var headers = Object.keys(rows[0] || {});
         var fmap = buildFieldMap(headers);
         if (!fmap.name) throw new Error("‘이름’ 열을 찾을 수 없습니다. 양식을 확인하세요.");
-        // 위계 열(상위부서/부서/팀) 헤더 탐지
-        var hierHeaders = HIER_ALIASES.map(function (aliases) {
+        var hierHeaders = HIER_ALIASES.map(function (aliases) { // 위계 열(상위부서/부서/팀)
           var a = aliases.map(norm);
           return headers.find(function (hd) { return a.indexOf(norm(hd)) !== -1; }) || null;
         });
-
+        function v(r, f) { return fmap[f] ? (r[fmap[f]] || "").trim() : ""; }
+        function leafOf(r) { for (var i = hierHeaders.length - 1; i >= 0; i--) { var h = hierHeaders[i]; if (h && (r[h] || "").trim()) return r[h].trim(); } return ""; }
+        return { fmap: fmap, hierHeaders: hierHeaders, v: v, leafOf: leafOf };
+      }
+      function applyContactImport(rows) {
+        var A = analyzeRows(rows), fmap = A.fmap, hierHeaders = A.hierHeaders, v = A.v, leafOf = A.leafOf;
         var pathCache = {}, sortCounter = 0, newDepts = 0;
         Data.getDepartments().forEach(function (d) {
           pathCache[(d.parentId || 0) + " " + d.name] = { id: d.id, level: d.level || 0 };
@@ -85,8 +90,6 @@
           });
           return leaf;
         }
-        function v(r, f) { return fmap[f] ? (r[fmap[f]] || "").trim() : ""; }
-        function leafOf(r) { for (var i = hierHeaders.length - 1; i >= 0; i--) { var h = hierHeaders[i]; if (h && (r[h] || "").trim()) return r[h].trim(); } return ""; }
         function fieldsFromRow(r) {
           var leaf = resolveDeptPath(hierHeaders.map(function (h) { return h ? (r[h] || "").trim() : ""; }));
           return { name: v(r, "name"), deptId: leaf.id, dept: leaf.name, team: "",
@@ -124,15 +127,7 @@
       }
       // 미리보기(dry-run, 변경 없음): 신규/갱신/건너뜀 건수
       function classifyImport(rows) {
-        var headers = Object.keys(rows[0] || {});
-        var fmap = buildFieldMap(headers);
-        if (!fmap.name) throw new Error("'이름' 열을 찾을 수 없습니다. 양식을 확인하세요.");
-        var hierHeaders = HIER_ALIASES.map(function (aliases) {
-          var a = aliases.map(norm);
-          return headers.find(function (hd) { return a.indexOf(norm(hd)) !== -1; }) || null;
-        });
-        function v(r, f) { return fmap[f] ? (r[fmap[f]] || "").trim() : ""; }
-        function leafOf(r) { for (var i = hierHeaders.length - 1; i >= 0; i--) { var h = hierHeaders[i]; if (h && (r[h] || "").trim()) return r[h].trim(); } return ""; }
+        var A = analyzeRows(rows), v = A.v, leafOf = A.leafOf;
         var idx = buildContactMatchIndex();
         var news = 0, updates = 0, skipped = 0;
         rows.forEach(function (r) {
@@ -205,12 +200,7 @@
         var csv = "이름,상위부서,부서,팀,직책,직급,담당업무,휴대전화,행정번호,생년월일,재직상태\n" +
           "홍길동,행정복지국,자치행정과,총무팀,팀장,사무관,총무,010-1234-5678,062-608-0000,1980-01-01,재직\n" +
           "김영희,행정복지국,자치행정과,,과장,서기관,자치행정,010-2222-3333,062-608-0001,1978-05-05,재직\n";
-        var blob = new Blob(["﻿" + csv], { type: "text/csv;charset=utf-8" });
-        var url = URL.createObjectURL(blob);
-        var a = document.createElement("a");
-        a.href = url; a.download = "행정전화부-가져오기양식.csv";
-        document.body.appendChild(a); a.click(); document.body.removeChild(a);
-        setTimeout(function () { URL.revokeObjectURL(url); }, 1000);
+        UI.downloadBlob(new Blob(["﻿" + csv], { type: "text/csv;charset=utf-8" }), "행정전화부-가져오기양식.csv");
       });
 
       // ---------- 연락처 CSV 내보내기 (가져오기 양식과 동일 열 → 재가져오기 호환) ----------
@@ -258,12 +248,7 @@
           ].map(csvCell).join(","));
         });
         var csv = "﻿" + lines.join("\r\n") + "\r\n"; // BOM(엑셀 한글) + CRLF
-        var blob = new Blob([csv], { type: "text/csv;charset=utf-8" });
-        var url = URL.createObjectURL(blob);
-        var a = document.createElement("a");
-        a.href = url; a.download = "행정전화부-연락처-" + dateStamp() + ".csv";
-        document.body.appendChild(a); a.click(); document.body.removeChild(a);
-        setTimeout(function () { URL.revokeObjectURL(url); }, 1000);
+        UI.downloadBlob(new Blob([csv], { type: "text/csv;charset=utf-8" }), "행정전화부-연락처-" + dateStamp() + ".csv");
         showSnack(ordered.length + "건을 CSV로 내보냈습니다.");
       }
       document.getElementById("export-contacts-csv-btn").addEventListener("click", exportContactsCSV);

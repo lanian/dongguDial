@@ -303,6 +303,16 @@
       return walkUp(id).map(function (d) { return { id: d.id, name: d.name }; }).reverse();
     },
 
+    /** 부서 id 의 모든 하위(자손) id 집합 {id:true} — 순환 부모 선택 방지·하위 일괄 펼침 등 */
+    descendantIds: function (id) {
+      var set = {};
+      if (id == null) return set;
+      var byParent = {};
+      state.departments.forEach(function (d) { (byParent[d.parentId || 0] = byParent[d.parentId || 0] || []).push(d.id); });
+      (function rec(pid) { (byParent[pid] || []).forEach(function (cid) { if (!set[cid]) { set[cid] = true; rec(cid); } }); })(id);
+      return set;
+    },
+
     /** 부서 직속 인원(멤버순 정렬) */
     membersOfDept: function (id) {
       return (state.membersByDept[id] || []).slice().sort(function (a, b) {

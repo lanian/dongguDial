@@ -680,7 +680,7 @@
     Data.deptPath(deptId).forEach(function (p) { current.orgCollapsed[p.id] = false; }); // 상위 경로 펼침
     current.orgCollapsed[deptId] = false; // 대상 부서 자체도 펼침
     // 대상 부서의 하위(과/팀)도 모두 펼쳐 부서 전체 구성을 바로 보여준다.
-    var desc = deptDescendants(deptId);
+    var desc = Data.descendantIds(deptId);
     Object.keys(desc).forEach(function (cid) { current.orgCollapsed[cid] = false; });
     Storage.setOrgCollapsed(current.orgCollapsed);
     render();
@@ -726,14 +726,6 @@
     if (!b) return;
     var v = b.querySelector(".ef-picker-val");
     if (v) v.textContent = label;
-  }
-  function deptDescendants(id) {
-    var set = {};
-    if (id == null) return set;
-    var byParent = {};
-    Data.getDepartments().forEach(function (d) { (byParent[d.parentId || 0] = byParent[d.parentId || 0] || []).push(d.id); });
-    (function rec(pid) { (byParent[pid] || []).forEach(function (cid) { if (!set[cid]) { set[cid] = true; rec(cid); } }); })(id);
-    return set;
   }
   function renderDeptPickerList(q) {
     UI.renderDeptPicker(document.getElementById("dept-picker-list"), {
@@ -1974,7 +1966,7 @@
     var formDept = dept || (presetParentId != null ? { parentId: presetParentId } : {});
     UI.renderDeptForm(deptEditorBody, formDept, Data.getDepartments());
     document.getElementById("df-parent-btn").addEventListener("click", function () {
-      var excl = deptEditId != null ? deptDescendants(deptEditId) : {};
+      var excl = deptEditId != null ? Data.descendantIds(deptEditId) : {};
       if (deptEditId != null) excl[deptEditId] = true;
       openDeptPicker({
         title: "상위 부서 선택", allowNone: true, noneLabel: "최상위 (국·실·관)",

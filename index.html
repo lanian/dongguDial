@@ -320,13 +320,14 @@
           <div class="info-text">
             <div class="info-label">저장된 개인 데이터 (백업 대상)</div>
             <div class="info-value" id="settings-counts">저장된 개인 데이터 없음</div>
+            <div class="info-label" id="settings-photo-info" hidden></div>
           </div>
         </div>
         <button class="settings-action" id="export-btn">
           <span class="info-ico"><svg class="ic" aria-hidden="true"><use href="#ic-download"/></svg></span>
           <div class="info-text">
             <div class="info-value">백업 내보내기</div>
-            <div class="info-label">즐겨찾기·최근을 JSON 파일로 저장</div>
+            <div class="info-label">연락처·부서·즐겨찾기·사진을 JSON 파일로 저장</div>
           </div>
         </button>
         <button class="settings-action" id="export-enc-btn">
@@ -334,6 +335,13 @@
           <div class="info-text">
             <div class="info-value">암호화 백업 내보내기</div>
             <div class="info-label">암호로 잠근 백업(.json) — 유출돼도 내용 보호</div>
+          </div>
+        </button>
+        <button class="settings-action" id="export-nophoto-btn">
+          <span class="info-ico"><svg class="ic" aria-hidden="true"><use href="#ic-download"/></svg></span>
+          <div class="info-text">
+            <div class="info-value">사진 제외 백업</div>
+            <div class="info-label">사진 없이 텍스트만 — 파일이 가벼움</div>
           </div>
         </button>
         <button class="settings-action" id="import-btn">

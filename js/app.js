@@ -1664,6 +1664,7 @@
   function openSettings() {
     exitSelectMode(true); // 선택 모드 중 설정 진입 시 정리(자체 history.back 없이 — 직후 #settings push 와 경합 방지)
     refreshCounts();
+    updatePhotoInfo();
     document.getElementById("settings-version").textContent = "v" + APP_VERSION;
     var settingsBody = settingsEl.querySelector(".detail-body");
     pushFocus();
@@ -1735,9 +1736,33 @@
   function downloadJson(obj, filename) {
     downloadBlob(new Blob([JSON.stringify(obj, null, 2)], { type: "application/json" }), filename);
   }
+  // 설정의 사진 개수·대략 용량 표시(백업 포함). count 는 즉시, 용량은 IDB 스트리밍으로 비동기 계산.
+  function updatePhotoInfo() {
+    var el = document.getElementById("settings-photo-info");
+    if (!el) return;
+    var n = (window.Photos && Photos.count) ? Photos.count() : 0;
+    if (!n) { el.hidden = true; el.textContent = ""; return; }
+    el.hidden = false;
+    el.textContent = "사진 " + n + "장 (백업에 포함)";
+    if (!Photos.streamAll) return;
+    var bytes = 0;
+    Photos.streamAll(function (id, val) { bytes += (typeof val === "string" ? val.length : JSON.stringify(val).length); })
+      .then(function () {
+        var size = bytes >= 1024 * 1024 ? (bytes / (1024 * 1024)).toFixed(1) + "MB" : Math.max(1, Math.round(bytes / 1024)) + "KB";
+        el.textContent = "사진 " + n + "장 · 약 " + size + " (백업에 포함)";
+      });
+  }
+
   // ---------- 백업 암호화 ---------- (구현은 js/backup-crypto.js 의 window.BackupCrypto)
   document.getElementById("export-btn").addEventListener("click", function () {
     buildBackupBlob().then(function (blob) { downloadBlob(blob, "행정전화부-백업-" + dateStamp() + ".json"); });
+  });
+  // 사진 제외 백업: 사진(IDB)을 빼고 본문(연락처·부서·즐겨찾기 등)만 — 파일이 가볍다.
+  var exportNoPhotoBtn = document.getElementById("export-nophoto-btn");
+  if (exportNoPhotoBtn) exportNoPhotoBtn.addEventListener("click", function () {
+    var blob = new Blob([JSON.stringify(Storage.exportData(), null, 2)], { type: "application/json" });
+    downloadBlob(blob, "행정전화부-백업(사진제외)-" + dateStamp() + ".json");
+    showSnack("사진 제외 백업을 내보냈습니다");
   });
   function exportBackupEncrypted() {
     if (!(window.crypto && crypto.subtle)) { showSnack("이 브라우저는 백업 암호화를 지원하지 않습니다"); return; }

@@ -232,7 +232,8 @@
     row.setAttribute("role", "button");
     row.tabIndex = 0;
     if (contact.id != null) row.dataset.id = contact.id; // 다중선택 식별용
-    var subAll = [contact.dept, contact.position, contact.grade, contact.work].filter(Boolean);
+    // 부서는 '상위1단계 › 말단'(_deptShort)으로 표시 — 그룹 헤더 없는 가나다순·검색 맥락 보강
+    var subAll = [contact._deptShort || contact.dept, contact.position, contact.grade, contact.work].filter(Boolean);
     row.setAttribute("aria-label", (contact.name || "") + ", " + subAll.join(" ") + ", 상세 보기");
 
     row.appendChild(makeAvatar(contact));

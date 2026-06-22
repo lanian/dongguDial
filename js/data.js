@@ -74,7 +74,10 @@
     // 재직상태도 일반어 검색 대상(예: '파견', '-교육'). 기본값 '미설정'은 잡음이라 제외.
     var st = (c.status && c.status !== "미설정") ? c.status : null;
     // 부서는 말단뿐 아니라 상위 경로(국▸과▸팀) 전체를 포함 → 상위 부서명으로도 검색·필터 가능.
-    var deptAll = deptPathNames(c.deptId).join(" ") || c.dept || "";
+    var pathNames = deptPathNames(c.deptId); // [말단, 상위, …, 최상위]
+    var deptAll = pathNames.join(" ") || c.dept || "";
+    // 행 표시용: 상위 1단계 + 말단(예: '총무과 › 인사팀'). 그룹 헤더 없는 가나다순·검색에서 맥락 제공.
+    c._deptShort = pathNames.length >= 2 ? (pathNames[1] + " › " + pathNames[0]) : (pathNames[0] || c.dept || "");
     var parts = [c.name, deptAll, c.team, c.position, c.grade, c.work, st].filter(Boolean);
     c._haystack = parts.join(" ").toLowerCase();
     c._choName = chosung(c.name || "");

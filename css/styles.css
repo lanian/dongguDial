@@ -1195,25 +1195,6 @@ select.ef-input { appearance: none; }
 }
 .to-top[hidden] { display: none; }
 .to-top .to-top-ic { transform: rotate(-90deg); } /* › → ↑ */
-.to-top.above-fab { bottom: calc(var(--sp-4) + var(--safe-bottom) + 56px + var(--sp-2)); } /* FAB 위로 */
-
-.fab {
-  position: fixed;
-  right: var(--sp-4);
-  bottom: calc(var(--sp-4) + var(--safe-bottom));
-  z-index: var(--z-tabs);
-  width: 56px; height: 56px;
-  border: none;
-  border-radius: var(--r-lg);
-  background: var(--brand);
-  color: #fff;
-  display: grid;
-  place-items: center;
-  box-shadow: var(--elev-2);
-  cursor: pointer;
-}
-.fab .ic { width: 26px; height: 26px; stroke-width: 2.4; }
-.fab:active { background: var(--brand-dark); }
 
 /* ---------- Snackbar ---------- */
 .snackbar {
@@ -1513,7 +1494,7 @@ select.ef-input { appearance: none; }
     margin-left: auto; margin-right: auto;
   }
   /* 컬럼 우측 가장자리 기준 고정요소 */
-  .fab { right: calc((100% - var(--app-w)) / 2 + var(--sp-4)); }
+  .to-top { right: calc((100% - var(--app-w)) / 2 + var(--sp-4)); }
   .alpha-rail { right: calc((100% - var(--app-w)) / 2 + 2px); }
   .alpha-bubble { right: calc((100% - var(--app-w)) / 2 + 52px); }
   /* 좌우 여백형 토스트를 컬럼 폭으로 */

@@ -234,11 +234,6 @@
     <img id="photo-viewer-img" alt="" />
   </section>
 
-  <!-- 연락처 추가 FAB -->
-  <button id="fab-add" class="fab" aria-label="연락처 추가">
-    <svg class="ic" aria-hidden="true"><use href="#ic-plus"/></svg>
-  </button>
-
   <!-- 맨 위로 이동(스크롤 내렸을 때만 표시) -->
   <button id="to-top" class="to-top" aria-label="맨 위로" hidden>
     <svg class="ic to-top-ic" aria-hidden="true"><use href="#ic-chevron"/></svg>
@@ -254,6 +249,17 @@
       <span class="detail-bar-title" id="settings-bar-title">설정</span>
     </header>
     <div class="detail-body">
+      <div class="settings-section-title">연락처</div>
+      <div class="info-card">
+        <button class="settings-action" id="add-contact-btn">
+          <span class="info-ico"><svg class="ic" aria-hidden="true"><use href="#ic-plus"/></svg></span>
+          <div class="info-text">
+            <div class="info-value">연락처 추가</div>
+            <div class="info-label">새 연락처를 직접 입력해 추가</div>
+          </div>
+        </button>
+      </div>
+
       <div class="settings-section-title">화면 테마</div>
       <div class="info-card">
         <div class="theme-seg" role="group" aria-label="테마 선택">

@@ -34,7 +34,6 @@
   var deptEditorEl = document.getElementById("dept-editor");
   var deptEditorBody = document.getElementById("dept-editor-body");
   var deptEditId = null;
-  var fab = document.getElementById("fab-add");
   var toTop = document.getElementById("to-top");
   var sortSeg = document.getElementById("sort-seg");
   var alphaRail = document.getElementById("alpha-rail");
@@ -112,17 +111,12 @@
     swRefreshing = true;
     window.location.reload();
   }
-  function updateFab() {
-    // FAB(사원 추가)는 '전체' 탭에서만. 조직도는 보기/구조 전용이라 노출하지 않음
-    var show = !anyOverlayOpen() && !current.query && current.tab === "all" && !current.selectMode;
-    fab.hidden = !show;
-    updateToTop();
-  }
-  // 맨 위로 버튼: 스크롤을 충분히 내렸고 오버레이가 없을 때만 표시. FAB 있으면 그 위에 배치.
+  // 연락처 추가는 설정 화면 항목으로 이동(FAB 제거). 오버레이 상태 변화 시 '맨 위로' 갱신만 담당.
+  function updateFab() { updateToTop(); }
+  // 맨 위로 버튼: 스크롤을 충분히 내렸고 오버레이가 없을 때만 표시.
   function updateToTop() {
     if (!toTop) return;
     toTop.hidden = !(scrollRegion.scrollTop > 320 && !anyOverlayOpen());
-    toTop.classList.toggle("above-fab", !!(fab && !fab.hidden));
   }
   if (toTop) toTop.addEventListener("click", function () {
     scrollRegion.scrollTo({ top: 0, behavior: "smooth" });
@@ -1918,7 +1912,6 @@
   document.getElementById("editor-cancel").addEventListener("click", function () { closeEditor(false); });
   document.getElementById("editor-save").addEventListener("click", saveEditor);
   document.getElementById("editor-delete").addEventListener("click", deleteEditor);
-  fab.addEventListener("click", function () { openEditor(null); });
   document.getElementById("reset-edits-btn").addEventListener("click", function () {
     appDialog({ title: "초기화", message: "수정·추가한 연락처와 부서를 모두 초기화할까요?", okLabel: "초기화", danger: true }).then(function (ok) {
       if (!ok) return;
@@ -1970,6 +1963,11 @@
     deptMgrEl.hidden = true; syncInert(); updateFab(); popFocus();
     if (!fromPop && location.hash === "#depts") backFromOverlay();
   }
+  var addContactBtn = document.getElementById("add-contact-btn");
+  if (addContactBtn) addContactBtn.addEventListener("click", function () {
+    closeSettings(false);  // 설정 닫고 새 연락처 편집기 열기
+    openEditor(null);
+  });
   document.getElementById("deptmgr-btn").addEventListener("click", openDeptMgr);
   var reorderMembersBtn = document.getElementById("reorder-members-btn");
   if (reorderMembersBtn) reorderMembersBtn.addEventListener("click", function () {

@@ -482,7 +482,8 @@
         // 섹션 헤더가 부서를 이미 보여주므로 행 보조줄에서는 같은 부서명을 생략(중복 제거).
         // 단 검색 결과(rowsKeepDept)에서는 '여기저기서 찾기' 맥락이라 행마다 부서를 유지한다.
         if (!opts.rowsKeepDept) deptRowOpts.hideDeptName = g.dept.name;
-        appendRows(section, g.members, deptRowOpts);
+        // 부서순에서는 리더(직책 …장/담당관/위원/단장)를 강조해 부서별 책임자를 한눈에(조직도와 동일).
+        g.members.forEach(function (c) { section.appendChild(orgRow(c, deptRowOpts)); });
         frag.appendChild(section);
       });
       container.appendChild(frag);

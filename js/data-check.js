@@ -26,13 +26,22 @@
         problems ? ("문제 " + problems + "건") : "문제 없음 👍"));
       container.appendChild(summary);
 
-      // 연락처 1명 → 탭 시 상세 이동하는 행
+      // 연락처 1명 → 탭 시 상세 이동하는 행(이름 + 부서·사유로 식별 정보 강화)
       function row(c, reason) {
         var btn = elx("button", "datacheck-row");
         btn.type = "button";
+        if (window.UI && UI.avatarColor) {
+          var av = elx("span", "datacheck-avatar", (c.name || "?").trim().charAt(0) || "?");
+          av.style.background = UI.avatarColor(c.name || "");
+          btn.appendChild(av);
+        }
         var t = elx("div", "datacheck-row-text");
-        t.appendChild(elx("span", "datacheck-row-name", c.name || "(이름 없음)"));
-        if (reason) t.appendChild(elx("span", "datacheck-row-reason", reason));
+        t.appendChild(elx("div", "datacheck-row-name", c.name || "(이름 없음)"));
+        var bits = [];
+        var dept = c._deptShort || c.dept;
+        if (dept) bits.push(dept);
+        if (reason) bits.push(reason);
+        if (bits.length) t.appendChild(elx("div", "datacheck-row-sub", bits.join(" · ")));
         btn.appendChild(t);
         btn.appendChild(UI.icon ? UI.icon("chevron", "datacheck-chev") : elx("span"));
         btn.addEventListener("click", function () { if (onOpen) onOpen(c); });
@@ -74,10 +83,8 @@
       section("부서 미배정", r.orphans);
       section("생년월일 형식 오류", r.badBirth, function (c) { return c.birth || ""; });
       if (r.emptyDepts.length) container.appendChild(elx("div", "datacheck-section-title", "이름 없는 부서 " + r.emptyDepts.length + "개"));
-      // 참고(문제 아님): 동명이인
-      groupSection("〔참고〕 동명이인", r.dupNames, function (g, c) {
-        return (window.Data && Data.deptPath) ? (Data.deptPath(c.deptId).map(function (p) { return p.name; }).pop() || "") : "";
-      });
+      // 참고(문제 아님): 동명이인 — 행의 부서(_deptShort)가 이미 구분 정보라 별도 사유 없음
+      groupSection("〔참고〕 동명이인", r.dupNames);
     },
   };
 })(window);

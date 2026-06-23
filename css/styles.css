@@ -811,6 +811,25 @@ html[data-theme="dark"] .info-card { box-shadow: none; border: 1px solid var(--d
 }
 .settings-note b { color: var(--on-surface); font-weight: var(--fw-med); }
 
+/* 파괴적(초기화/대체) 동작 — 안전한 항목과 시각적으로 구분(빨강) */
+.settings-action--danger .info-ico,
+.settings-action--danger .info-value { color: var(--danger); }
+.settings-action--danger:active { background: rgba(var(--danger-rgb), 0.08); }
+/* 위험 구역 섹션 제목 */
+.settings-section-title--danger { color: var(--danger); }
+/* '고급 옵션' 접이식 박스: 마지막 항목 구분선 제거(특정 id 대신 클래스로 범용화) */
+.settings-advanced .settings-action:last-child { border-bottom: none; }
+
+/* 화면 설정: 한 카드 안에 라벨 붙은 세그먼트 컨트롤 여럿(테마·글자크기·기본아이콘 통합) */
+.settings-field { padding: var(--sp-2) var(--sp-2) var(--sp-3); border-bottom: 1px solid var(--divider); }
+.settings-field:last-child { border-bottom: none; }
+.settings-field-label {
+  font-size: var(--fs-sm);
+  font-weight: var(--fw-med);
+  color: var(--on-surface-muted);
+  padding: var(--sp-2) var(--sp-3) 0;
+}
+
 /* ---------- 데이터 점검(액션 가능 오버레이) ---------- */
 .datacheck-summary {
   display: flex; align-items: center; justify-content: space-between;

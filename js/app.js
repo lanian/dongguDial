@@ -2074,17 +2074,16 @@
     openEditor(null);
   });
   if (addContactBar) addContactBar.addEventListener("click", function () { openEditor(null); });
-  // 백업 '고급 옵션' 접이식(암호화·사진제외·초기화후복구)
-  (function () {
-    var t = document.getElementById("backup-advanced-toggle");
-    var box = document.getElementById("backup-advanced");
-    if (!t || !box) return;
+  // '고급 옵션' 접이식 — aria-controls 로 대상 박스를 여는 범용 처리(백업·명부 등 여러 곳)
+  Array.prototype.forEach.call(document.querySelectorAll(".settings-disclosure"), function (t) {
+    var box = document.getElementById(t.getAttribute("aria-controls"));
+    if (!box) return;
     t.addEventListener("click", function () {
       var open = box.hidden;
       box.hidden = !open;
       t.setAttribute("aria-expanded", open ? "true" : "false");
     });
-  })();
+  });
   document.getElementById("deptmgr-btn").addEventListener("click", openDeptMgr);
   var reorderMembersBtn = document.getElementById("reorder-members-btn");
   if (reorderMembersBtn) reorderMembersBtn.addEventListener("click", function () {

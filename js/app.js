@@ -1363,24 +1363,55 @@
 
   // 사진 일괄 가져오기: 파일명(확장자 제외)을 연락처 '이름'과 매칭해 한 번에 등록. 동명이인은 건너뜀.
   function importPhotosBulk(files) {
-    var byName = Object.create(null), byPhone = Object.create(null); // 프로토타입 키 오매칭 방지
+    var byName = Object.create(null), byPhone = Object.create(null), byNameDept = Object.create(null);
     function dig(s) { return (s || "").replace(/\D/g, ""); }
     Data.getAllContacts().forEach(function (c) {
       var nm = (c.name || "").trim();
-      if (nm) byName[nm] = (byName[nm] === undefined) ? c : null; // 중복 이름이면 null(모호)
+      if (nm) {
+        byName[nm] = (byName[nm] === undefined) ? c : null; // 중복 이름이면 null(모호)
+        // 동명이인 구분용: 이름+부서(경로의 모든 단계) 색인 — '홍길동_총무과' 처럼 부서 단서로 식별
+        var path = (Data.deptPath ? Data.deptPath(c.deptId) : []);
+        path.forEach(function (p) {
+          var k = nm + "|" + (p.name || "").trim();
+          byNameDept[k] = (byNameDept[k] === undefined || byNameDept[k] === c) ? c : null;
+        });
+      }
       [c.phone, c.tel].forEach(function (p) {
         var d = dig(p); if (d.length < 7) return;
         byPhone[d] = (byPhone[d] === undefined || byPhone[d] === c) ? c : null; // 같은 번호 다수면 모호
       });
     });
-    // 1) 파일명 → 연락처 매칭(이름 우선, 실패 시 전화번호 숫자). 처리 전에 분류부터.
-    var total = files.length, registered = 0, ambiguous = 0, unmatchedNames = [], jobs = [];
+    // 파일명에서 '이름+부서' 단서 추출: '이름(부서)' / '이름_부서' / '이름-부서' / '이름 부서'
+    function parseNameDept(base) {
+      var m = base.match(/^(.+?)\s*[（(]\s*(.+?)\s*[)）]\s*$/);
+      if (m) return { name: m[1].trim(), dept: m[2].trim() };
+      m = base.match(/^([^_\-\s]+)[\s_\-]+(.+)$/);
+      if (m) return { name: m[1].trim(), dept: m[2].trim() };
+      return null;
+    }
+    // 파일 1개 → 연락처. 반환: 연락처(매칭) / null(모호) / undefined(미매칭)
+    function matchFile(base) {
+      var c = byName[base];
+      if (c) return c;                       // 1) 유일 이름
+      var nd = parseNameDept(base);          // 2) 이름+부서(동명이인 구분)
+      if (nd) {
+        var c2 = byNameDept[nd.name + "|" + nd.dept];
+        if (c2) return c2;
+      }
+      var d = dig(base);                     // 3) 전화번호
+      if (d.length >= 7 && byPhone[d]) return byPhone[d];
+      if (byName[base] === null) return null;                                  // 이름은 있으나 다수
+      if (nd && byNameDept[nd.name + "|" + nd.dept] === null) return null;      // 이름+부서도 다수
+      if (d.length >= 7 && byPhone[d] === null) return null;                   // 번호도 다수
+      return undefined;
+    }
+    // 1) 처리 전에 분류부터(매칭/모호/미매칭)
+    var total = files.length, registered = 0, ambiguousNames = [], unmatchedNames = [], jobs = [];
     Array.prototype.forEach.call(files, function (f) {
       var base = f.name.replace(/\.[^.]+$/, "").trim();
-      var c = byName[base];
-      if (c === undefined) { var d = dig(base); c = (d.length >= 7) ? byPhone[d] : undefined; } // 전화번호 폴백
+      var c = matchFile(base);
       if (c === undefined) { unmatchedNames.push(f.name); return; }
-      if (c === null) { ambiguous++; return; }
+      if (c === null) { ambiguousNames.push(f.name); return; }
       jobs.push({ f: f, c: c });
     });
     var matched = jobs.length;
@@ -1401,12 +1432,16 @@
     return chain.then(function () {
       Data.rebuild(); render(); updatePhotoInfo(); // 설정 열려 있으면 사진 개수·용량 갱신
       var msg = "파일 " + total + "개\n· 등록 완료 " + registered + "장";
-      if (ambiguous) msg += "\n· 동명이인(건너뜀) " + ambiguous + "개";
+      if (ambiguousNames.length) {
+        msg += "\n· 동명이인(구분 필요) " + ambiguousNames.length + "개: " +
+          ambiguousNames.slice(0, 6).join(", ") + (ambiguousNames.length > 6 ? " …" : "");
+      }
       if (unmatchedNames.length) {
         msg += "\n· 매칭 실패 " + unmatchedNames.length + "개: " +
-          unmatchedNames.slice(0, 8).join(", ") + (unmatchedNames.length > 8 ? " …" : "");
+          unmatchedNames.slice(0, 6).join(", ") + (unmatchedNames.length > 6 ? " …" : "");
       }
-      msg += "\n\n파일명을 연락처 이름(예: 홍길동.jpg) 또는 휴대폰 번호 숫자(예: 01012345678.jpg)와 똑같이 두면 자동 매칭됩니다.";
+      msg += "\n\n파일명을 ‘이름’(예: 홍길동.jpg)으로 두면 매칭됩니다. 동명이인은 ‘이름_부서’" +
+        "(예: 홍길동_총무과.jpg) 또는 휴대폰 번호(예: 01012345678.jpg)로 구분하세요.";
       appDialog({ title: "사진 일괄 가져오기", message: msg, okLabel: "확인", cancelLabel: "" });
     });
   }

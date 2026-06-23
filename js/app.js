@@ -1363,35 +1363,51 @@
 
   // 사진 일괄 가져오기: 파일명(확장자 제외)을 연락처 '이름'과 매칭해 한 번에 등록. 동명이인은 건너뜀.
   function importPhotosBulk(files) {
-    var byName = Object.create(null); // 프로토타입 키(__proto__ 등) 오매칭 방지
+    var byName = Object.create(null), byPhone = Object.create(null); // 프로토타입 키 오매칭 방지
+    function dig(s) { return (s || "").replace(/\D/g, ""); }
     Data.getAllContacts().forEach(function (c) {
-      var nm = (c.name || "").trim(); if (!nm) return;
-      byName[nm] = (byName[nm] === undefined) ? c : null; // 중복 이름이면 null(모호 → 제외)
+      var nm = (c.name || "").trim();
+      if (nm) byName[nm] = (byName[nm] === undefined) ? c : null; // 중복 이름이면 null(모호)
+      [c.phone, c.tel].forEach(function (p) {
+        var d = dig(p); if (d.length < 7) return;
+        byPhone[d] = (byPhone[d] === undefined || byPhone[d] === c) ? c : null; // 같은 번호 다수면 모호
+      });
     });
-    var total = files.length, matched = 0, registered = 0, unmatched = 0, ambiguous = 0;
-    var chain = Promise.resolve();
+    // 1) 파일명 → 연락처 매칭(이름 우선, 실패 시 전화번호 숫자). 처리 전에 분류부터.
+    var total = files.length, registered = 0, ambiguous = 0, unmatchedNames = [], jobs = [];
     Array.prototype.forEach.call(files, function (f) {
       var base = f.name.replace(/\.[^.]+$/, "").trim();
       var c = byName[base];
-      if (c === undefined) { unmatched++; return; }
+      if (c === undefined) { var d = dig(base); c = (d.length >= 7) ? byPhone[d] : undefined; } // 전화번호 폴백
+      if (c === undefined) { unmatchedNames.push(f.name); return; }
       if (c === null) { ambiguous++; return; }
-      matched++;
+      jobs.push({ f: f, c: c });
+    });
+    var matched = jobs.length;
+    // 2) 순차 처리 + 진행 표시(많을 때만)
+    var doneCount = 0, chain = Promise.resolve();
+    jobs.forEach(function (j) {
       chain = chain.then(function () {
-        return processPhoto(f).then(function (p) {
-          if (window.Photos) Photos.set(c.id, p);
-          Storage.saveContact(c.id, { defaultIcon: false });
+        return processPhoto(j.f).then(function (p) {
+          if (window.Photos) Photos.set(j.c.id, p);
+          Storage.saveContact(j.c.id, { defaultIcon: false });
           registered++;
-        }).catch(function () {}); // 개별 사진 실패는 건너뜀
+        }).catch(function () {}).then(function () {
+          doneCount++;
+          if (matched > 3) showSnack("사진 등록 중… " + doneCount + "/" + matched);
+        });
       });
     });
     return chain.then(function () {
       Data.rebuild(); render(); updatePhotoInfo(); // 설정 열려 있으면 사진 개수·용량 갱신
-      appDialog({ title: "사진 일괄 가져오기", message:
-        "파일 " + total + "개\n· 이름 매칭 " + matched + "명\n· 등록 완료 " + registered + "장"
-        + (ambiguous ? "\n· 동명이인(건너뜀) " + ambiguous + "개" : "")
-        + (unmatched ? "\n· 매칭 실패 " + unmatched + "개" : "")
-        + "\n\n파일명을 연락처 이름과 똑같이 두면 자동 매칭됩니다 (예: 홍길동.jpg).",
-        okLabel: "확인", cancelLabel: "" });
+      var msg = "파일 " + total + "개\n· 등록 완료 " + registered + "장";
+      if (ambiguous) msg += "\n· 동명이인(건너뜀) " + ambiguous + "개";
+      if (unmatchedNames.length) {
+        msg += "\n· 매칭 실패 " + unmatchedNames.length + "개: " +
+          unmatchedNames.slice(0, 8).join(", ") + (unmatchedNames.length > 8 ? " …" : "");
+      }
+      msg += "\n\n파일명을 연락처 이름(예: 홍길동.jpg) 또는 휴대폰 번호 숫자(예: 01012345678.jpg)와 똑같이 두면 자동 매칭됩니다.";
+      appDialog({ title: "사진 일괄 가져오기", message: msg, okLabel: "확인", cancelLabel: "" });
     });
   }
   (function () {

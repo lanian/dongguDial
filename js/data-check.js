@@ -1,69 +1,83 @@
 /**
- * 데이터 점검 리포트(읽기 전용): 중복/형식/누락 등 다항목 점검.
- * app.js 에서 분리. DataCheck.init(ctx) — ctx = { dialog }. 전역 Data/UI 직접 사용.
+ * 데이터 점검 리포트(액션 가능): 문제 연락처를 탭하면 해당 연락처 상세로 이동.
+ * DataCheck.render(container, onOpen) — onOpen(contact) 콜백. 전역 Data/UI 직접 사용.
  */
 (function (global) {
   "use strict";
 
+  function elx(tag, cls, text) {
+    var e = document.createElement(tag);
+    if (cls) e.className = cls;
+    if (text != null) e.textContent = text;
+    return e;
+  }
+
   global.DataCheck = {
-    init: function (ctx) {
-      var appDialog = ctx.dialog;
-      function names(list, n) {
-        return list.slice(0, n).map(function (c) { return c.name || "(이름없음)"; }).join(", ") + (list.length > n ? " …" : "");
+    render: function (container, onOpen) {
+      container.textContent = "";
+      if (!(window.Data && Data.validateContacts)) return;
+      var r = Data.validateContacts();
+      var problems = r.noName.length + r.noContact.length + r.badMobile.length + r.dupContacts.length +
+        r.dupPhones.length + r.orphans.length + r.badBirth.length + r.emptyDepts.length;
+
+      var summary = elx("div", "datacheck-summary");
+      summary.appendChild(elx("span", "datacheck-summary-total", "총 " + r.total + "명 점검"));
+      summary.appendChild(elx("span", "datacheck-summary-count" + (problems ? " is-bad" : " is-ok"),
+        problems ? ("문제 " + problems + "건") : "문제 없음 👍"));
+      container.appendChild(summary);
+
+      // 연락처 1명 → 탭 시 상세 이동하는 행
+      function row(c, reason) {
+        var btn = elx("button", "datacheck-row");
+        btn.type = "button";
+        var t = elx("div", "datacheck-row-text");
+        t.appendChild(elx("span", "datacheck-row-name", c.name || "(이름 없음)"));
+        if (reason) t.appendChild(elx("span", "datacheck-row-reason", reason));
+        btn.appendChild(t);
+        btn.appendChild(UI.icon ? UI.icon("chevron", "datacheck-chev") : elx("span"));
+        btn.addEventListener("click", function () { if (onOpen) onOpen(c); });
+        return btn;
       }
-      function showDataCheck() {
-        if (!(window.Data && Data.validateContacts)) return;
-        var r = Data.validateContacts();
-        var parts = [], problems = 0;
-        // 연락/식별 핵심
-        if (r.noName.length) { problems += r.noName.length; parts.push("● 이름 누락 " + r.noName.length + "명"); }
-        if (r.noContact.length) {
-          problems += r.noContact.length;
-          parts.push("● 연락처 없음(휴대폰·행정번호 모두 없음) " + r.noContact.length + "명: " + names(r.noContact, 10));
-        }
-        if (r.badMobile.length) {
-          problems += r.badMobile.length;
-          parts.push("● 휴대폰 형식 이상(01x·10~11자리 아님) " + r.badMobile.length + "명: " +
-            r.badMobile.slice(0, 8).map(function (c) { return c.name + "(" + (c.phone || "") + ")"; }).join(", ") + (r.badMobile.length > 8 ? " …" : ""));
-        }
-        if (r.dupContacts.length) {
-          problems += r.dupContacts.length;
-          parts.push("● 중복 의심(이름+전화 동일) " + r.dupContacts.length + "쌍: " +
-            r.dupContacts.slice(0, 6).map(function (g) { return g[0].name; }).join(", ") + (r.dupContacts.length > 6 ? " …" : ""));
-        }
-        if (r.dupPhones.length) {
-          problems += r.dupPhones.length;
-          parts.push("● 같은 번호 공유 " + r.dupPhones.length + "건");
-          r.dupPhones.slice(0, 6).forEach(function (d) {
-            parts.push("   " + UI.formatPhone(d.phone) + " — " + d.people.map(function (c) { return c.name; }).join(", "));
-          });
-          if (r.dupPhones.length > 6) parts.push("   …외 " + (r.dupPhones.length - 6) + "건");
-        }
-        // 분류/형식
-        if (r.orphans.length) {
-          problems += r.orphans.length;
-          parts.push("● 부서 미배정 " + r.orphans.length + "명: " + names(r.orphans, 10));
-        }
-        if (r.badBirth.length) {
-          problems += r.badBirth.length;
-          parts.push("● 생년월일 형식 오류 " + r.badBirth.length + "건(YYYY-MM-DD 아님): " +
-            r.badBirth.slice(0, 8).map(function (c) { return c.name + "(" + c.birth + ")"; }).join(", ") + (r.badBirth.length > 8 ? " …" : ""));
-        }
-        if (r.emptyDepts.length) { problems += r.emptyDepts.length; parts.push("● 이름 없는 부서 " + r.emptyDepts.length + "개"); }
-        // 참고(문제 아님)
-        if (r.dupNames.length) {
-          parts.push("〔참고〕 동명이인 " + r.dupNames.length + "건: " +
-            r.dupNames.slice(0, 8).map(function (g) { return g.name + "(" + g.people.length + ")"; }).join(", ") + (r.dupNames.length > 8 ? " …" : ""));
-        }
-        var head = "총 " + r.total + "명 점검 · 문제 " + problems + "건\n\n";
-        var msg = problems ? head + parts.join("\n")
-          : "총 " + r.total + "명 점검 — 발견된 문제가 없습니다. 데이터가 깨끗합니다 👍"
-            + (r.dupNames.length ? "\n\n" + parts.join("\n") : "");
-        appDialog({ title: "데이터 점검", message: msg, okLabel: "확인", cancelLabel: "" });
+      // 연락처 문제 섹션(탭 가능). reasonFn(c) → 행별 사유 텍스트.
+      function section(title, contacts, reasonFn) {
+        if (!contacts.length) return;
+        container.appendChild(elx("div", "datacheck-section-title", title + " " + contacts.length));
+        var card = elx("div", "datacheck-card");
+        contacts.slice(0, 100).forEach(function (c) { card.appendChild(row(c, reasonFn ? reasonFn(c) : "")); });
+        if (contacts.length > 100) card.appendChild(elx("div", "datacheck-more", "…외 " + (contacts.length - 100) + "명"));
+        container.appendChild(card);
       }
-      var checkBtn = document.getElementById("data-check-btn");
-      if (checkBtn) checkBtn.addEventListener("click", showDataCheck);
+      // 그룹 문제(같은 번호·동명이인·중복) → 그룹 내 인원을 평탄화해 표시
+      function groupSection(title, groups, reasonFn) {
+        if (!groups.length) return;
+        container.appendChild(elx("div", "datacheck-section-title", title + " " + groups.length));
+        var card = elx("div", "datacheck-card");
+        groups.slice(0, 60).forEach(function (g) {
+          var people = g.people || g; // {people} 또는 배열
+          people.forEach(function (c) { card.appendChild(row(c, reasonFn ? reasonFn(g, c) : "")); });
+        });
+        if (groups.length > 60) card.appendChild(elx("div", "datacheck-more", "…외 " + (groups.length - 60) + "건"));
+        container.appendChild(card);
+      }
+
+      if (!problems && !r.dupNames.length) {
+        container.appendChild(elx("div", "datacheck-clean", "발견된 문제가 없습니다. 데이터가 깨끗합니다 👍"));
+        return;
+      }
+      // 핵심(연락/식별)
+      section("이름 누락", r.noName);
+      section("연락처 없음(휴대폰·행정번호 모두 없음)", r.noContact);
+      section("휴대폰 형식 이상", r.badMobile, function (c) { return c.phone || ""; });
+      groupSection("중복 의심(이름+전화 동일)", r.dupContacts, function () { return "중복 의심"; });
+      groupSection("같은 번호 공유", r.dupPhones, function (g) { return UI.formatPhone(g.phone); });
+      // 분류/형식
+      section("부서 미배정", r.orphans);
+      section("생년월일 형식 오류", r.badBirth, function (c) { return c.birth || ""; });
+      if (r.emptyDepts.length) container.appendChild(elx("div", "datacheck-section-title", "이름 없는 부서 " + r.emptyDepts.length + "개"));
+      // 참고(문제 아님): 동명이인
+      groupSection("〔참고〕 동명이인", r.dupNames, function (g, c) {
+        return (window.Data && Data.deptPath) ? (Data.deptPath(c.deptId).map(function (p) { return p.name; }).pop() || "") : "";
+      });
     },
   };
 })(window);
-

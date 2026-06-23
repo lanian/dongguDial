@@ -811,6 +811,36 @@ html[data-theme="dark"] .info-card { box-shadow: none; border: 1px solid var(--d
 }
 .settings-note b { color: var(--on-surface); font-weight: var(--fw-med); }
 
+/* ---------- 데이터 점검(액션 가능 오버레이) ---------- */
+.datacheck-summary {
+  display: flex; align-items: center; justify-content: space-between;
+  padding: var(--sp-4) var(--sp-4) var(--sp-2);
+}
+.datacheck-summary-total { font-weight: var(--fw-bold); }
+.datacheck-summary-count { font-size: var(--fs-sm); font-weight: var(--fw-bold); padding: 2px 10px; border-radius: var(--r-pill); }
+.datacheck-summary-count.is-bad { background: rgba(var(--brand-rgb), 0.12); color: var(--brand); }
+.datacheck-summary-count.is-ok { background: var(--divider); color: var(--on-surface-muted); }
+.datacheck-section-title {
+  font-size: var(--fs-sm); font-weight: var(--fw-bold); color: var(--on-surface-muted);
+  padding: var(--sp-4) var(--sp-4) var(--sp-1); letter-spacing: 0.02em;
+}
+.datacheck-card { background: var(--surface); border-radius: var(--r-md); margin: 0 var(--sp-3); overflow: hidden; box-shadow: var(--elev-1); }
+.datacheck-row {
+  display: flex; align-items: center; gap: var(--sp-2); width: 100%;
+  min-height: var(--touch-min);
+  padding: var(--sp-2) var(--sp-4);
+  border: none; border-bottom: 1px solid var(--divider); background: var(--surface);
+  font: inherit; color: var(--on-surface); text-align: left; cursor: pointer;
+}
+.datacheck-row:last-child { border-bottom: none; }
+.datacheck-row:active { background: var(--divider); }
+.datacheck-row-text { flex: 1; min-width: 0; display: flex; align-items: baseline; gap: var(--sp-2); }
+.datacheck-row-name { font-weight: var(--fw-med); white-space: nowrap; }
+.datacheck-row-reason { color: var(--on-surface-muted); font-size: var(--fs-sm); overflow: hidden; text-overflow: ellipsis; white-space: nowrap; }
+.datacheck-chev { width: 0.9em; height: 0.9em; color: var(--on-surface-muted); flex: 0 0 auto; }
+.datacheck-more { padding: var(--sp-2) var(--sp-4); color: var(--on-surface-muted); font-size: var(--fs-sm); }
+.datacheck-clean { padding: var(--sp-6) var(--sp-4); text-align: center; color: var(--on-surface-muted); }
+
 /* ---------- Toast ---------- */
 .toast {
   position: fixed;

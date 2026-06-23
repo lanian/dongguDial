@@ -33,6 +33,8 @@
   var editorBody = document.getElementById("editor-body");
   var deptMgrEl = document.getElementById("deptmgr");
   var deptMgrBody = document.getElementById("deptmgr-body");
+  var dataCheckEl = document.getElementById("datacheck");
+  var dataCheckBody = document.getElementById("datacheck-body");
   var deptEditorEl = document.getElementById("dept-editor");
   var deptEditorBody = document.getElementById("dept-editor-body");
   var deptEditId = null;
@@ -80,6 +82,7 @@
       { el: photoViewerEl, close: closePhotoViewer },
       { el: deptEditorEl, close: closeDeptEditor },
       { el: deptMgrEl, close: closeDeptMgr },
+      { el: dataCheckEl, close: closeDataCheck },
       { el: editorEl, close: closeEditor },
       { el: settingsEl, close: closeSettings },
       { el: detailEl, close: closeDetail },
@@ -2128,7 +2131,21 @@
     refreshCounts: refreshCounts, rebuildSuggest: rebuildSearchSuggest, dateStamp: dateStamp,
   });
 
-  DataCheck.init({ dialog: appDialog }); // 데이터 점검 → js/data-check.js
+  // 데이터 점검(액션 가능 오버레이) → js/data-check.js. 문제 연락처 탭 시 상세로 이동.
+  function openDataCheck() {
+    DataCheck.render(dataCheckBody, function (c) { var cc = Data.getById(c.id) || c; if (cc) openDetail(cc); });
+    pushFocus(); dataCheckEl.hidden = false; syncInert(); updateFab();
+    dataCheckBody.scrollTop = 0;
+    document.getElementById("datacheck-back").focus();
+    history.pushState({ datacheck: true }, "", "#datacheck");
+  }
+  function closeDataCheck(fromPop) {
+    dataCheckEl.hidden = true; syncInert(); updateFab(); popFocus();
+    if (!fromPop && location.hash === "#datacheck") backFromOverlay();
+  }
+  var dataCheckBtn = document.getElementById("data-check-btn");
+  if (dataCheckBtn) dataCheckBtn.addEventListener("click", openDataCheck);
+  document.getElementById("datacheck-back").addEventListener("click", function () { closeDataCheck(false); });
 
   // ---------- 전역 키보드 (Esc 닫기 / 오버레이 포커스 트랩) ----------
   document.addEventListener("keydown", function (e) {

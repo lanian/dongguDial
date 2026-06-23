@@ -8,8 +8,19 @@
   var SVG_NS = "http://www.w3.org/2000/svg";
 
   // 이름 글자 아바타 배경색 — 이전엔 이름별 랜덤 팔레트라 산만했음. 브랜드 색으로 통일.
+  // 아바타 배경색: 이름 해시 → 큐레이션 팔레트(흰 글자 대비 양호, 라이트·다크 공용).
+  // 모두 같은 색이면 목록 구분이 어려워, 사람별 일관 색으로 스캔성을 높인다.
+  var AVATAR_COLORS = [
+    "#1f6feb", "#0e7c86", "#2e7d32", "#6d4caf", "#c2410c",
+    "#a8327d", "#2563a8", "#876300", "#41796b", "#b0354e",
+    "#4f5bd5", "#0f766e", "#9a4b1b", "#3a6ea5", "#7a3e9d",
+  ];
   function avatarColor(name) {
-    return "#1f6feb"; // var(--brand)
+    name = (name || "").trim();
+    if (!name) return AVATAR_COLORS[0];
+    var h = 0;
+    for (var i = 0; i < name.length; i++) h = (h * 31 + name.charCodeAt(i)) >>> 0;
+    return AVATAR_COLORS[h % AVATAR_COLORS.length];
   }
 
   function initial(name) { return name ? name.trim().charAt(0) : "?"; }

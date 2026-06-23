@@ -266,22 +266,41 @@
 
     /** 데이터 품질 점검(읽기 전용): 중복 전화·부서 미배정·생일형식 오류·빈 부서명 */
     validateContacts: function () {
-      var byPhone = {}, dupPhones = [], orphans = [], badBirth = [];
+      var byPhone = {}, byName = {}, byNamePhone = {};
+      var dupPhones = [], orphans = [], badBirth = [];
+      var noName = [], noContact = [], badMobile = [], dupNames = [], dupContacts = [];
       state.contacts.forEach(function (c) {
+        var nm = (c.name || "").trim();
+        if (!nm) noName.push(c);
+        else (byName[nm] = byName[nm] || []).push(c);
+        var dPhone = normalizeDigits(c.phone), dTel = normalizeDigits(c.tel);
         [c.phone, c.tel].forEach(function (p) {
           var d = normalizeDigits(p);
           if (d.length < 7) return; // 내선 등 짧은 번호는 중복 판정 제외
           (byPhone[d] = byPhone[d] || {})[c.id] = c;
         });
+        if (!dPhone && !dTel) noContact.push(c); // 연락 수단 전무(짧은 내선도 없음)
+        if (dPhone.length >= 7 && !/^01\d{8,9}$/.test(dPhone)) badMobile.push(c); // 휴대폰 형식 이상(01x·10~11자리 아님)
         if (!state.deptById[c.deptId]) orphans.push(c);
         if (c.birth && !/^\d{4}-\d{2}-\d{2}$/.test(c.birth)) badBirth.push(c);
+        if (nm && dPhone.length >= 7) (byNamePhone[nm + "|" + dPhone] = byNamePhone[nm + "|" + dPhone] || []).push(c);
       });
       Object.keys(byPhone).forEach(function (d) {
         var m = byPhone[d], ids = Object.keys(m);
         if (ids.length > 1) dupPhones.push({ phone: d, people: ids.map(function (id) { return m[id]; }) });
       });
+      Object.keys(byName).forEach(function (nm) {
+        if (byName[nm].length > 1) dupNames.push({ name: nm, people: byName[nm] });
+      });
+      Object.keys(byNamePhone).forEach(function (k) {
+        if (byNamePhone[k].length > 1) dupContacts.push(byNamePhone[k]); // 이름+전화 동일 = 중복 의심
+      });
       var emptyDepts = (state.departments || []).filter(function (d) { return !(d.name || "").trim(); });
-      return { dupPhones: dupPhones, orphans: orphans, badBirth: badBirth, emptyDepts: emptyDepts };
+      return {
+        total: state.contacts.length,
+        dupPhones: dupPhones, orphans: orphans, badBirth: badBirth, emptyDepts: emptyDepts,
+        noName: noName, noContact: noContact, badMobile: badMobile, dupNames: dupNames, dupContacts: dupContacts,
+      };
     },
 
     getDepartments: function () {

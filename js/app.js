@@ -331,8 +331,62 @@
         listEl.appendChild(box);
       } catch (e2) {}
     }
+    finishRender();
+  }
+  // 렌더 후 공통 마무리(선택 표시 복원·FAB/맨위로 갱신). 점진 렌더의 완료 콜백에서도 재호출.
+  function finishRender() {
     if (current.selectMode) applySelectionToRows(); // 재렌더 후 선택 표시 복원
     updateFab();
+  }
+
+  // 점진 렌더: 긴 명부(수백~수천 행)의 '호출 지연' 체감 개선.
+  // detached 컨테이너에 빌드(레이아웃 비용 0) → 첫 화면 분량만 즉시 부착해 곧바로 페인트 →
+  // 나머지는 다음 프레임에 부착. 가나다 인덱스 측정·부서/조직 점프는 모두 '완전 부착 후'(done)
+  // 실행하므로 화면 밖 행을 추정하지 않는다 → 어긋남(드리프트) 없음.
+  // (content-visibility 처럼 offsetTop 추정에 의존하지 않는 게 핵심)
+  var _renderToken = 0;
+  var FIRST_PAINT_ROWS = 16; // 첫 화면 분량(약 한 뷰포트). 이만큼만 즉시 부착해 페인트.
+  function renderProgressive(buildFn, done) {
+    var token = ++_renderToken;
+    var scratch = document.createElement("div");
+    buildFn(scratch); // detached 빌드(레이아웃 비용 0)
+    listEl.textContent = "";
+    // 1) 첫 화면 분량(약 16행)만 동기 부착 → 즉시 페인트(이전 화면이 길게 멈춰 보이지 않음).
+    //    첫 섹션이 크면(예: 가나다 ㄱ) 헤더+앞쪽 일부 행만 떼어 붙이고, 남은 행은 다음 프레임에
+    //    같은 섹션으로 되돌린다(원래 순서·위치 보존).
+    var n = 0, deferred = [];
+    while (scratch.firstChild && n < FIRST_PAINT_ROWS) {
+      var node = scratch.firstChild;
+      var rows = (node.nodeType === 1 && node.querySelectorAll) ? node.querySelectorAll(".row") : [];
+      if (rows.length > FIRST_PAINT_ROWS - n) {
+        // 큰 섹션: 앞쪽 (남은 분량)행만 남기고 나머지 행은 잠시 떼어 둠
+        var keep = FIRST_PAINT_ROWS - n, overflow = [];
+        for (var i = keep; i < rows.length; i++) overflow.push(rows[i]);
+        overflow.forEach(function (r) { r.parentNode.removeChild(r); });
+        listEl.appendChild(node); // 헤더 + 앞쪽 keep 행
+        deferred.push({ parent: node, nodes: overflow });
+        n = FIRST_PAINT_ROWS;
+        break;
+      }
+      n += (node.classList && node.classList.contains("row")) ? 1 : rows.length;
+      listEl.appendChild(node); // scratch → listEl 로 이동(통째)
+    }
+    if (!scratch.firstChild && !deferred.length) { if (done) done(); return; }
+    // 2) 나머지는 다음 프레임에(첫 화면이 그려진 직후)
+    requestAnimationFrame(function () {
+      if (token !== _renderToken) return; // 사이에 재렌더됐으면 폐기
+      try {
+        deferred.forEach(function (d) { // 떼어 둔 행을 원래 섹션 끝에 되돌림(순서 유지)
+          var f = document.createDocumentFragment();
+          d.nodes.forEach(function (x) { f.appendChild(x); });
+          d.parent.appendChild(f);
+        });
+        var frag = document.createDocumentFragment();
+        while (scratch.firstChild) frag.appendChild(scratch.firstChild);
+        listEl.appendChild(frag);
+        if (done) done();
+      } catch (e) { if (window.console && console.error) console.error("[renderProgressive] 오류:", e); }
+    });
   }
 
   // ---------- 행 sub 텍스트 마퀴(흐름) ----------
@@ -488,15 +542,18 @@
       listEl.classList.add("list--cols"); // 넓은 화면에서 명부/가나다 섹션을 다열로
       if (current.sort === "name") {
         var ng = Data.groupedByName();
-        UI.renderNameView(listEl, ng, { onOpen: openDetail, onFav: onFavChanged });
-        buildAlphaRail(ng);
-        showAlphaRail(true);
+        showAlphaRail(false); // 완전 부착 전 옛 인덱스가 남지 않게 잠시 숨김 → done 에서 재구성
+        renderProgressive(
+          function (scratch) { UI.renderNameView(scratch, ng, { onOpen: openDetail, onFav: onFavChanged }); },
+          function () { buildAlphaRail(ng); showAlphaRail(true); finishRender(); });
       } else {
         showAlphaRail(false);
-        UI.renderDeptView(listEl, allGroups, {
-          onOpen: openDetail, onFav: onFavChanged,
-          onDeptJump: showDeptInOrg,
-        });
+        renderProgressive(
+          function (scratch) {
+            UI.renderDeptView(scratch, allGroups, {
+              onOpen: openDetail, onFav: onFavChanged, onDeptJump: showDeptInOrg,
+            });
+          }, finishRender);
       }
       return;
     }

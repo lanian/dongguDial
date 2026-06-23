@@ -825,6 +825,12 @@ html[data-theme="dark"] .info-card { box-shadow: none; border: 1px solid var(--d
   padding: var(--sp-4) var(--sp-4) var(--sp-1); letter-spacing: 0.02em;
 }
 .datacheck-card { background: var(--surface); border-radius: var(--r-md); margin: 0 var(--sp-3); overflow: hidden; box-shadow: var(--elev-1); }
+.datacheck-group { margin-bottom: var(--sp-2); }
+.datacheck-group-label {
+  padding: var(--sp-2) var(--sp-4) 6px;
+  font-size: var(--fs-sm); font-weight: var(--fw-bold); color: var(--brand);
+  border-bottom: 1px solid var(--divider); background: rgba(var(--brand-rgb), 0.05);
+}
 .datacheck-row {
   display: flex; align-items: center; gap: var(--sp-3); width: 100%;
   min-height: var(--touch-min);

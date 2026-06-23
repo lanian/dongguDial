@@ -56,17 +56,19 @@
         if (contacts.length > 100) card.appendChild(elx("div", "datacheck-more", "…외 " + (contacts.length - 100) + "명"));
         container.appendChild(card);
       }
-      // 그룹 문제(같은 번호·동명이인·중복) → 그룹 내 인원을 평탄화해 표시
-      function groupSection(title, groups, reasonFn) {
+      // 그룹 문제(같은 번호·동명이인·중복) → 그룹마다 별도 카드(라벨 + 해당 인원)로 분리해 혼재 방지
+      function groupSection(title, groups, labelFn) {
         if (!groups.length) return;
         container.appendChild(elx("div", "datacheck-section-title", title + " " + groups.length));
-        var card = elx("div", "datacheck-card");
-        groups.slice(0, 60).forEach(function (g) {
-          var people = g.people || g; // {people} 또는 배열
-          people.forEach(function (c) { card.appendChild(row(c, reasonFn ? reasonFn(g, c) : "")); });
+        groups.slice(0, 40).forEach(function (g) {
+          var people = g.people || g; // {people:[...]} 또는 배열
+          var card = elx("div", "datacheck-card datacheck-group");
+          var label = labelFn ? labelFn(g) : "";
+          if (label) card.appendChild(elx("div", "datacheck-group-label", label));
+          people.forEach(function (c) { card.appendChild(row(c, "")); }); // 사유는 그룹 라벨이 대신
+          container.appendChild(card);
         });
-        if (groups.length > 60) card.appendChild(elx("div", "datacheck-more", "…외 " + (groups.length - 60) + "건"));
-        container.appendChild(card);
+        if (groups.length > 40) container.appendChild(elx("div", "datacheck-more", "…외 " + (groups.length - 40) + "건"));
       }
 
       if (!problems && !r.dupNames.length) {
@@ -77,14 +79,16 @@
       section("이름 누락", r.noName);
       section("연락처 없음(휴대폰·행정번호 모두 없음)", r.noContact);
       section("휴대폰 형식 이상", r.badMobile, function (c) { return c.phone || ""; });
-      groupSection("중복 의심(이름+전화 동일)", r.dupContacts, function () { return "중복 의심"; });
-      groupSection("같은 번호 공유", r.dupPhones, function (g) { return UI.formatPhone(g.phone); });
+      groupSection("중복 의심(이름+전화 동일)", r.dupContacts, function (g) {
+        return g[0].name + " · " + UI.formatPhone(g[0].phone || "");
+      });
+      groupSection("같은 번호 공유", r.dupPhones, function (g) { return UI.formatPhone(g.phone) + " 공유"; });
       // 분류/형식
       section("부서 미배정", r.orphans);
       section("생년월일 형식 오류", r.badBirth, function (c) { return c.birth || ""; });
       if (r.emptyDepts.length) container.appendChild(elx("div", "datacheck-section-title", "이름 없는 부서 " + r.emptyDepts.length + "개"));
-      // 참고(문제 아님): 동명이인 — 행의 부서(_deptShort)가 이미 구분 정보라 별도 사유 없음
-      groupSection("〔참고〕 동명이인", r.dupNames);
+      // 참고(문제 아님): 동명이인 — 그룹마다 같은 이름 인원을 부서와 함께 묶어 구분
+      groupSection("〔참고〕 동명이인", r.dupNames, function (g) { return g.name + " · " + g.people.length + "명"; });
     },
   };
 })(window);

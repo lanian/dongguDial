@@ -2133,6 +2133,7 @@
 
   // 데이터 점검(액션 가능 오버레이) → js/data-check.js. 문제 연락처 탭 시 상세로 이동.
   function openDataCheck() {
+    closeSettings(false); // 설정을 닫고 목록 위 단독 오버레이로 — 문제 탭 시 상세가 안 가려지게
     DataCheck.render(dataCheckBody, function (c) {
       var cc = Data.getById(c.id) || c;
       closeDataCheck(false);      // 점검 화면을 닫고(상세가 그 위로 안 가려지게) 상세 열기

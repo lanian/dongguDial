@@ -89,10 +89,12 @@
     ];
   }
   function anyOverlayOpen() { return overlayList().some(function (o) { return !o.el.hidden; }); }
+  // 오버레이 '열린 순서' 추적 — 어떤 순서로 중첩되든 가장 최근에 연 오버레이가 위(top)·z 최상.
+  var _overlaySeq = 0, _oseq = Object.create(null); // el.id -> 순번(클수록 최근)
   function topOverlayObj() {
-    var l = overlayList();
-    for (var i = 0; i < l.length; i++) if (!l[i].el.hidden) return l[i];
-    return null;
+    var open = overlayList().filter(function (o) { return !o.el.hidden; });
+    if (!open.length) return null;
+    return open.reduce(function (top, o) { return (_oseq[o.el.id] || 0) > (_oseq[top.el.id] || 0) ? o : top; });
   }
   function topOverlay() { var o = topOverlayObj(); return o ? o.el : null; }
   function closeTop(fromPop) { var o = topOverlayObj(); if (o) o.close(fromPop); }
@@ -101,10 +103,15 @@
   // 오버레이까지 닫히는 것을 방지). 실제 사용자 뒤로가기(state 변화)는 그대로 closeTop 처리.
   var selfPops = 0;
   function backFromOverlay() { selfPops++; history.back(); }
-  // 열린 오버레이를 우선순위(topmost-first)대로 z-index 재배치 → DOM 순서와 무관하게 항상 최신이 위
+  // 열린 순서대로 z-index 재배치(나중에 연 것이 위). 새로 열린 오버레이에 증가 순번 부여.
   function restack() {
     var open = overlayList().filter(function (o) { return !o.el.hidden; });
-    open.forEach(function (o, i) { o.el.style.zIndex = String(20 + open.length - i); });
+    open.forEach(function (o) { if (_oseq[o.el.id] == null) _oseq[o.el.id] = ++_overlaySeq; });
+    Object.keys(_oseq).forEach(function (id) {
+      if (!open.some(function (o) { return o.el.id === id; })) delete _oseq[id]; // 닫힌 것 정리
+    });
+    open.slice().sort(function (a, b) { return _oseq[a.el.id] - _oseq[b.el.id]; })
+      .forEach(function (o, i) { o.el.style.zIndex = String(20 + i); });
   }
   function syncInert() { setBgInert(anyOverlayOpen()); restack(); maybeReloadForUpdate(); }
 
@@ -2133,11 +2140,9 @@
 
   // 데이터 점검(액션 가능 오버레이) → js/data-check.js. 문제 연락처 탭 시 상세로 이동.
   function openDataCheck() {
-    closeSettings(false); // 설정을 닫고 목록 위 단독 오버레이로 — 문제 탭 시 상세가 안 가려지게
     DataCheck.render(dataCheckBody, function (c) {
       var cc = Data.getById(c.id) || c;
-      closeDataCheck(false);      // 점검 화면을 닫고(상세가 그 위로 안 가려지게) 상세 열기
-      if (cc) openDetail(cc);
+      if (cc) openDetail(cc); // 점검 위에 상세를 겹쳐 연다 → 뒤로가기 시 점검으로 복귀
     });
     pushFocus(); dataCheckEl.hidden = false; syncInert(); updateFab();
     dataCheckBody.scrollTop = 0;

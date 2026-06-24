@@ -1647,6 +1647,15 @@
     clearTimeout(searchTimer);
     searchTimer = setTimeout(render, 120);
   });
+  // 모바일: 엔터(검색 키)를 누르면 키보드가 사라지도록 입력 포커스를 해제한다.
+  // 라이브 목록이 이미 결과를 보여주므로 제출은 없고, 디바운스 대기 중이면 즉시 반영한다.
+  searchInput.addEventListener("keydown", function (e) {
+    if (e.key !== "Enter") return;
+    e.preventDefault();      // 폼 제출·줄바꿈 등 기본 동작 방지
+    clearTimeout(searchTimer);
+    render();                // 대기 중인 디바운스를 즉시 반영
+    searchInput.blur();      // 소프트 키보드 내림
+  });
   searchClear.addEventListener("click", function () {
     resetSearchUI();
     unwindSearchHistory();

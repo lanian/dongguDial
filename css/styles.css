@@ -524,10 +524,10 @@ mark {
 .rx-act--call:active { background: var(--brand-dark); }
 .rx-empty { color: var(--on-surface-muted); font-size: var(--fs-sm); }
 .rx-actions { border-top: 1px solid var(--divider); margin-top: 2px; }
-/* 상세 보기 — 풀폭 내비게이션 행(좌측 라벨 · 우측 chevron), 44px 터치 타깃 */
+/* 상세 보기 — 풀폭 44px 터치 타깃, 라벨+chevron 은 가운데로 묶어 하나의 버튼처럼 */
 .rx-detail {
-  display: flex; align-items: center; justify-content: space-between;
-  width: 100%; min-height: 44px; padding: 0 2px;
+  display: flex; align-items: center; justify-content: center; gap: 4px;
+  width: 100%; min-height: 44px; padding: 0 12px;
   font: inherit; font-size: var(--fs-sm); font-weight: var(--fw-med);
   color: var(--brand); background: none; border: none; border-radius: var(--r-sm); cursor: pointer;
   -webkit-tap-highlight-color: transparent;

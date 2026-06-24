@@ -342,8 +342,8 @@
     setShowDefaultIcon: function (v) { write(SHOW_DEFAULT_ICON_KEY, !!v); },
 
     // ---------- 행 탭 동작(펼쳐 보기 / 바로 상세) ----------
-    getRowTapMode: function () { return read(ROW_TAP_KEY, "expand") === "detail" ? "detail" : "expand"; },
-    setRowTapMode: function (v) { write(ROW_TAP_KEY, v === "detail" ? "detail" : "expand"); },
+    getRowTapMode: function () { return read(ROW_TAP_KEY, "detail") === "expand" ? "expand" : "detail"; },
+    setRowTapMode: function (v) { write(ROW_TAP_KEY, v === "expand" ? "expand" : "detail"); },
 
     // ---------- 접근 잠금(지문/PIN) ----------
     isLockEnabled: function () { return read(LOCK_ENABLED_KEY, false) === true; },

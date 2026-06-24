@@ -528,7 +528,7 @@ mark {
 .rx-detail {
   display: flex; align-items: center; justify-content: center; gap: 4px;
   width: 100%; min-height: 44px; padding: 0 12px;
-  font: inherit; font-size: var(--fs-sm); font-weight: var(--fw-med);
+  font: inherit; font-size: var(--fs-sm); font-weight: var(--fw-med); line-height: 1;
   color: var(--brand); background: none; border: none; border-radius: var(--r-sm); cursor: pointer;
   -webkit-tap-highlight-color: transparent;
 }

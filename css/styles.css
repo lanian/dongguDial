@@ -157,6 +157,8 @@ body {
 }
 /* 제목이 남는 공간을 채워 정렬 토글·설정 아이콘을 우측으로 밀어냄(정렬 숨김 시에도 동일) */
 .app-title { margin: 0; font-size: 20px; font-weight: var(--fw-bold); flex: 1 1 auto; min-width: 0; overflow: hidden; text-overflow: ellipsis; white-space: nowrap; }
+/* 제목을 앱 아이콘(배지)으로 대체 — 파란 앱바 위에서 라이트 타일이 또렷하게 보인다 */
+.app-logo { display: block; width: 32px; height: 32px; }
 
 /* 앱바용 정렬 세그먼트. 트랙을 '단색 진한 파랑'으로 깔아 테마와 무관하게 흰 글자가 또렷.
    ※ 특이도 주의: 베이스 `.sort-seg { background: var(--surface) }`가 파일 뒤쪽에 있어

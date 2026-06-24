@@ -866,6 +866,18 @@ html[data-theme="dark"] .info-card { box-shadow: none; border: 1px solid var(--d
 }
 .settings-note b { color: var(--on-surface); font-weight: var(--fw-med); }
 
+/* 저장된 개인 데이터 현황 — 항목 칩(스캔 쉬움) */
+.data-chips { display: flex; flex-wrap: wrap; gap: 6px; margin: 6px 0 3px; }
+.data-chip {
+  font-size: var(--fs-cap); color: var(--on-surface);
+  background: color-mix(in srgb, var(--brand) 8%, var(--surface));
+  border: 1px solid var(--divider); border-radius: var(--r-pill);
+  padding: 3px 10px; white-space: nowrap;
+}
+.data-chip b { font-weight: var(--fw-bold); color: var(--brand-dark, var(--brand)); }
+.data-empty { font-size: var(--fs-md); color: var(--on-surface-muted); }
+#settings-data-summary:empty { display: none; }
+
 /* 파괴적(초기화/대체) 동작 — 안전한 항목과 시각적으로 구분(빨강) */
 .settings-action--danger .info-ico,
 .settings-action--danger .info-value { color: var(--danger); }

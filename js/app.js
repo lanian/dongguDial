@@ -1978,26 +1978,64 @@
   }, false);
 
   // ---------- 설정 / 백업·복구 (전부 로컬 처리, 네트워크 없음) ----------
-  var settingsCounts = document.getElementById("settings-counts");
+  var dataChipsEl = document.getElementById("settings-data-chips");
+  var dataSummaryEl = document.getElementById("settings-data-summary");
 
+  function mkDataChip(label, val, unit) {
+    var s = document.createElement("span");
+    s.className = "data-chip";
+    s.appendChild(document.createTextNode(label + " "));
+    var b = document.createElement("b");
+    b.textContent = String(val) + (unit || "");
+    s.appendChild(b);
+    return s;
+  }
+  // 저장 데이터 현황: 항목을 칩으로(스캔 쉬움) + 총 백업 크기·암호화 상태 요약
   function refreshCounts() {
+    if (!dataChipsEl) return;
     var c = Storage.counts();
-    var parts = [];
-    if (window.Data && Data.hasBaseData && Data.hasBaseData()) {
-      // 번들 명부가 있을 때: 내가 바꾼/추가한 것만 구분 표시
-      if (c.favorites) parts.push("즐겨찾기 " + c.favorites);
-      if (c.recent) parts.push("최근 " + c.recent);
-      if (c.edits) parts.push("편집 " + c.edits);
-      if (c.custom) parts.push("추가 " + c.custom);
-      if (c.deptEdits || c.deptCustom) parts.push("부서변경 " + (c.deptEdits + c.deptCustom));
+    var hasBase = !!(window.Data && Data.hasBaseData && Data.hasBaseData());
+    var items = [];
+    function add(label, val, unit) { if (val) items.push([label, val, unit || ""]); }
+    if (hasBase) {
+      add("편집", c.edits); add("추가", c.custom);
+      add("부서변경", c.deptEdits + c.deptCustom);
     } else {
-      // 번들 명부가 없으면 전부 내 데이터 → 총량으로 표시(custom=전체 연락처/부서)
-      if (c.custom) parts.push("연락처 " + c.custom + "명");
-      if (c.deptCustom) parts.push("부서 " + c.deptCustom + "개");
-      if (c.favorites) parts.push("즐겨찾기 " + c.favorites);
-      if (c.recent) parts.push("최근 " + c.recent);
+      add("연락처", c.custom, "명"); add("부서", c.deptCustom, "개");
     }
-    settingsCounts.textContent = parts.length ? parts.join(" · ") : "저장된 개인 데이터 없음";
+    add("즐겨찾기", c.favorites); add("최근", c.recent); add("그룹", c.favGroups);
+    var photoN = (window.Photos && Photos.count) ? Photos.count() : 0;
+    add("사진", photoN, "장");
+
+    dataChipsEl.textContent = "";
+    if (!items.length) {
+      var em = document.createElement("span");
+      em.className = "data-empty";
+      em.textContent = "저장된 개인 데이터가 없습니다";
+      dataChipsEl.appendChild(em);
+      if (dataSummaryEl) dataSummaryEl.textContent = "";
+      return;
+    }
+    items.forEach(function (it) { dataChipsEl.appendChild(mkDataChip(it[0], it[1], it[2])); });
+    refreshDataSummary(photoN);
+  }
+  // 총 백업 크기(텍스트 JSON + 사진) 추정 + 기기 저장 암호화 여부
+  function refreshDataSummary(photoN) {
+    if (!dataSummaryEl) return;
+    var textBytes = 0;
+    try { textBytes = new Blob([JSON.stringify(Storage.exportData())]).size; } catch (e) {}
+    var enc = !!(Storage.encEnabled && Storage.encEnabled());
+    function fmt(b) { return b >= 1024 * 1024 ? (b / (1024 * 1024)).toFixed(1) + "MB" : Math.max(1, Math.round(b / 1024)) + "KB"; }
+    function done(total) {
+      var bits = ["백업 크기 약 " + fmt(total)];
+      if (enc) bits.push("🔒 기기 저장 암호화됨");
+      dataSummaryEl.textContent = bits.join(" · ");
+    }
+    if (!photoN || !(window.Photos && Photos.streamAll)) { done(textBytes); return; }
+    var pbytes = 0;
+    Photos.streamAll(function (id, val) { pbytes += (typeof val === "string" ? val.length : JSON.stringify(val).length); })
+      .then(function () { done(textBytes + Math.round(pbytes * 0.75)); })
+      .catch(function () { done(textBytes); });
   }
   function openSettings() {
     exitSelectMode(true); // 선택 모드 중 설정 진입 시 정리(자체 history.back 없이 — 직후 #settings push 와 경합 방지)
@@ -2043,22 +2081,8 @@
 
   // 설정의 사진 개수·대략 용량 표시(백업 포함). openSettings·changePhotoFor·importPhotosBulk
   // 에서 호출되어 app.js 에 유지(백업 내보내기/가져오기는 js/backup-io.js 로 분리).
-  function updatePhotoInfo() {
-    var el = document.getElementById("settings-photo-info");
-    if (!el) return;
-    var n = (window.Photos && Photos.count) ? Photos.count() : 0;
-    if (!n) { el.hidden = true; el.textContent = ""; return; }
-    el.hidden = false;
-    el.textContent = "사진 " + n + "장 (백업에 포함)";
-    if (!Photos.streamAll) return;
-    var bytes = 0;
-    Photos.streamAll(function (id, val) { bytes += (typeof val === "string" ? val.length : JSON.stringify(val).length); })
-      .then(function () {
-        var real = bytes * 0.75; // dataURL(base64) 길이 → 실제 바이트 보정(base64 는 ~4/3 부풀음)
-        var size = real >= 1024 * 1024 ? (real / (1024 * 1024)).toFixed(1) + "MB" : Math.max(1, Math.round(real / 1024)) + "KB";
-        el.textContent = "사진 " + n + "장 · 약 " + size + " (백업에 포함)";
-      });
-  }
+  // 사진 개수·크기는 이제 저장 데이터 칩/요약에 통합 → 같은 갱신을 호출
+  function updatePhotoInfo() { refreshCounts(); }
   // 백업/복구 → js/backup-io.js
   BackupIO.init({
     dialog: appDialog, snack: showSnack, render: render, refreshCounts: refreshCounts,

@@ -267,14 +267,19 @@ body {
   z-index: var(--z-tabs);
   display: flex;
   align-items: center;
+  /* 큰 글자 크기에서 한 줄을 넘으면 액션 버튼이 다음 줄로 줄바꿈(잘림 방지) */
+  flex-wrap: wrap;
   gap: var(--sp-2);
+  row-gap: var(--sp-2);
   padding: var(--sp-2) var(--sp-3);
   padding-bottom: calc(var(--sp-2) + var(--safe-bottom, 0px));
   background: var(--surface);
   border-top: 1px solid var(--divider, rgba(0, 0, 0, .12));
   box-shadow: 0 -2px 12px rgba(0, 0, 0, .12);
 }
-.select-count { flex: 1; font-size: var(--fs-md); font-weight: var(--fw-med); color: var(--on-surface); }
+.select-count { flex: 1 1 80px; min-width: 0; font-size: var(--fs-md); font-weight: var(--fw-med); color: var(--on-surface); white-space: nowrap; overflow: hidden; text-overflow: ellipsis; }
+/* 액션 버튼 묶음: 공간이 모자라면 그룹째 다음 줄로(우측 정렬), 그래도 좁으면 버튼끼리도 줄바꿈 */
+.select-actions { display: flex; align-items: center; gap: var(--sp-2); flex: 0 0 auto; flex-wrap: wrap; justify-content: flex-end; margin-left: auto; }
 .select-act {
   border: 1px solid var(--divider, rgba(0, 0, 0, .14));
   background: none;
@@ -289,6 +294,9 @@ body {
 }
 .select-act--primary { background: var(--brand); color: #fff; border-color: var(--brand); }
 .select-act:disabled { opacity: .45; cursor: default; }
+/* 취소(X)는 '흰 선택 바' 위에 있어 앱바용 흰색이면 묻힌다 → 본문색으로 보정 */
+#select-cancel { color: var(--on-surface); flex: 0 0 auto; }
+#select-cancel:active { background: var(--divider); }
 
 /* ---------- Alpha rail (가나다 바로가기) ---------- */
 .alpha-rail {

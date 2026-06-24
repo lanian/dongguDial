@@ -746,11 +746,14 @@
   // 조직도 탭으로 이동 + 해당 부서 경로를 펼치고 스크롤 + 도착 강조. (상세/리스트 공용)
   function showDeptInOrg(deptId) {
     switchTab(tabs[3]); // 조직도
-    Data.deptPath(deptId).forEach(function (p) { current.orgCollapsed[p.id] = false; }); // 상위 경로 펼침
-    current.orgCollapsed[deptId] = false; // 대상 부서 자체도 펼침
-    // 대상 부서의 하위(과/팀)도 모두 펼쳐 부서 전체 구성을 바로 보여준다.
+    // 다른 부서는 모두 접고, 대상 부서의 '상위 경로 + 자신 + 하위'만 펼친다.
+    // → 목표 부서가 한눈에 들어오고, 위쪽 콘텐츠가 줄어 점프 위치도 더 정확.
+    var collapsed = {};
+    Data.getDepartments().forEach(function (d) { collapsed[d.id] = true; }); // 일단 전부 접기
+    Data.deptPath(deptId).forEach(function (p) { collapsed[p.id] = false; }); // 상위 경로 + 대상
     var desc = Data.descendantIds(deptId);
-    Object.keys(desc).forEach(function (cid) { current.orgCollapsed[cid] = false; });
+    Object.keys(desc).forEach(function (cid) { collapsed[cid] = false; }); // 대상 하위(과/팀)
+    current.orgCollapsed = collapsed;
     Storage.setOrgCollapsed(current.orgCollapsed);
     render();
     // 계단식 sticky 헤더 높이만큼만 아래로 띄워 부서 헤더를 상단 정렬(툴바는 스크롤 밖 고정 바라

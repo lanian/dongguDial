@@ -181,7 +181,7 @@ body {
 .icon-btn--bar.is-active {
   color: var(--brand);
   background-image: radial-gradient(circle, #fff 0 49%, transparent 50%);
-  background-size: 36px 36px;
+  background-size: 38px 38px;
   background-position: center;
   background-repeat: no-repeat;
 }

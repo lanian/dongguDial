@@ -176,8 +176,15 @@ body {
   margin: -4px -6px -4px 0;
 }
 /* 선택 모드 활성 시 상단 '여러 명 선택' 아이콘을 채워 활성 상태를 명확히 표시
-   (앱바=파랑 → 흰 원 배경 + 파란 아이콘, 정렬 세그 활성 스타일과 동일한 언어) */
-.icon-btn--bar.is-active { background: #fff; color: var(--brand); }
+   (앱바=파랑 → 흰 원 + 파란 아이콘). 버튼(40px) 전체가 아닌 아이콘 둘레만 감싸는
+   작은 원(32px)으로 그려 과하게 커 보이지 않게 한다. */
+.icon-btn--bar.is-active {
+  color: var(--brand);
+  background-image: radial-gradient(circle, #fff 0 49%, transparent 50%);
+  background-size: 32px 32px;
+  background-position: center;
+  background-repeat: no-repeat;
+}
 
 .search-wrap { position: relative; display: flex; align-items: center; }
 .search-ico {

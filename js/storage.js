@@ -24,7 +24,55 @@
   var LOCK_FAIL_KEY = "dongguDial.lock.fail.v1";       // { count, lockedUntil }  (PIN 무차별 대입 방지)
   var ORG_COLLAPSED_KEY = "dongguDial.orgCollapsed.v1"; // { [deptId]: true }  (조직도 접힌 부서) — 키 존재=초기화됨
   var FAV_COLLAPSED_KEY = "dongguDial.favCollapsed.v1"; // { [groupId]: true } (즐겨찾기 접힌 그룹)
+  var ENC_KEY = "dongguDial.enc.v1"; // 암호화 설정(평문): { on, salt, iter, check:{_enc,iv,ct} }
+  var ENC_ITER = 600000;             // PBKDF2 반복(백업과 동일). 잠금 해제 시 1회만 유도.
   var RECENT_LIMIT = 30;
+
+  // ---------- at-rest 암호화(선택) ----------
+  // PII 보유 키만 암호화 대상. 테마·글자크기·접힘상태·잠금설정은 평문 유지(비민감·빈번 변경).
+  // 활성 시 read/write 는 '메모리 평문 캐시'로 동작(API 동기 유지)하고, 영속화는 봉투(AES-GCM)로
+  // 비동기 기록한다. 키는 PIN에서 유도해 메모리에만 보관(콜드스타트 때 PIN으로 재유도).
+  var SENSITIVE = Object.create(null);
+  var _enc = { active: false, key: null, cache: Object.create(null) };
+  function markSensitive(k) { SENSITIVE[k] = true; }
+
+  function _b64e(buf) { var b = new Uint8Array(buf), s = ""; for (var i = 0; i < b.length; i++) s += String.fromCharCode(b[i]); return btoa(s); }
+  function _b64d(s) { var a = atob(s), u = new Uint8Array(a.length); for (var i = 0; i < a.length; i++) u[i] = a.charCodeAt(i); return u; }
+  function _subtle() { return (global.crypto && global.crypto.subtle) ? global.crypto.subtle : null; }
+  function _deriveKey(pin, saltBytes, iter) {
+    var subtle = _subtle();
+    return subtle.importKey("raw", new TextEncoder().encode(pin), "PBKDF2", false, ["deriveKey"]).then(function (km) {
+      return subtle.deriveKey({ name: "PBKDF2", salt: saltBytes, iterations: iter || ENC_ITER, hash: "SHA-256" },
+        km, { name: "AES-GCM", length: 256 }, false, ["encrypt", "decrypt"]);
+    });
+  }
+  function _encVal(key, valueObj) { // → Promise<{_enc,iv,ct}>
+    var iv = global.crypto.getRandomValues(new Uint8Array(12));
+    var pt = new TextEncoder().encode(JSON.stringify(valueObj));
+    return _subtle().encrypt({ name: "AES-GCM", iv: iv }, key, pt).then(function (ct) {
+      return { _enc: 1, iv: _b64e(iv), ct: _b64e(ct) };
+    });
+  }
+  function _decVal(key, env) { // → Promise<valueObj>
+    return _subtle().decrypt({ name: "AES-GCM", iv: _b64d(env.iv) }, key, _b64d(env.ct))
+      .then(function (pt) { return JSON.parse(new TextDecoder().decode(pt)); });
+  }
+  function _clone(v) { return v == null ? v : JSON.parse(JSON.stringify(v)); }
+  function _rawParse(k) { try { var r = localStorage.getItem(k); return r ? JSON.parse(r) : null; } catch (e) { return null; } }
+  // 봉투를 만들어 localStorage 에 동기 기록(마이그레이션/재암호화용 — 한 키)
+  function _persistEnc(k) {
+    if (_enc.cache[k] === undefined) { try { localStorage.removeItem(k); } catch (e) {} return Promise.resolve(); }
+    return _encVal(_enc.key, _enc.cache[k]).then(function (env) { try { localStorage.setItem(k, JSON.stringify(env)); } catch (e) {} });
+  }
+  function _persistAll() {
+    return Object.keys(SENSITIVE).reduce(function (p, k) { return p.then(function () { return _persistEnc(k); }); }, Promise.resolve());
+  }
+  // 활성 중 write 의 비동기 영속화(키별 직렬화 — 마지막 값으로 수렴)
+  var _flushChain = Promise.resolve();
+  function _flushKey(k) {
+    _flushChain = _flushChain.then(function () { if (_enc.active && _enc.key) return _persistEnc(k); }).catch(function () {});
+    return _flushChain;
+  }
 
   // 고유 id 생성기 (같은 ms 에 여러 건 추가해도 충돌 없도록 카운터 결합)
   var _seq = 0;
@@ -34,17 +82,32 @@
   }
 
   function read(key, fallback) {
+    if (_enc.active && SENSITIVE[key]) { // 활성: 메모리 평문 캐시에서 읽음(동기)
+      var c = _enc.cache[key];
+      return c === undefined ? fallback : _clone(c);
+    }
     try {
       var raw = localStorage.getItem(key);
-      return raw ? JSON.parse(raw) : fallback;
+      if (!raw) return fallback;
+      var v = JSON.parse(raw);
+      if (v && typeof v === "object" && v._enc === 1) return fallback; // 암호화됨·미해제 → 빈 값
+      return v;
     } catch (e) {
       return fallback;
     }
   }
   function write(key, value) {
-    try { localStorage.setItem(key, JSON.stringify(value)); } catch (e) {}
     if (key === FAV_KEY) _favSet = null; // 즐겨찾기 변경 시 캐시 무효화
+    if (_enc.active && SENSITIVE[key]) { // 활성: 캐시에 동기 반영 + 비동기 암호 기록
+      _enc.cache[key] = _clone(value);
+      _flushKey(key);
+      return;
+    }
+    try { localStorage.setItem(key, JSON.stringify(value)); } catch (e) {}
   }
+  // 민감 키 등록(선언 이후 실행) — 위 read/write 가 참조
+  [FAV_KEY, RECENT_KEY, EDITS_KEY, CUSTOM_KEY, DEPT_EDITS_KEY, DEPT_CUSTOM_KEY,
+    FAV_GROUPS_KEY, FAV_GROUP_MAP_KEY, MEMBER_ORDER_KEY].forEach(markSensitive);
 
   // 최근 목록 정규화: 레거시(id 배열)와 신규({id,ts} 배열)를 모두 [{id,ts}]로 통일.
   // 레거시 항목은 시각 정보가 없어 ts=0(이전)으로 둔다. id 기준 중복 제거(앞이 우선).
@@ -440,6 +503,80 @@
       return { favorites: favs.length, recent: recent.length,
         edits: Object.keys(edits).length, custom: custom.length,
         deptCustom: deptCustom.length };
+    },
+
+    // ---------- at-rest 암호화(PIN 유도 키, 선택) ----------
+    encSupported: function () { return !!_subtle(); },
+    encEnabled: function () { var c = _rawParse(ENC_KEY); return !!(c && c.on); },   // 설정상 켜짐
+    encActive: function () { return _enc.active; },                                   // 이번 세션 해제됨
+    encLocked: function () { return this.encEnabled() && !_enc.active; },             // 켜졌지만 미해제
+
+    /** 콜드스타트: PIN으로 키 유도→검증→모든 민감 키 복호화하여 메모리 캐시 적재 */
+    encUnlock: function (pin) {
+      var cfg = _rawParse(ENC_KEY);
+      if (!cfg || !cfg.on) return Promise.reject(new Error("암호화 비활성"));
+      return _deriveKey(pin, _b64d(cfg.salt), cfg.iter).then(function (key) {
+        return _decVal(key, cfg.check).then(function (v) {        // 키 검증(센티넬)
+          if (!v || v.s !== "dongguDial") throw new Error("키 검증 실패");
+          var cache = Object.create(null);
+          return Object.keys(SENSITIVE).reduce(function (p, k) {
+            return p.then(function () {
+              var env = _rawParse(k);
+              if (!env) return;
+              if (!(env && env._enc === 1)) { cache[k] = env; return; } // 평문 혼재 방어
+              return _decVal(key, env).then(function (val) { cache[k] = val; });
+            });
+          }, Promise.resolve()).then(function () {
+            _enc.key = key; _enc.cache = cache; _enc.active = true; _favSet = null;
+          });
+        });
+      });
+    },
+
+    /** 켜기: 현재 평문 민감 키를 캐시로 올리고 전부 암호화 저장. pin에서 키 유도. */
+    encEnable: function (pin) {
+      if (_enc.active) return Promise.resolve();
+      if (!_subtle()) return Promise.reject(new Error("이 브라우저는 암호화를 지원하지 않습니다"));
+      var salt = global.crypto.getRandomValues(new Uint8Array(16));
+      return _deriveKey(pin, salt, ENC_ITER).then(function (key) {
+        var cache = Object.create(null);
+        Object.keys(SENSITIVE).forEach(function (k) {
+          var v = _rawParse(k);
+          if (v != null && !(typeof v === "object" && v._enc === 1)) cache[k] = v; // 평문만 적재
+        });
+        _enc.key = key; _enc.cache = cache; _enc.active = true; _favSet = null;
+        return _encVal(key, { s: "dongguDial" }).then(function (check) {
+          return _persistAll().then(function () {
+            try { localStorage.setItem(ENC_KEY, JSON.stringify({ on: true, salt: _b64e(salt), iter: ENC_ITER, check: check })); } catch (e) {}
+          });
+        });
+      });
+    },
+
+    /** 끄기: 캐시(평문)를 localStorage 평문으로 되돌리고 설정 제거 */
+    encDisable: function () {
+      if (!_enc.active) { try { localStorage.removeItem(ENC_KEY); } catch (e) {} return Promise.resolve(); }
+      Object.keys(SENSITIVE).forEach(function (k) {
+        var v = _enc.cache[k];
+        try { if (v === undefined) localStorage.removeItem(k); else localStorage.setItem(k, JSON.stringify(v)); } catch (e) {}
+      });
+      try { localStorage.removeItem(ENC_KEY); } catch (e) {}
+      _enc.active = false; _enc.key = null; _enc.cache = Object.create(null); _favSet = null;
+      return Promise.resolve();
+    },
+
+    /** PIN 변경 시 새 키로 재암호화(캐시는 그대로) */
+    encReencrypt: function (newPin) {
+      if (!_enc.active) return Promise.resolve();
+      var salt = global.crypto.getRandomValues(new Uint8Array(16));
+      return _deriveKey(newPin, salt, ENC_ITER).then(function (key) {
+        _enc.key = key;
+        return _encVal(key, { s: "dongguDial" }).then(function (check) {
+          return _persistAll().then(function () {
+            try { localStorage.setItem(ENC_KEY, JSON.stringify({ on: true, salt: _b64e(salt), iter: ENC_ITER, check: check })); } catch (e) {}
+          });
+        });
+      });
     },
   };
 

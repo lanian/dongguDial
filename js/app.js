@@ -1038,9 +1038,11 @@
     lockScreen.hidden = false;
     document.body.classList.add("is-locked");
     lockPinForm.hidden = true;
-    lockBioBtn.hidden = !canUseBio();
+    // 데이터 암호화가 켜져 있으면 복호화에 PIN이 필요하므로 지문 자동 해제를 막고 PIN을 받는다.
+    var needPin = !!(Storage.encEnabled && Storage.encEnabled());
+    lockBioBtn.hidden = !canUseBio() || needPin;
     lockUsePinBtn.hidden = false;
-    if (canUseBio()) startBio(); else showPinEntry();
+    if (canUseBio() && !needPin) startBio(); else showPinEntry();
   }
   function startBio() {
     lockSub.textContent = "지문을 인식해 주세요…";
@@ -1069,7 +1071,23 @@
     var pin = lockPinInput.value.trim();
     if (!pin) return;
     verifyPin(pin).then(function (ok) {
-      if (ok) { registerPinSuccess(); doUnlock(); return; }
+      if (ok) {
+        registerPinSuccess();
+        // 암호화가 켜졌는데 아직 미해제면, 같은 PIN으로 복호화 후 데이터 반영하고 해제한다.
+        if (Storage.encLocked && Storage.encLocked()) {
+          lockSub.textContent = "복호화 중…";
+          Storage.encUnlock(pin).then(function () {
+            try { Data.rebuild(); render(); } catch (e) {}
+            doUnlock();
+          }).catch(function () {
+            lockSub.textContent = "복호화에 실패했습니다. 다시 시도하세요.";
+            lockPinInput.value = ""; lockPinInput.focus();
+          });
+          return;
+        }
+        doUnlock();
+        return;
+      }
       var r = registerPinFail();
       var rem2 = lockoutRemainingMs();
       lockSub.textContent = rem2 > 0
@@ -1087,7 +1105,7 @@
       return appDialog({ title: "PIN 확인", value: "", placeholder: "다시 입력", okLabel: "저장", inputType: "password", inputMode: "numeric", autocomplete: "off", maxLength: 8 }).then(function (pin2) {
         if (!pin2) return false;
         if (pin2 !== pin) { showSnack("PIN이 일치하지 않습니다"); return promptNewPin(); }
-        return Lock.hashPin(pin).then(function (rec) { Storage.setLockPin(rec); registerPinSuccess(); return true; });
+        return Lock.hashPin(pin).then(function (rec) { Storage.setLockPin(rec); registerPinSuccess(); return pin; });
       });
     });
   }
@@ -1146,20 +1164,69 @@
     if (status) status.textContent = on ? (Storage.getLockCred() ? "사용 중 (지문 + PIN)" : "사용 중 (PIN)") : "사용 안 함";
     var chg = document.getElementById("lock-changepin-btn");
     if (chg) chg.hidden = !on;
+    // 데이터 암호화 토글: PIN 잠금이 켜져 있어야 사용 가능
+    var encSw = document.getElementById("enc-switch");
+    if (encSw) {
+      var encOn = !!(Storage.encEnabled && Storage.encEnabled());
+      encSw.setAttribute("aria-checked", encOn ? "true" : "false");
+      encSw.setAttribute("aria-disabled", on ? "false" : "true");
+      var encStatus = document.getElementById("enc-status");
+      if (encStatus) encStatus.textContent = encOn ? "사용 중 (PIN으로 복호화)" : (on ? "사용 안 함" : "PIN 잠금을 먼저 켜세요");
+    }
+  }
+  // 데이터 암호화 켜기: PIN 확인 → 키 유도 → 모든 민감 데이터 암호화
+  function encEnableFlow() {
+    if (!lockConfigured()) { showSnack("먼저 PIN 잠금을 켜세요"); updateLockUI(); return; }
+    if (!(Storage.encSupported && Storage.encSupported())) { showSnack("이 브라우저는 암호화를 지원하지 않습니다"); updateLockUI(); return; }
+    appDialog({ title: "데이터 암호화", message: "기기에 저장되는 연락처·부서·즐겨찾기·최근을 PIN으로 암호화합니다.\n\n⚠ PIN을 잊으면 이 기기의 데이터를 복구할 수 없습니다. 중요한 데이터는 ‘암호화 백업’으로 따로 보관하세요.", okLabel: "계속" }).then(function (go) {
+      if (!go) { updateLockUI(); return; }
+      appDialog({ title: "PIN 확인", message: "현재 PIN을 입력하세요", value: "", placeholder: "PIN", okLabel: "암호화 켜기", inputType: "password", inputMode: "numeric", autocomplete: "off", maxLength: 8 }).then(function (pin) {
+        if (!pin) { updateLockUI(); return; }
+        verifyPin(pin).then(function (ok) {
+          if (!ok) { showSnack("PIN이 올바르지 않습니다"); updateLockUI(); return; }
+          showSnack("암호화하는 중…");
+          Storage.encEnable(pin).then(function () { updateLockUI(); showSnack("데이터 암호화가 켜졌습니다"); })
+            .catch(function (e) { showSnack("암호화 실패: " + ((e && e.message) || "")); updateLockUI(); });
+        });
+      });
+    });
+  }
+  // 데이터 암호화 끄기: 평문으로 되돌림(현재 세션에서 해제된 상태여야 함)
+  function encDisableFlow() {
+    if (!(Storage.encActive && Storage.encActive())) { showSnack("앱을 다시 열어 PIN으로 해제한 뒤 시도하세요"); updateLockUI(); return; }
+    requireAuth("암호화 끄기 — PIN 확인").then(function (ok) {
+      if (!ok) { updateLockUI(); return; }
+      Storage.encDisable().then(function () { updateLockUI(); showSnack("데이터 암호화가 꺼졌습니다"); });
+    });
   }
   (function wireLockSettings() {
     var sw = document.getElementById("lock-switch");
     if (sw) {
       sw.addEventListener("click", function () {
         // 실제 상태 기준으로 토글(켜기는 지문 등록·PIN 설정이 필요하므로 완료/취소 후 updateLockUI가 상태 반영)
-        if (lockConfigured()) disableLock(); else enableLock();
+        if (lockConfigured()) {
+          if (Storage.encEnabled && Storage.encEnabled()) { showSnack("먼저 ‘데이터 암호화’를 끄세요"); return; }
+          disableLock();
+        } else enableLock();
       });
     }
+    var encSw = document.getElementById("enc-switch");
+    if (encSw) encSw.addEventListener("click", function () {
+      if (Storage.encEnabled && Storage.encEnabled()) encDisableFlow(); else encEnableFlow();
+    });
     var chg = document.getElementById("lock-changepin-btn");
     if (chg) chg.addEventListener("click", function () {
       requireAuth("PIN 변경 — 현재 PIN 확인").then(function (ok) {
         if (!ok) return;
-        promptNewPin().then(function (done) { if (done) showSnack("PIN이 변경되었습니다"); });
+        promptNewPin().then(function (newPin) {
+          if (!newPin) return;
+          // 암호화 중이면 새 PIN으로 재암호화(키 교체)
+          if (Storage.encActive && Storage.encActive()) {
+            Storage.encReencrypt(newPin)
+              .then(function () { showSnack("PIN이 변경되었습니다"); })
+              .catch(function () { showSnack("PIN은 바뀌었지만 재암호화에 실패했습니다"); });
+          } else showSnack("PIN이 변경되었습니다");
+        });
       });
     });
     updateLockUI();

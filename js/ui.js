@@ -420,26 +420,14 @@
     return wrap;
   }
 
-  // 행 인라인 펼침 패널(폴딩): 부서경로·직책 + 휴대폰/행정번호(전화·문자) + '상세 보기'.
+  // 행 인라인 펼침 패널(폴딩): 휴대폰/행정번호(전화·문자) + '상세 보기'.
+  // 부서경로·직책/직급/업무는 행 보조줄과 중복이라 패널에서는 노출하지 않는다(빠른 동작에 집중).
   // opts: onDetail(c), onCall(c). 행의 형제로 삽입된다.
   function rowExpandPanel(c, opts) {
     opts = opts || {};
     var box = el("div", "row-expand");
     box.setAttribute("role", "region");
-    if (c.name) box.setAttribute("aria-label", c.name + " 빠른 정보");
-    var pathNames = (window.Data && Data.deptPath) ? Data.deptPath(c.deptId).map(function (p) { return p.name; }).filter(Boolean) : (c.dept ? [c.dept] : []);
-    var role = [c.position, c.grade, c.work].filter(Boolean).join(" · ");
-    if (pathNames.length || role) {
-      var head = el("div", "rx-head");
-      if (pathNames.length) {
-        var path = el("div", "rx-path");
-        path.appendChild(icon("building"));
-        path.appendChild(el("span", null, pathNames.join(" › ")));
-        head.appendChild(path);
-      }
-      if (role) head.appendChild(el("div", "rx-role", role));
-      box.appendChild(head);
-    }
+    if (c.name) box.setAttribute("aria-label", c.name + " 빠른 동작");
 
     function phoneLine(label, num, withSms) {
       if (!num) return;

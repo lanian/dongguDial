@@ -426,16 +426,28 @@
     opts = opts || {};
     var box = el("div", "row-expand");
     box.setAttribute("role", "region");
+    if (c.name) box.setAttribute("aria-label", c.name + " 빠른 정보");
     var pathNames = (window.Data && Data.deptPath) ? Data.deptPath(c.deptId).map(function (p) { return p.name; }).filter(Boolean) : (c.dept ? [c.dept] : []);
-    if (pathNames.length) box.appendChild(el("div", "rx-path", pathNames.join(" › ")));
     var role = [c.position, c.grade, c.work].filter(Boolean).join(" · ");
-    if (role) box.appendChild(el("div", "rx-role", role));
+    if (pathNames.length || role) {
+      var head = el("div", "rx-head");
+      if (pathNames.length) {
+        var path = el("div", "rx-path");
+        path.appendChild(icon("building"));
+        path.appendChild(el("span", null, pathNames.join(" › ")));
+        head.appendChild(path);
+      }
+      if (role) head.appendChild(el("div", "rx-role", role));
+      box.appendChild(head);
+    }
 
     function phoneLine(label, num, withSms) {
       if (!num) return;
       var line = el("div", "rx-line");
-      line.appendChild(el("span", "rx-label", label));
-      line.appendChild(el("span", "rx-num", formatPhone(num)));
+      var main = el("div", "rx-main");
+      main.appendChild(el("span", "rx-label", label));
+      main.appendChild(el("span", "rx-num", formatPhone(num)));
+      line.appendChild(main);
       var acts = el("div", "rx-line-acts");
       var call = el("a", "rx-act rx-act--call");
       call.href = "tel:" + clean(num);

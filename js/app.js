@@ -2280,6 +2280,25 @@
     }
   }
 
+  // ---------- PWA: 중복 실행 방지(기존 창 포커스) ----------
+  // manifest 의 launch_handler:focus-existing 으로 재실행 시 새 창 대신 기존 창에 포커스된다.
+  // 이미 열려 있을 때 '단축키'(#favorites 등)로 실행되면 포커스만 되므로, launchQueue 를 소비해
+  // 작업 중(오버레이·선택 모드)이 아닐 때만 해당 탭으로 이동한다. (부팅 라우팅과 중복돼도 같은 탭이라 무해)
+  if ("launchQueue" in window && window.launchQueue) {
+    try {
+      window.launchQueue.setConsumer(function (params) {
+        if (!params || !params.targetURL) return;
+        var h;
+        try { h = new URL(params.targetURL).hash; } catch (e) { return; }
+        if (!h || h === location.hash || anyOverlayOpen() || current.selectMode) return;
+        if (h === "#favorites") switchTab(tabs[1]);
+        else if (h === "#recent") switchTab(tabs[2]);
+        else if (h === "#org") switchTab(tabs[3]);
+        else if (h === "#settings") openSettings();
+      });
+    } catch (e) {}
+  }
+
   // ---------- 부팅 ----------
   UI.renderSkeleton(listEl, 8);
   // 사진 적재는 백그라운드로 — 데이터만 준비되면 목록을 즉시 표시하고(아바타는 이니셜로),

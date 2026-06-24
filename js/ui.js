@@ -431,7 +431,7 @@
     var role = [c.position, c.grade, c.work].filter(Boolean).join(" · ");
     if (role) box.appendChild(el("div", "rx-role", role));
 
-    function phoneLine(label, num) {
+    function phoneLine(label, num, withSms) {
       if (!num) return;
       var line = el("div", "rx-line");
       line.appendChild(el("span", "rx-label", label));
@@ -443,16 +443,18 @@
       call.appendChild(icon("phone")); call.appendChild(document.createTextNode("전화"));
       call.addEventListener("click", function () { if (opts.onCall) opts.onCall(c); }); // 기본 tel: 동작 유지 + 최근 기록
       acts.appendChild(call);
-      var sms = el("a", "rx-act");
-      sms.href = "sms:" + clean(num);
-      sms.setAttribute("aria-label", (c.name || "") + " " + label + " 문자");
-      sms.appendChild(icon("message")); sms.appendChild(document.createTextNode("문자"));
-      acts.appendChild(sms);
+      if (withSms) { // 행정번호(유선)는 문자 불필요 → 휴대폰만 문자 버튼
+        var sms = el("a", "rx-act");
+        sms.href = "sms:" + clean(num);
+        sms.setAttribute("aria-label", (c.name || "") + " " + label + " 문자");
+        sms.appendChild(icon("message")); sms.appendChild(document.createTextNode("문자"));
+        acts.appendChild(sms);
+      }
       line.appendChild(acts);
       box.appendChild(line);
     }
-    phoneLine("휴대폰", c.phone);
-    phoneLine("행정번호", c.tel);
+    phoneLine("휴대폰", c.phone, true);
+    phoneLine("행정번호", c.tel, false);
     if (!c.phone && !c.tel) box.appendChild(el("div", "rx-line rx-empty", "등록된 번호가 없습니다"));
 
     var actions = el("div", "rx-actions");

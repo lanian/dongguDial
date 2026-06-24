@@ -1884,14 +1884,14 @@
   if (selectSaveBtn) selectSaveBtn.addEventListener("click", function () {
     var list = selectedContacts();
     if (!list.length) return;
-    UI.downloadVCards(list, "행정전화부-연락처-" + dateStamp() + ".vcf");
+    UI.downloadVCards(list, "행정전화번호-연락처-" + dateStamp() + ".vcf");
     showSnack(list.length + "명을 vCard로 저장했습니다");
     exitSelectMode();
   });
   if (selectShareBtn) selectShareBtn.addEventListener("click", function () {
     var list = selectedContacts();
     if (!list.length) return;
-    var fname = "행정전화부-연락처-" + dateStamp() + ".vcf";
+    var fname = "행정전화번호-연락처-" + dateStamp() + ".vcf";
     // 공유 미지원/실패 시 '클립보드 복사'로 폴백(붙여넣기로 전달).
     // 파일 저장은 별도의 '저장(.vcf)' 버튼이 담당하므로 공유는 저장과 역할을 구분한다.
     function fallbackCopy() { UI.copyText(UI.contactsText(list)); exitSelectMode(); }

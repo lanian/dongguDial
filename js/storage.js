@@ -433,7 +433,7 @@
 
     importData: function (data, mode) {
       if (!data || data.app !== "dongguDial" || data.type !== "backup") {
-        throw new Error("행정전화부 백업 파일이 아닙니다.");
+        throw new Error("행정전화번호 백업 파일이 아닙니다.");
       }
       data = migrateBackup(data); // 구버전 백업을 현재 스키마로 정규화
       var inFav = Array.isArray(data.favorites) ? data.favorites : [];

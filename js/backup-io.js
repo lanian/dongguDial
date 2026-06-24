@@ -47,13 +47,13 @@
 
       // ---------- 내보내기 ----------
       document.getElementById("export-btn").addEventListener("click", function () {
-        buildBackupBlob().then(function (blob) { UI.downloadBlob(blob, "행정전화부-백업-" + dateStamp() + ".json"); });
+        buildBackupBlob().then(function (blob) { UI.downloadBlob(blob, "행정전화번호-백업-" + dateStamp() + ".json"); });
       });
       // 사진 제외 백업: 사진(IDB)을 빼고 본문(연락처·부서·즐겨찾기 등)만 — 파일이 가볍다.
       var exportNoPhotoBtn = document.getElementById("export-nophoto-btn");
       if (exportNoPhotoBtn) exportNoPhotoBtn.addEventListener("click", function () {
         UI.downloadBlob(new Blob([JSON.stringify(Storage.exportData(), null, 2)], { type: "application/json" }),
-          "행정전화부-백업(사진제외)-" + dateStamp() + ".json");
+          "행정전화번호-백업(사진제외)-" + dateStamp() + ".json");
         showSnack("사진 제외 백업을 내보냈습니다");
       });
       function exportBackupEncrypted() {
@@ -65,7 +65,7 @@
             if (!p2) return;
             if (p2 !== p1) { showSnack("암호가 일치하지 않습니다"); return; }
             buildBackupData().then(function (data) { return BackupCrypto.encrypt(data, p1); })
-              .then(function (env) { downloadJson(env, "행정전화부-백업(암호화)-" + dateStamp() + ".json"); showSnack("암호화 백업을 내보냈습니다"); })
+              .then(function (env) { downloadJson(env, "행정전화번호-백업(암호화)-" + dateStamp() + ".json"); showSnack("암호화 백업을 내보냈습니다"); })
               .catch(function (e) { showSnack("암호화 실패: " + e.message); });
           });
         });

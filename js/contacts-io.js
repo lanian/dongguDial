@@ -202,7 +202,7 @@
         var csv = "이름,상위부서,부서,팀,직책,직급,담당업무,휴대전화,행정번호,생년월일,재직상태\n" +
           "홍길동,행정복지국,자치행정과,총무팀,팀장,사무관,총무,010-1234-5678,062-608-0000,1980-01-01,재직\n" +
           "김영희,행정복지국,자치행정과,,과장,서기관,자치행정,010-2222-3333,062-608-0001,1978-05-05,재직\n";
-        UI.downloadBlob(new Blob(["﻿" + csv], { type: "text/csv;charset=utf-8" }), "행정전화부-가져오기양식.csv");
+        UI.downloadBlob(new Blob(["﻿" + csv], { type: "text/csv;charset=utf-8" }), "행정전화번호-가져오기양식.csv");
       });
 
       // ---------- 연락처 CSV 내보내기 (가져오기 양식과 동일 열 → 재가져오기 호환) ----------
@@ -250,7 +250,7 @@
           ].map(csvCell).join(","));
         });
         var csv = "﻿" + lines.join("\r\n") + "\r\n"; // BOM(엑셀 한글) + CRLF
-        UI.downloadBlob(new Blob([csv], { type: "text/csv;charset=utf-8" }), "행정전화부-연락처-" + dateStamp() + ".csv");
+        UI.downloadBlob(new Blob([csv], { type: "text/csv;charset=utf-8" }), "행정전화번호-연락처-" + dateStamp() + ".csv");
         showSnack(ordered.length + "건을 CSV로 내보냈습니다.");
       }
       document.getElementById("export-contacts-csv-btn").addEventListener("click", exportContactsCSV);
@@ -259,7 +259,7 @@
       function exportContactsVCard() {
         var ordered = orgOrderedContacts();
         if (!ordered.length) { showSnack("내보낼 연락처가 없습니다."); return; }
-        var n = UI.downloadVCards(ordered, "행정전화부-연락처-" + dateStamp() + ".vcf");
+        var n = UI.downloadVCards(ordered, "행정전화번호-연락처-" + dateStamp() + ".vcf");
         showSnack(n + "건을 vCard로 내보냈습니다.");
       }
       var vcardBtn = document.getElementById("export-contacts-vcard-btn");

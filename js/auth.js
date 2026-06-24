@@ -50,8 +50,8 @@
     var opts = {
       publicKey: {
         challenge: randBytes(32),
-        rp: { name: "행정전화부", id: location.hostname },
-        user: { id: randBytes(16), name: "donggu-dial-user", displayName: "행정전화부 사용자" },
+        rp: { name: "행정전화번호", id: location.hostname },
+        user: { id: randBytes(16), name: "donggu-dial-user", displayName: "행정전화번호 사용자" },
         pubKeyCredParams: [{ type: "public-key", alg: -7 }, { type: "public-key", alg: -257 }],
         authenticatorSelection: {
           authenticatorAttachment: "platform",

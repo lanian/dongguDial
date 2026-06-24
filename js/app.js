@@ -39,7 +39,6 @@
   var deptEditorBody = document.getElementById("dept-editor-body");
   var deptEditId = null;
   var toTop = document.getElementById("to-top");
-  var addContactBar = document.getElementById("add-contact-bar"); // 앱바 연락처 추가(전체 탭)
   var sortSeg = document.getElementById("sort-seg");
   var alphaRail = document.getElementById("alpha-rail");
   var snackbar = document.getElementById("snackbar");
@@ -124,9 +123,8 @@
     swRefreshing = true;
     window.location.reload();
   }
-  // 앱바 '연락처 추가'는 전체 탭·비검색·비선택·오버레이 없을 때만(옛 FAB 표시 조건). + '맨 위로' 갱신.
+  // '맨 위로' 버튼 갱신. (연락처 추가는 설정 → 연락처에서)
   function updateFab() {
-    if (addContactBar) addContactBar.hidden = !(!anyOverlayOpen() && !current.query && current.tab === "all" && !current.selectMode);
     updateToTop();
   }
   // 맨 위로 버튼: 스크롤 충분히 내렸고, 오버레이·선택모드(하단 선택바와 겹침) 아닐 때만 표시.
@@ -2152,7 +2150,6 @@
     closeSettings(false);  // 설정 닫고 새 연락처 편집기 열기
     openEditor(null);
   });
-  if (addContactBar) addContactBar.addEventListener("click", function () { openEditor(null); });
   // '고급 옵션' 접이식 — aria-controls 로 대상 박스를 여는 범용 처리(백업·명부 등 여러 곳)
   Array.prototype.forEach.call(document.querySelectorAll(".settings-disclosure"), function (t) {
     var box = document.getElementById(t.getAttribute("aria-controls"));

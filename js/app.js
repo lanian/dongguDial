@@ -1070,30 +1070,28 @@
     if (rem > 0) { lockSub.textContent = "시도가 많아 잠겼습니다. " + fmtRemain(rem) + " 후 다시 시도하세요."; lockPinInput.value = ""; return; }
     var pin = lockPinInput.value.trim();
     if (!pin) return;
-    verifyPin(pin).then(function (ok) {
-      if (ok) {
-        registerPinSuccess();
-        // 암호화가 켜졌는데 아직 미해제면, 같은 PIN으로 복호화 후 데이터 반영하고 해제한다.
-        if (Storage.encLocked && Storage.encLocked()) {
-          lockSub.textContent = "복호화 중…";
-          Storage.encUnlock(pin).then(function () {
-            try { Data.rebuild(); render(); } catch (e) {}
-            doUnlock();
-          }).catch(function () {
-            lockSub.textContent = "복호화에 실패했습니다. 다시 시도하세요.";
-            lockPinInput.value = ""; lockPinInput.focus();
-          });
-          return;
-        }
-        doUnlock();
-        return;
-      }
+    function onFail() {
       var r = registerPinFail();
       var rem2 = lockoutRemainingMs();
       lockSub.textContent = rem2 > 0
         ? "PIN을 " + r.count + "회 틀렸습니다. " + fmtRemain(rem2) + " 후 다시 시도하세요."
         : "PIN이 올바르지 않습니다 (" + r.count + "회 실패)";
       lockPinInput.value = ""; lockPinInput.focus();
+    }
+    // 암호화가 켜졌으면 encUnlock 자체가 PIN 검증(AES-GCM 인증)이므로 verifyPin을 생략한다
+    // → 콜드스타트 해제 시 PBKDF2를 2회(검증+키유도)에서 1회(키유도)로 줄여 더 빠르게.
+    if (Storage.encLocked && Storage.encLocked()) {
+      lockSub.textContent = "복호화 중…";
+      Storage.encUnlock(pin).then(function () {
+        registerPinSuccess();
+        try { Data.rebuild(); render(); } catch (e) {}
+        doUnlock();
+      }).catch(onFail);
+      return;
+    }
+    verifyPin(pin).then(function (ok) {
+      if (ok) { registerPinSuccess(); doUnlock(); return; }
+      onFail();
     });
   });
 

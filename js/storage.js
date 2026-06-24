@@ -10,6 +10,7 @@
   var THEME_KEY = "dongguDial.theme.v1";
   var FONT_SCALE_KEY = "dongguDial.fontScale.v1"; // 글자 크기 배율 "1" | "1.15" | "1.3"
   var SHOW_DEFAULT_ICON_KEY = "dongguDial.showDefaultIcon.v1"; // true면 사진 없는 모든 연락처를 기본 아이콘(실루엣)으로 표시
+  var ROW_TAP_KEY = "dongguDial.rowTapMode.v1"; // 행 탭 동작: "expand"(펼쳐 보기) | "detail"(바로 상세)
   var EDITS_KEY = "dongguDial.edits.v1";     // { [id]: {field:val,..., __deleted?:true} }  (기본 연락처 오버레이)
   var CUSTOM_KEY = "dongguDial.custom.v1";   // [ {id, ...} ]  (사용자가 추가한 연락처)
   var DEPT_EDITS_KEY = "dongguDial.deptEdits.v1";   // { [id]: {name,parentId,sortOrder,level,__deleted?} }
@@ -339,6 +340,10 @@
     // ---------- 프로필 기본 아이콘(실루엣) 전역 표시 ----------
     getShowDefaultIcon: function () { return read(SHOW_DEFAULT_ICON_KEY, false) === true; },
     setShowDefaultIcon: function (v) { write(SHOW_DEFAULT_ICON_KEY, !!v); },
+
+    // ---------- 행 탭 동작(펼쳐 보기 / 바로 상세) ----------
+    getRowTapMode: function () { return read(ROW_TAP_KEY, "expand") === "detail" ? "detail" : "expand"; },
+    setRowTapMode: function (v) { write(ROW_TAP_KEY, v === "detail" ? "detail" : "expand"); },
 
     // ---------- 접근 잠금(지문/PIN) ----------
     isLockEnabled: function () { return read(LOCK_ENABLED_KEY, false) === true; },

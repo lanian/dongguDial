@@ -54,7 +54,7 @@
   var _orgStored = Storage.getOrgCollapsed(); // null=한 번도 초기화 안 됨(=첫 진입)
   var current = { tab: "all", query: "", detailId: null, sort: "dept",
     orgCollapsed: _orgStored || {}, favCollapsed: Storage.getFavCollapsed(),
-    orgReorder: false, deptMgrCollapsed: {}, selectMode: false, selected: {} };
+    orgReorder: false, deptMgrCollapsed: {}, selectMode: false, selected: {}, expandedId: null };
   var editId = null;
   var searchPushed = false; // 검색 활성 시 히스토리 항목 push 여부(뒤로가기로 검색어부터 비우기 위함)
   var orgInit = _orgStored !== null; // 저장된 상태가 있으면 '첫 진입 전부 접기'를 건너뜀
@@ -196,6 +196,16 @@
   function jumpToAlpha(key) {
     var top = alphaOffsets[key];
     if (top != null) scrollRegion.scrollTo({ top: top, behavior: "auto" });
+  }
+  // 행 인라인 펼침/접힘으로 아래 섹션이 밀리면 가나다 인덱스 오프셋이 어긋나므로 재측정한다.
+  function remeasureAlphaOffsets() {
+    if (alphaRail.hidden || !alphaOrder.length) return;
+    listEl.classList.add("measure-no-sticky");
+    for (var i = 0; i < alphaOrder.length; i++) {
+      var h = document.getElementById("grp-" + alphaOrder[i].key);
+      if (h) { var top = sectionTop(h); alphaOffsets[alphaOrder[i].key] = top; alphaOrder[i].top = top; }
+    }
+    listEl.classList.remove("measure-no-sticky");
   }
 
   // 리스트를 직접 스크롤할 때 현재 구간의 초성을 인덱스바에 자동 표시(스크럽 중엔 스킵).
@@ -450,6 +460,38 @@
 
   // ---------- 행 상호작용 이벤트 위임 ----------
   // 행마다 리스너를 달지 않고 listEl 한 곳에서 처리(긴 목록 재렌더 비용·GC 부담↓).
+  // ---------- 행 인라인 펼침(폴딩) ----------
+  // 설정이 '펼쳐 보기'이고 전체/검색 목록일 때, 행 탭 = 인라인 펼침(번호·빠른동작 + 상세 버튼).
+  function isExpandableView() { return !!current.query || current.tab === "all"; }
+  function collapseExpanded() {
+    var panel = listEl.querySelector(".row-expand");
+    if (panel && panel.parentNode) panel.parentNode.removeChild(panel);
+    var prev = listEl.querySelector(".row.is-expanded");
+    if (prev) { prev.classList.remove("is-expanded"); prev.setAttribute("aria-expanded", "false"); }
+    current.expandedId = null;
+  }
+  function expandRowEl(row, c) {
+    collapseExpanded();
+    var panel = UI.rowExpandPanel(c, {
+      onDetail: function (cc) { openDetail(cc); },
+      onCall: function (cc) { Storage.pushRecent(cc.id); }, // 기본 tel: 동작은 그대로
+    });
+    row.parentNode.insertBefore(panel, row.nextSibling);
+    row.classList.add("is-expanded");
+    row.setAttribute("aria-expanded", "true");
+    current.expandedId = String(c.id);
+  }
+  function toggleExpand(row, c) {
+    if (current.expandedId === String(c.id)) collapseExpanded();
+    else expandRowEl(row, c);
+    remeasureAlphaOffsets();
+  }
+  // 행 탭 처리(펼침 vs 바로 상세) — 클릭·키보드 공용
+  function onRowActivate(row, c) {
+    if (Storage.getRowTapMode() === "expand" && isExpandableView()) toggleExpand(row, c);
+    else openDetail(c);
+  }
+
   // 즐겨찾기(data-act=fav)·전화(data-act=call)는 위임, 그 외 행 클릭은 상세 열기.
   // (그룹지정·최근제거·순서이동 버튼은 자체 리스너에서 stopPropagation 하므로 여기 안 옴.
   //  선택 모드는 캡처 단계 핸들러가 먼저 가로채므로 여기서는 무시한다.)
@@ -474,7 +516,7 @@
       return;
     }
     var row = t && t.closest ? t.closest(".row[data-id]") : null;
-    if (row) { var c = Data.getById(row.dataset.id); if (c) openDetail(c); }
+    if (row) { var c = Data.getById(row.dataset.id); if (c) onRowActivate(row, c); }
   });
   listEl.addEventListener("keydown", function (e) {
     if (e.key !== "Enter" && e.key !== " ") return;
@@ -489,10 +531,11 @@
       return;
     }
     var c = Data.getById(row.dataset.id);
-    if (c) openDetail(c);
+    if (c) onRowActivate(row, c);
   });
 
   function renderBody() {
+    current.expandedId = null; // 재렌더 시 펼침 DOM이 사라지므로 상태 초기화
     var q = current.query.trim();
     listEl.classList.remove("list--cols"); // 데스크톱 다열은 '전체' 탭(비검색)에서만
     if (orgActions) orgActions.hidden = true; // 조직도 액션은 조직도 탭에서만 노출
@@ -724,6 +767,25 @@
     });
   });
   UI.setShowDefaultIcon(Storage.getShowDefaultIcon());
+
+  // 행 탭 동작(펼쳐 보기 / 바로 상세)
+  var rowTapBtns = Array.prototype.slice.call(document.querySelectorAll("#row-tap-seg .seg-btn"));
+  function setRowTapUI(mode) {
+    rowTapBtns.forEach(function (b) {
+      var sel = b.dataset.rowtap === mode;
+      b.classList.toggle("is-active", sel);
+      b.setAttribute("aria-pressed", sel ? "true" : "false");
+    });
+  }
+  rowTapBtns.forEach(function (b) {
+    b.addEventListener("click", function () {
+      var mode = b.dataset.rowtap === "detail" ? "detail" : "expand";
+      Storage.setRowTapMode(mode);
+      setRowTapUI(mode);
+      collapseExpanded(); // 모드 바꾸면 열린 패널 정리
+    });
+  });
+  setRowTapUI(Storage.getRowTapMode());
   setDefaultIconUI(Storage.getShowDefaultIcon());
 
   // 스낵바 (가벼운 피드백)
@@ -1777,6 +1839,7 @@
   var selectPushed = false; // 선택 모드 시 히스토리 항목 push 여부(뒤로가기로 이탈)
   function enterSelectMode() {
     if (current.selectMode) return;
+    collapseExpanded(); // 펼쳐진 행이 있으면 닫고 선택 모드로
     current.selectMode = true;
     if (selectBar) selectBar.hidden = false;
     if (selectModeBtn) selectModeBtn.classList.add("is-active");

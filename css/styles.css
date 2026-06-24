@@ -476,6 +476,41 @@ mark {
 }
 .row:active { background: color-mix(in srgb, var(--brand) 8%, var(--surface)); }
 .row:focus-visible { outline: 2px solid var(--brand); outline-offset: -2px; }
+.row.is-expanded { background: color-mix(in srgb, var(--brand) 6%, var(--surface)); }
+
+/* 행 인라인 펼침(폴딩) 패널 */
+.row-expand {
+  background: color-mix(in srgb, var(--brand) 5%, var(--surface));
+  border-bottom: 1px solid var(--divider);
+  padding: var(--sp-2) var(--sp-4) var(--sp-3);
+  display: flex; flex-direction: column; gap: var(--sp-2);
+  animation: rxFade 0.16s ease;
+}
+@keyframes rxFade { from { opacity: 0; } to { opacity: 1; } }
+.list--cols .list-section > .row-expand { grid-column: 1 / -1; } /* 데스크톱 다열에서 전체 폭 */
+.rx-path { font-size: var(--fs-sm); font-weight: var(--fw-med); color: var(--on-surface); }
+.rx-role { font-size: var(--fs-sm); color: var(--on-surface-muted); margin-top: -4px; }
+.rx-line { display: flex; align-items: center; gap: var(--sp-2); flex-wrap: wrap; }
+.rx-label { font-size: var(--fs-cap); color: var(--on-surface-muted); min-width: 52px; }
+.rx-num { font-size: var(--fs-md); font-weight: var(--fw-med); color: var(--on-surface); letter-spacing: .02em; }
+.rx-line-acts { display: flex; gap: var(--sp-2); margin-left: auto; }
+.rx-act {
+  display: inline-flex; align-items: center; gap: 4px;
+  font: inherit; font-size: var(--fs-sm); font-weight: var(--fw-med);
+  padding: 7px 13px; border-radius: var(--r-pill);
+  border: 1px solid var(--brand); color: var(--brand); background: none;
+  text-decoration: none; cursor: pointer;
+}
+.rx-act .ic { width: 1.05em; height: 1.05em; }
+.rx-act--call { background: var(--brand); color: #fff; }
+.rx-empty { color: var(--on-surface-muted); font-size: var(--fs-sm); }
+.rx-actions { display: flex; justify-content: flex-end; margin-top: 2px; }
+.rx-detail {
+  display: inline-flex; align-items: center; gap: 2px;
+  font: inherit; font-size: var(--fs-sm); font-weight: var(--fw-bold);
+  color: var(--brand); background: none; border: none; padding: 6px 2px; cursor: pointer;
+}
+.rx-detail-chev { width: 1.1em; height: 1.1em; }
 
 .avatar {
   flex: 0 0 auto;

@@ -420,7 +420,54 @@
     return wrap;
   }
 
+  // 행 인라인 펼침 패널(폴딩): 부서경로·직책 + 휴대폰/행정번호(전화·문자) + '상세 보기'.
+  // opts: onDetail(c), onCall(c). 행의 형제로 삽입된다.
+  function rowExpandPanel(c, opts) {
+    opts = opts || {};
+    var box = el("div", "row-expand");
+    box.setAttribute("role", "region");
+    var pathNames = (window.Data && Data.deptPath) ? Data.deptPath(c.deptId).map(function (p) { return p.name; }).filter(Boolean) : (c.dept ? [c.dept] : []);
+    if (pathNames.length) box.appendChild(el("div", "rx-path", pathNames.join(" › ")));
+    var role = [c.position, c.grade, c.work].filter(Boolean).join(" · ");
+    if (role) box.appendChild(el("div", "rx-role", role));
+
+    function phoneLine(label, num) {
+      if (!num) return;
+      var line = el("div", "rx-line");
+      line.appendChild(el("span", "rx-label", label));
+      line.appendChild(el("span", "rx-num", formatPhone(num)));
+      var acts = el("div", "rx-line-acts");
+      var call = el("a", "rx-act rx-act--call");
+      call.href = "tel:" + clean(num);
+      call.setAttribute("aria-label", (c.name || "") + " " + label + " 전화");
+      call.appendChild(icon("phone")); call.appendChild(document.createTextNode("전화"));
+      call.addEventListener("click", function () { if (opts.onCall) opts.onCall(c); }); // 기본 tel: 동작 유지 + 최근 기록
+      acts.appendChild(call);
+      var sms = el("a", "rx-act");
+      sms.href = "sms:" + clean(num);
+      sms.setAttribute("aria-label", (c.name || "") + " " + label + " 문자");
+      sms.appendChild(icon("message")); sms.appendChild(document.createTextNode("문자"));
+      acts.appendChild(sms);
+      line.appendChild(acts);
+      box.appendChild(line);
+    }
+    phoneLine("휴대폰", c.phone);
+    phoneLine("행정번호", c.tel);
+    if (!c.phone && !c.tel) box.appendChild(el("div", "rx-line rx-empty", "등록된 번호가 없습니다"));
+
+    var actions = el("div", "rx-actions");
+    var det = el("button", "rx-detail");
+    det.type = "button";
+    det.appendChild(document.createTextNode("상세 보기"));
+    det.appendChild(icon("chevron", "rx-detail-chev"));
+    det.addEventListener("click", function (e) { e.stopPropagation(); if (opts.onDetail) opts.onDetail(c); });
+    actions.appendChild(det);
+    box.appendChild(actions);
+    return box;
+  }
+
   var UI = {
+    rowExpandPanel: rowExpandPanel,
     avatarColor: avatarColor,
     FAV_COLORS: FAV_COLORS,
     favColorKey: favColorKey,

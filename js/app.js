@@ -942,6 +942,7 @@
       var okBtn = mk("button", "app-dialog-btn app-dialog-ok" + (opts.danger ? " is-danger" : ""), opts.okLabel || "확인");
       okBtn.type = "button";
       btns.appendChild(cancelBtn);
+      if (opts.hideCancel) cancelBtn.hidden = true; // 안내(알림)용: 확인만 노출
       if (!opts.swatches) btns.appendChild(okBtn); // 스와치 모드는 확인 버튼 불필요(클릭=선택)
       card.appendChild(btns);
       backdrop.appendChild(card);
@@ -1865,6 +1866,7 @@
     refreshCounts();
     updatePhotoInfo();
     document.getElementById("settings-version").textContent = "v" + APP_VERSION;
+    updateInstallUI(); // '홈 화면에 설치' 노출 여부(이미 설치=숨김) 갱신
     var settingsBody = settingsEl.querySelector(".detail-body");
     pushFocus();
     settingsEl.hidden = false;
@@ -2336,27 +2338,72 @@
   }
 
   // ---------- PWA: 설치 프롬프트 ----------
+  // 자동 토스트는 beforeinstallprompt 에만 의존해 잘 안 뜬다(한 번 닫으면 끝·iOS 미지원·
+  // 브라우저 기준 미충족·이미 설치 등). 그래서 설정 '앱 정보'에 '홈 화면에 설치'를 항상 두고,
+  // 프롬프트가 있으면 즉시 설치, 없으면 기기별 수동 안내를 띄운다.
   var deferredPrompt = null;
   var installToast = document.getElementById("install-toast");
+  var installAppBtn = document.getElementById("install-app-btn");
   var INSTALL_DISMISS_KEY = "dongguDial.installDismissed.v1";
+
+  function isStandalone() {
+    return (window.matchMedia && matchMedia("(display-mode: standalone)").matches) ||
+      window.navigator.standalone === true; // iOS Safari
+  }
+  function isIOS() {
+    return /iphone|ipad|ipod/i.test(navigator.userAgent) ||
+      (navigator.platform === "MacIntel" && navigator.maxTouchPoints > 1); // iPadOS
+  }
+  // 설정 '홈 화면에 설치' 노출: 이미 설치(standalone)면 숨김, 아니면 항상 노출.
+  function updateInstallUI() {
+    if (!installAppBtn) return;
+    installAppBtn.hidden = isStandalone();
+  }
+  // 프롬프트가 없을 때의 기기별 수동 설치 안내(취소 없이 확인만).
+  function showInstallGuide() {
+    var msg;
+    if (isIOS()) {
+      msg = "사파리(Safari) 하단의 공유 버튼을 누른 뒤\n‘홈 화면에 추가’를 선택하세요.";
+    } else if (/android/i.test(navigator.userAgent)) {
+      msg = "브라우저 메뉴(⋮)를 열고\n‘앱 설치’ 또는 ‘홈 화면에 추가’를 누르세요.";
+    } else {
+      msg = "주소창 오른쪽의 설치 아이콘, 또는\n브라우저 메뉴 → ‘앱 설치’를 누르세요.";
+    }
+    appDialog({ title: "홈 화면에 설치", message: msg, okLabel: "확인", hideCancel: true });
+  }
+  function doInstall() {
+    if (deferredPrompt) {
+      deferredPrompt.prompt();
+      deferredPrompt.userChoice.then(function () { deferredPrompt = null; });
+      return;
+    }
+    showInstallGuide();
+  }
 
   window.addEventListener("beforeinstallprompt", function (e) {
     e.preventDefault();
     deferredPrompt = e;
+    updateInstallUI();
     var ut = document.getElementById("update-toast");
     if (!localStorage.getItem(INSTALL_DISMISS_KEY) && (!ut || ut.hidden)) {
       installToast.hidden = false;
     }
   });
+  // 설치 완료: 토스트·설정 버튼 정리(이미 설치=숨김).
+  window.addEventListener("appinstalled", function () {
+    deferredPrompt = null;
+    installToast.hidden = true;
+    updateInstallUI();
+    showSnack("홈 화면에 설치되었습니다");
+  });
   document.getElementById("install-btn").addEventListener("click", function () {
     installToast.hidden = true;
-    if (deferredPrompt) {
-      deferredPrompt.prompt();
-      deferredPrompt = null;
-    }
+    doInstall();
   });
   document.getElementById("install-dismiss").addEventListener("click", function () {
     installToast.hidden = true;
     try { localStorage.setItem(INSTALL_DISMISS_KEY, "1"); } catch (e) {}
   });
+  if (installAppBtn) installAppBtn.addEventListener("click", doInstall);
+  updateInstallUI();
 })();

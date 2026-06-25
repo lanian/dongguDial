@@ -1279,6 +1279,7 @@
       card.textContent = "";
       var ta = el("textarea", "memo-edit");
       ta.rows = 3; ta.maxLength = 2000;
+      ta.setAttribute("aria-label", "메모"); // placeholder 는 접근명이 아니므로 명시
       ta.placeholder = "개인 메모 (이 기기에만 저장 · 검색됨 · 공유/CSV 제외)";
       ta.value = contact.memo || "";
       card.appendChild(ta);

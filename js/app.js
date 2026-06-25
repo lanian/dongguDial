@@ -360,7 +360,9 @@
       observer.unobserve(im);
       var src = (window.Photos && Photos.get) ? Photos.get(im.dataset.lazyId) : null;
       if (src) {
-        im.addEventListener("load", function () { if (av) av.classList.remove("avatar--loading"); }, { once: true });
+        (function (avatar) { // av 를 이터레이션별로 캡처(한 콜백에 여러 entry 올 때 마지막 av 로 새지 않게)
+          im.addEventListener("load", function () { if (avatar) avatar.classList.remove("avatar--loading"); }, { once: true });
+        })(av);
         im.src = src;
       } else if (av) av.classList.remove("avatar--loading");
       im.classList.remove("lazy-av");

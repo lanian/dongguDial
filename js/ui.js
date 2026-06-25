@@ -947,7 +947,8 @@
       var memoInp = el("textarea", "ef-input");
       memoInp.id = "ef-memo";
       memoInp.rows = 3;
-      memoInp.placeholder = "개인 메모 (이 기기에만 저장 · 공유/CSV에는 포함 안 됨)";
+      memoInp.maxLength = 2000; // 저장 비대화 방지
+      memoInp.placeholder = "개인 메모 (이 기기에만 저장 · 검색됨 · 공유/CSV 제외)";
       memoInp.style.resize = "vertical";
       memoInp.style.minHeight = "72px";
       if (contact.memo) memoInp.value = contact.memo;

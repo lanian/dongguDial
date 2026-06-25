@@ -82,7 +82,7 @@
     var deptAll = pathNames.join(" ") || c.dept || "";
     // 행 표시용: 상위 1단계 + 말단(예: '총무과 › 인사팀'). 그룹 헤더 없는 가나다순·검색에서 맥락 제공.
     c._deptShort = pathNames.length >= 2 ? (pathNames[1] + " › " + pathNames[0]) : (pathNames[0] || c.dept || "");
-    var parts = [c.name, deptAll, c.team, c.position, c.grade, c.work, st].filter(Boolean);
+    var parts = [c.name, deptAll, c.team, c.position, c.grade, c.work, st, c.memo].filter(Boolean);
     c._haystack = parts.join(" ").toLowerCase();
     c._choName = chosung(c.name || "");
     c._phoneDigits = normalizeDigits(c.phone) + " " + normalizeDigits(c.tel);
@@ -96,6 +96,7 @@
       work: (c.work || "").toLowerCase(),
       status: (c.status || "").toLowerCase(),
       birth: (c.birth || "").toLowerCase(),
+      memo: (c.memo || "").toLowerCase(),
       phone: c._phoneDigits,
     };
   }
@@ -116,6 +117,7 @@
     "휴대전화": "phone", "내선": "phone", "행정번호": "phone", "phone": "phone", "tel": "phone",
     "상태": "status", "재직상태": "status", "status": "status",
     "생일": "birth", "생년": "birth", "생년월일": "birth", "birth": "birth",
+    "메모": "memo", "비고": "memo", "노트": "memo", "memo": "memo",
   };
 
   // 따옴표 안의 공백은 한 토큰으로 보존하고, | 는 독립 토큰으로 분리.

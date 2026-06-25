@@ -29,6 +29,16 @@ test("검색: 이름/부서 연산자/제외", async () => {
   assert.ok(D.search("과장").length >= 2);
 });
 
+test("검색: 메모(개인)도 일반·필드 검색 포함", async () => {
+  const W = await loaded();
+  W.Storage.saveContact(101, { memo: "골프모임 회장" }); // 편집으로 메모 저장
+  W.Data.rebuild();
+  assert.ok(W.Data.search("골프").some((c) => c.id === 101), "일반 검색에 메모 반영");
+  assert.ok(W.Data.search("메모:골프").some((c) => c.id === 101), "메모: 필드 검색");
+  assert.ok(W.Data.search("비고:회장").some((c) => c.id === 101), "비고: 별칭");
+  assert.equal(W.Data.search("골프").filter((c) => c.id !== 101).length, 0, "메모 없는 사람은 미포함");
+});
+
 test("조직 경로/깊이", async () => {
   const D = (await loaded()).Data;
   assert.deepEqual(D.deptPath(3).map((p) => p.name), ["행정복지국", "자치행정과", "총무팀"]);

@@ -149,6 +149,20 @@
     return im;
   }
 
+  // 사진 없음/로드 실패 시 공통 폴백: 기본아이콘(전역 설정) 또는 이름 이니셜+색상 원.
+  function paintFallback(a, contact) {
+    a.classList.remove("avatar--photo", "avatar--loading");
+    a.textContent = ""; // 기존 img/내용 제거
+    if (contact.defaultIcon || showDefaultIcon) {
+      a.classList.add("avatar--default");
+      a.appendChild(defaultIconNode());
+    } else {
+      a.classList.remove("avatar--default");
+      a.style.background = avatarColor(contact.name || "");
+      a.textContent = initial(contact.name);
+    }
+  }
+
   function makeAvatar(contact, sizeClass, lazy) {
     var a = el("div", "avatar" + (sizeClass ? " " + sizeClass : ""));
     var photo = (window.Photos && Photos.get) ? Photos.get(contact.id) : null;
@@ -157,6 +171,7 @@
       var im = el("img");
       im.decoding = "async";
       im.alt = (contact.name || "") + " 사진";
+      im.addEventListener("error", function () { paintFallback(a, contact); }); // 손상 사진 → 이니셜 폴백
       if (lazy && contact.id != null) {
         // 지연 로딩: 화면 밖이면 src 미설정 → 디코드·메모리 0. app 이 뷰포트 근처에서 주입.
         // (loading="lazy" 는 dataURL 엔 무효 — fetch 가 없어 즉시 '로드됨' 취급. 그래서 IntersectionObserver 로 직접 지연.
@@ -168,12 +183,8 @@
         im.src = photo; // 상세/미리보기 등 즉시 표시 경로
       }
       a.appendChild(im);
-    } else if (contact.defaultIcon || showDefaultIcon) {
-      a.classList.add("avatar--default");
-      a.appendChild(defaultIconNode());
     } else {
-      a.style.background = avatarColor(contact.name || "");
-      a.textContent = initial(contact.name);
+      paintFallback(a, contact);
     }
     return a;
   }

@@ -182,6 +182,8 @@
   }
 
   var Data = {
+    /** 숫자만 추출(전화번호 정규화) — 단일 출처. app/contacts-io 가 재사용. */
+    digits: normalizeDigits,
     /** JSON 로드 후 인덱싱 */
     load: function () {
       return fetch("data/contacts.json", { cache: "no-cache" })

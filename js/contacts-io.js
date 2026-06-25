@@ -7,7 +7,87 @@
 (function (global) {
   "use strict";
 
+  // ── 가져오기 매핑 로직(순수 함수 — DOM/ctx 비의존, 단위 테스트 대상: ContactsIO._test) ──
+  function D() { return global.Data; }
+  function digits(s) { return (D() && D().digits) ? D().digits(s) : (s || "").replace(/\D/g, ""); }
+  // CSV 가져오기 열 동의어(필드→별칭 배열). 검색 동의어는 js/data.js 의 FIELD_ALIASES(별칭→필드, 별개).
+  var FIELD_ALIASES = {
+    name: ["이름", "성명", "직원명", "name"],
+    position: ["직책", "직위", "position"],
+    grade: ["직급", "급수", "계급", "grade"],
+    work: ["담당업무", "업무", "담당", "work"],
+    phone: ["휴대전화", "휴대폰", "핸드폰", "휴대", "개인전화", "연락처", "hp", "mobile", "phone"],
+    tel: ["행정번호", "사내번호", "내선", "내선번호", "사무실", "직통", "전화", "tel"],
+    birth: ["생년월일", "생일", "출생", "birth"],
+    status: ["재직상태", "상태", "재직", "status"],
+  };
+  // 조직 위계 열(상위 → 하위). 존재하는 열만 경로로 사용, 사람은 가장 말단(팀)에 배치
+  var HIER_ALIASES = [
+    ["상위부서", "상위조직", "상위", "국", "실", "본부"],
+    ["부서", "부서명", "소속", "과", "department"],
+    ["팀", "팀명", "담당팀"],
+  ];
+  function norm(s) { return (s || "").toString().trim().toLowerCase().replace(/\s+/g, ""); }
+  function buildFieldMap(headers) {
+    var map = {};
+    Object.keys(FIELD_ALIASES).forEach(function (field) {
+      var aliases = FIELD_ALIASES[field].map(norm);
+      var h = headers.find(function (hd) { return aliases.indexOf(norm(hd)) !== -1; });
+      if (h) map[field] = h;
+    });
+    return map;
+  }
+  function normStatus(s) {
+    s = (s || "").trim();
+    var m = { "재직중": "재직", "휴직중": "휴직", "파견중": "파견", "교육중": "교육" };
+    s = m[s] || s;
+    return ["재직", "휴직", "파견", "교육"].indexOf(s) >= 0 ? s : "미설정";
+  }
+  // 헤더 분석(필드맵·위계열·셀 추출기) — 가져오기/미리보기 공용. 이름 열 없으면 throw.
+  function analyzeRows(rows) {
+    var headers = Object.keys(rows[0] || {});
+    var fmap = buildFieldMap(headers);
+    if (!fmap.name) throw new Error("‘이름’ 열을 찾을 수 없습니다. 양식을 확인하세요.");
+    var hierHeaders = HIER_ALIASES.map(function (aliases) {
+      var a = aliases.map(norm);
+      return headers.find(function (hd) { return a.indexOf(norm(hd)) !== -1; }) || null;
+    });
+    function v(r, f) { return fmap[f] ? (r[fmap[f]] || "").trim() : ""; }
+    function leafOf(r) { for (var i = hierHeaders.length - 1; i >= 0; i--) { var h = hierHeaders[i]; if (h && (r[h] || "").trim()) return r[h].trim(); } return ""; }
+    return { fmap: fmap, hierHeaders: hierHeaders, v: v, leafOf: leafOf };
+  }
+  // 기존 연락처 색인: 이름+전화digits(우선) / 이름+부서leaf
+  function buildContactMatchIndex() {
+    var byNamePhone = {}, byNameDept = {};
+    (D() && D().getAllContacts ? D().getAllContacts() : []).forEach(function (c) {
+      var nm = (c.name || "").trim(); if (!nm) return;
+      var ph = digits(c.phone) || digits(c.tel);
+      if (ph.length >= 7) byNamePhone[nm + "|" + ph] = c;
+      if (c.dept) byNameDept[nm + "|" + c.dept] = c;
+    });
+    return { byNamePhone: byNamePhone, byNameDept: byNameDept };
+  }
+  function matchExisting(idx, name, rowPhone, leaf) {
+    if (rowPhone.length >= 7 && idx.byNamePhone[name + "|" + rowPhone]) return idx.byNamePhone[name + "|" + rowPhone];
+    if (leaf && idx.byNameDept[name + "|" + leaf]) return idx.byNameDept[name + "|" + leaf];
+    return null;
+  }
+  // 미리보기(dry-run, 변경 없음): 신규/갱신/건너뜀 건수
+  function classifyImport(rows) {
+    var A = analyzeRows(rows), v = A.v, leafOf = A.leafOf;
+    var idx = buildContactMatchIndex();
+    var news = 0, updates = 0, skipped = 0;
+    rows.forEach(function (r) {
+      var name = v(r, "name");
+      if (!name) { skipped++; return; }
+      var ph = digits(v(r, "phone")) || digits(v(r, "tel"));
+      if (matchExisting(idx, name, ph, leafOf(r))) updates++; else news++;
+    });
+    return { news: news, updates: updates, skipped: skipped };
+  }
+
   global.ContactsIO = {
+    _test: { norm: norm, digits: digits, buildFieldMap: buildFieldMap, normStatus: normStatus, analyzeRows: analyzeRows, buildContactMatchIndex: buildContactMatchIndex, matchExisting: matchExisting, classifyImport: classifyImport },
     init: function (ctx) {
       var showSnack = ctx.snack;
       var appDialog = ctx.dialog;
@@ -18,53 +98,8 @@
 
       // ---------- 연락처 CSV/Excel 가져오기 (로컬) ----------
       var importContactsFile = document.getElementById("import-contacts-file");
-      // NOTE: CSV 가져오기 열 동의어(필드→별칭 배열). 검색 동의어는 js/data.js 의 FIELD_ALIASES
-      //       (별칭→필드, 역방향·필드셋 다름). 동의어 수정 시 두 곳을 함께 살펴볼 것.
-      var FIELD_ALIASES = {
-        name: ["이름", "성명", "직원명", "name"],
-        position: ["직책", "직위", "position"],
-        grade: ["직급", "급수", "계급", "grade"],
-        work: ["담당업무", "업무", "담당", "work"],
-        phone: ["휴대전화", "휴대폰", "핸드폰", "휴대", "개인전화", "연락처", "hp", "mobile", "phone"],
-        tel: ["행정번호", "사내번호", "내선", "내선번호", "사무실", "직통", "전화", "tel"],
-        birth: ["생년월일", "생일", "출생", "birth"],
-        status: ["재직상태", "상태", "재직", "status"],
-      };
-      // 조직 위계 열(상위 → 하위). 존재하는 열만 경로로 사용, 사람은 가장 말단(팀)에 배치
-      var HIER_ALIASES = [
-        ["상위부서", "상위조직", "상위", "국", "실", "본부"],   // 최상위(국/실/관)
-        ["부서", "부서명", "소속", "과", "department"],          // 과
-        ["팀", "팀명", "담당팀"],                                // 팀
-      ];
-      function norm(s) { return (s || "").toString().trim().toLowerCase().replace(/\s+/g, ""); }
-      function buildFieldMap(headers) {
-        var map = {};
-        Object.keys(FIELD_ALIASES).forEach(function (field) {
-          var aliases = FIELD_ALIASES[field].map(norm);
-          var h = headers.find(function (hd) { return aliases.indexOf(norm(hd)) !== -1; });
-          if (h) map[field] = h;
-        });
-        return map;
-      }
-      function normStatus(s) {
-        s = (s || "").trim();
-        var m = { "재직중": "재직", "휴직중": "휴직", "파견중": "파견", "교육중": "교육" };
-        s = m[s] || s;
-        return ["재직", "휴직", "파견", "교육"].indexOf(s) >= 0 ? s : "미설정";
-      }
-      // 헤더 분석(필드맵·위계열·셀 추출기) — 가져오기/미리보기 공용. 이름 열 없으면 throw.
-      function analyzeRows(rows) {
-        var headers = Object.keys(rows[0] || {});
-        var fmap = buildFieldMap(headers);
-        if (!fmap.name) throw new Error("‘이름’ 열을 찾을 수 없습니다. 양식을 확인하세요.");
-        var hierHeaders = HIER_ALIASES.map(function (aliases) { // 위계 열(상위부서/부서/팀)
-          var a = aliases.map(norm);
-          return headers.find(function (hd) { return a.indexOf(norm(hd)) !== -1; }) || null;
-        });
-        function v(r, f) { return fmap[f] ? (r[fmap[f]] || "").trim() : ""; }
-        function leafOf(r) { for (var i = hierHeaders.length - 1; i >= 0; i--) { var h = hierHeaders[i]; if (h && (r[h] || "").trim()) return r[h].trim(); } return ""; }
-        return { fmap: fmap, hierHeaders: hierHeaders, v: v, leafOf: leafOf };
-      }
+      // 가져오기 매핑 순수 함수(norm/buildFieldMap/normStatus/analyzeRows/digits/
+      // buildContactMatchIndex/matchExisting/classifyImport)는 모듈 스코프로 추출됨(ContactsIO._test).
       function applyContactImport(rows) {
         var A = analyzeRows(rows), fmap = A.fmap, hierHeaders = A.hierHeaders, v = A.v, leafOf = A.leafOf;
         var pathCache = {}, sortCounter = 0, newDepts = 0;
@@ -109,36 +144,6 @@
           else { Storage.addContact(fieldsFromRow(r)); added++; }             // 신규 → 추가
         });
         return { added: added, updated: updated, skipped: skipped, newDepts: newDepts };
-      }
-      function digits(s) { return (s || "").replace(/\D/g, ""); }
-      // 기존 연락처 색인: 이름+전화digits(우선) / 이름+부서leaf
-      function buildContactMatchIndex() {
-        var byNamePhone = {}, byNameDept = {};
-        (window.Data && Data.getAllContacts ? Data.getAllContacts() : []).forEach(function (c) {
-          var nm = (c.name || "").trim(); if (!nm) return;
-          var ph = digits(c.phone) || digits(c.tel);
-          if (ph.length >= 7) byNamePhone[nm + "|" + ph] = c;
-          if (c.dept) byNameDept[nm + "|" + c.dept] = c;
-        });
-        return { byNamePhone: byNamePhone, byNameDept: byNameDept };
-      }
-      function matchExisting(idx, name, rowPhone, leaf) {
-        if (rowPhone.length >= 7 && idx.byNamePhone[name + "|" + rowPhone]) return idx.byNamePhone[name + "|" + rowPhone];
-        if (leaf && idx.byNameDept[name + "|" + leaf]) return idx.byNameDept[name + "|" + leaf];
-        return null;
-      }
-      // 미리보기(dry-run, 변경 없음): 신규/갱신/건너뜀 건수
-      function classifyImport(rows) {
-        var A = analyzeRows(rows), v = A.v, leafOf = A.leafOf;
-        var idx = buildContactMatchIndex();
-        var news = 0, updates = 0, skipped = 0;
-        rows.forEach(function (r) {
-          var name = v(r, "name");
-          if (!name) { skipped++; return; }
-          var ph = digits(v(r, "phone")) || digits(v(r, "tel"));
-          if (matchExisting(idx, name, ph, leafOf(r))) updates++; else news++;
-        });
-        return { news: news, updates: updates, skipped: skipped };
       }
       function runImport(rows) {
         var res;

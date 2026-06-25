@@ -1664,7 +1664,7 @@
   // 사진 일괄 가져오기: 파일명(확장자 제외)을 연락처 '이름'과 매칭해 한 번에 등록. 동명이인은 건너뜀.
   function importPhotosBulk(files) {
     var byName = Object.create(null), byPhone = Object.create(null), byNameDept = Object.create(null);
-    function dig(s) { return (s || "").replace(/\D/g, ""); }
+    function dig(s) { return Data.digits(s); } // 구현 단일화(js/data.js normalizeDigits)
     Data.getAllContacts().forEach(function (c) {
       var nm = (c.name || "").trim();
       if (nm) {

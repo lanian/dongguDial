@@ -63,6 +63,26 @@ test("데이터 점검: 중복 전화/고아 부서", async () => {
   assert.ok(r.orphans.some((c) => c.name === "박개똥"), "고아 부서 인원");
 });
 
+test("데이터 점검: 휴대폰형식·생일형식·연락두절·이름+전화중복·무명", async () => {
+  const BASE2 = {
+    departments: [{ id: 1, name: "총무과" }],
+    contacts: [
+      { id: "a", name: "홍길동", deptId: 1, phone: "010-1111-2222", birth: "1990-01-01" }, // 정상
+      { id: "b", name: "홍길동", deptId: 1, phone: "010-1111-2222" },                     // a와 이름+전화 동일 → dupContacts
+      { id: "c", name: "김철수", deptId: 1, phone: "012-3456-7" },                        // 휴대폰 형식 이상(01x·10~11자리 아님)
+      { id: "d", name: "", deptId: 1, phone: "010-9999-8888" },                          // 무명
+      { id: "e", name: "이영희", deptId: 1, birth: "1990/02/02" },                        // 생일형식 이상 + 연락두절
+    ],
+  };
+  const a = loadApp(BASE2); await a.win.Data.load();
+  const r = a.win.Data.validateContacts();
+  assert.ok(r.dupContacts.some((g) => g.length === 2), "이름+전화 동일 그룹");
+  assert.ok(r.badMobile.some((c) => c.id === "c"), "휴대폰 형식 이상");
+  assert.ok(r.noName.some((c) => c.id === "d"), "무명");
+  assert.ok(r.badBirth.some((c) => c.id === "e"), "생일 형식 이상");
+  assert.ok(r.noContact.some((c) => c.id === "e"), "연락 수단 없음");
+});
+
 test("조직도 평탄화 = 직제순(가나다와 다름)", async () => {
   const D = (await loaded()).Data;
   const order = [];

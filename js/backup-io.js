@@ -46,15 +46,30 @@
       }
 
       // ---------- 내보내기 ----------
+      // 데이터 암호화 ON이면 평문 백업은 연락처·사진이 평문으로 빠져나간다 → 경고(계속/취소).
+      function confirmPlainExport() {
+        if (!(window.Storage && Storage.encEnabled && Storage.encEnabled())) return Promise.resolve(true);
+        return appDialog({
+          title: "평문 백업 주의",
+          message: "데이터 암호화가 켜져 있습니다.\n이 백업 파일에는 연락처·사진이 암호화되지 않은 평문으로 저장됩니다.\n\n안전하게 보관하려면 ‘암호화 백업’을 사용하세요.",
+          okLabel: "평문으로 계속",
+        }).then(function (go) { return !!go; });
+      }
       document.getElementById("export-btn").addEventListener("click", function () {
-        buildBackupBlob().then(function (blob) { UI.downloadBlob(blob, "행정전화번호-백업-" + dateStamp() + ".json"); });
+        confirmPlainExport().then(function (go) {
+          if (!go) return;
+          buildBackupBlob().then(function (blob) { UI.downloadBlob(blob, "행정전화번호-백업-" + dateStamp() + ".json"); });
+        });
       });
       // 사진 제외 백업: 사진(IDB)을 빼고 본문(연락처·부서·즐겨찾기 등)만 — 파일이 가볍다.
       var exportNoPhotoBtn = document.getElementById("export-nophoto-btn");
       if (exportNoPhotoBtn) exportNoPhotoBtn.addEventListener("click", function () {
-        UI.downloadBlob(new Blob([JSON.stringify(Storage.exportData(), null, 2)], { type: "application/json" }),
-          "행정전화번호-백업(사진제외)-" + dateStamp() + ".json");
-        showSnack("사진 제외 백업을 내보냈습니다");
+        confirmPlainExport().then(function (go) {
+          if (!go) return;
+          UI.downloadBlob(new Blob([JSON.stringify(Storage.exportData(), null, 2)], { type: "application/json" }),
+            "행정전화번호-백업(사진제외)-" + dateStamp() + ".json");
+          showSnack("사진 제외 백업을 내보냈습니다");
+        });
       });
       function exportBackupEncrypted() {
         if (!(window.crypto && crypto.subtle)) { showSnack("이 브라우저는 백업 암호화를 지원하지 않습니다"); return; }

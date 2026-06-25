@@ -1344,8 +1344,13 @@
   })();
 
   // 백그라운드 복귀 시 유예시간 초과면 재잠금
+  // 백그라운드/종료 직전 — 대기 중인 암호화 쓰기를 디스크에 밀어넣어 마지막 편집 유실 방지.
+  // (암호화 활성 시 write 는 메모리만 동기 갱신, 영속화는 비동기라 강제 종료 시 유실 창이 있음)
+  function flushPending() { if (Storage.flush) Storage.flush(); }
+  window.addEventListener("pagehide", flushPending);
   document.addEventListener("visibilitychange", function () {
     if (document.visibilityState === "hidden") {
+      flushPending();
       if (!isLocked) lockHiddenAt = Date.now();
     } else if (document.visibilityState === "visible") {
       if (!isLocked && lockConfigured() && lockHiddenAt && (Date.now() - lockHiddenAt) > LOCK_GRACE_MS) {

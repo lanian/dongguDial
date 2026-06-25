@@ -516,6 +516,12 @@
     encActive: function () { return _enc.active; },                                   // 이번 세션 해제됨
     encLocked: function () { return this.encEnabled() && !_enc.active; },             // 켜졌지만 미해제
 
+    /** 대기 중인 암호화 쓰기(비동기 영속화)가 끝날 때까지 기다린다.
+     *  암호화 활성 시 write()는 메모리만 동기 갱신하고 디스크 기록은 백그라운드라,
+     *  앱이 백그라운드/종료될 때(pagehide·visibilitychange) 호출해 마지막 편집 유실을 막는다.
+     *  평문 모드는 write 가 동기(localStorage)라 이미 안전 → 즉시 resolve. */
+    flush: function () { return _enc.active ? _flushChain : Promise.resolve(); },
+
     /** 콜드스타트: PIN으로 키 유도→검증→모든 민감 키 복호화하여 메모리 캐시 적재 */
     encUnlock: function (pin) {
       var cfg = _rawParse(ENC_KEY);

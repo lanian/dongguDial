@@ -1301,8 +1301,12 @@
           if (!ok) { showSnack("PIN이 올바르지 않습니다"); updateLockUI(); return; }
           showSnack("암호화하는 중…");
           Storage.encEnable(pin)
-            .then(function () { return (window.Photos && Photos.encryptAll) ? Photos.encryptAll() : 0; }) // 사진도 일괄 암호화
-            .then(function () { updateLockUI(); showSnack("데이터 암호화가 켜졌습니다"); })
+            .then(function () { return (window.Photos && Photos.encryptAll) ? Photos.encryptAll() : { done: 0, failed: 0 }; }) // 사진도 일괄 암호화
+            .then(function (r) {
+              updateLockUI();
+              if (r && r.failed) showSnack("암호화 켜짐 — 사진 일부 암호화 실패(평문 잔존). 다시 시도하세요");
+              else showSnack("데이터 암호화가 켜졌습니다");
+            })
             .catch(function (e) { showSnack("암호화 실패: " + ((e && e.message) || "")); updateLockUI(); });
         });
       });
@@ -1315,9 +1319,16 @@
       if (!ok) { updateLockUI(); return; }
       showSnack("복호화하는 중…");
       // 사진은 활성 키가 살아있는 지금 평문으로 되돌린 뒤(decryptAll) 암호화를 끈다(순서 중요).
-      (window.Photos && Photos.decryptAll ? Photos.decryptAll() : Promise.resolve())
-        .then(function () { return Storage.encDisable(); })
-        .then(function () { updateLockUI(); showSnack("데이터 암호화가 꺼졌습니다"); })
+      // 일부 복호 실패 시 끄면 그 사진이 영구 손실 → 중단하고 암호화를 유지(안전).
+      (window.Photos && Photos.decryptAll ? Photos.decryptAll() : Promise.resolve({ done: 0, failed: 0 }))
+        .then(function (r) {
+          if (r && r.failed) {
+            updateLockUI();
+            showSnack("일부 사진을 복호화하지 못해 암호화를 유지합니다" + (r.failed > 0 ? " (" + r.failed + "장)" : ""));
+            return;
+          }
+          return Storage.encDisable().then(function () { updateLockUI(); showSnack("데이터 암호화가 꺼졌습니다"); });
+        })
         .catch(function () { updateLockUI(); showSnack("암호화 끄기에 실패했습니다"); });
     });
   }
@@ -1345,11 +1356,18 @@
           // 암호화 중이면 새 PIN으로 재암호화(키 교체). 사진은 구키로 평문화→키 교체→신키로 재암호화
           // (두 키를 동시에 다루지 않도록 decryptAll→encReencrypt→encryptAll 순서).
           if (Storage.encActive && Storage.encActive()) {
-            (window.Photos && Photos.decryptAll ? Photos.decryptAll() : Promise.resolve())
-              .then(function () { return Storage.encReencrypt(newPin); })
-              .then(function () { return (window.Photos && Photos.encryptAll) ? Photos.encryptAll() : 0; })
+            // 사진 복호 실패 시 키를 교체하면 그 사진이 구키로 묶여 영구 손실 → 교체 중단(이전 PIN 유지).
+            (window.Photos && Photos.decryptAll ? Photos.decryptAll() : Promise.resolve({ done: 0, failed: 0 }))
+              .then(function (r) {
+                if (r && r.failed) throw new Error("photo-decrypt-failed");
+                return Storage.encReencrypt(newPin);
+              })
+              .then(function () { return (window.Photos && Photos.encryptAll) ? Photos.encryptAll() : { done: 0, failed: 0 }; })
               .then(function () { showSnack("PIN이 변경되었습니다"); })
-              .catch(function () { showSnack("PIN은 바뀌었지만 재암호화에 실패했습니다"); });
+              .catch(function (e) {
+                if (e && e.message === "photo-decrypt-failed") showSnack("일부 사진 복호화 실패 — 이전 PIN을 계속 사용하세요");
+                else showSnack("PIN은 바뀌었지만 재암호화에 실패했습니다");
+              });
           } else showSnack("PIN이 변경되었습니다");
         });
       });
@@ -1360,7 +1378,7 @@
   // 백그라운드 복귀 시 유예시간 초과면 재잠금
   // 백그라운드/종료 직전 — 대기 중인 암호화 쓰기를 디스크에 밀어넣어 마지막 편집 유실 방지.
   // (암호화 활성 시 write 는 메모리만 동기 갱신, 영속화는 비동기라 강제 종료 시 유실 창이 있음)
-  function flushPending() { if (Storage.flush) Storage.flush(); }
+  function flushPending() { if (Storage.flush) Storage.flush(); if (window.Photos && Photos.flush) Photos.flush(); }
   window.addEventListener("pagehide", flushPending);
   document.addEventListener("visibilitychange", function () {
     if (document.visibilityState === "hidden") {

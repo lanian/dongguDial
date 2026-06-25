@@ -106,11 +106,11 @@ test("암호화 왕복 + 콜드 재시작: encryptAll→봉투, 재로드·언�
   await win.Photos.set(7, { list: "L", thumb: "T", full: "F" });
   await win.Storage.encEnable("1234");
   var n = await win.Photos.encryptAll();
-  assert.equal(n, 1);
+  assert.deepEqual(n, { done: 1, failed: 0 });
   // 원본 IDB 가 봉투({lE,tE,fE})이고 평문 누출 없음
   var raw = await new Promise(function (res) {
     var rq = global.indexedDB.open("dongguDial-photos");
-    rq.onsuccess = function () { var g = rq.result.transaction("photos").objectStore("photos").get(7); g.onsuccess = function () { res(g.result); }; };
+    rq.onsuccess = function () { var g = rq.result.transaction("photos").objectStore("photos").get("7"); g.onsuccess = function () { res(g.result); }; };
   });
   assert.ok(raw.lE && raw.tE && raw.fE, "lE/tE/fE 봉투 존재");
   assert.ok(!JSON.stringify(raw).includes("\"L\""), "평문 마커 누출 없음");
@@ -134,7 +134,7 @@ test("decryptAll: 암호문 → 평문 {list,thumb,full} 복원", async () => {
   await win.Photos.decryptAll();
   var raw = await new Promise(function (res) {
     var rq = global.indexedDB.open("dongguDial-photos");
-    rq.onsuccess = function () { var g = rq.result.transaction("photos").objectStore("photos").get(9); g.onsuccess = function () { res(g.result); }; };
+    rq.onsuccess = function () { var g = rq.result.transaction("photos").objectStore("photos").get("9"); g.onsuccess = function () { res(g.result); }; };
   });
   assert.deepEqual(raw, { list: "L", thumb: "T", full: "F" });
 });
@@ -153,4 +153,44 @@ test("importMap/sanitize: 유효 dataURL 저장, 비정상 거부", async () => 
   await P.importMap({ 5: { list: DURL, thumb: DURL, full: DURL }, 6: { thumb: "not-a-dataurl" } }, true);
   assert.equal(P.get(5), DURL);          // 5: 유효 → 저장(list 우선)
   assert.equal(P.get(6), null);          // 6: 비정상 → 건너뜀
+});
+
+test("키 정규화: 숫자 id 로 저장 → 문자열 id 로 조회(및 반대) 일관", async () => {
+  var P = makeEnv().fresh().Photos;
+  await P.set(42, { list: "L", thumb: "T", full: "F" }); // 숫자 키 저장
+  assert.equal(P.get("42"), "L");                         // 문자열 조회(DOM dataset 경로) 일치
+  assert.equal(P.get(42), "L");                           // 숫자 조회도 일치
+  assert.equal(await P.getHero("42"), "T");               // getHero 문자열 id
+  assert.equal(await P.getFull("42"), "F");               // getFull 문자열 id (이전엔 썸네일로 폴백되던 버그)
+});
+
+test("flush(): 대기 중 쓰기 완료까지 await 가능", async () => {
+  var P = makeEnv().fresh().Photos;
+  assert.equal(typeof P.flush().then, "function"); // thenable
+  P.set(11, { list: "L", thumb: "T", full: "F" });  // await 안 함
+  await P.flush();                                  // flush 가 보장
+  var raw = await new Promise(function (res) {
+    var rq = global.indexedDB.open("dongguDial-photos");
+    rq.onsuccess = function () { var g = rq.result.transaction("photos").objectStore("photos").get("11"); g.onsuccess = function () { res(g.result); }; };
+  });
+  assert.ok(raw && raw.list === "L", "flush 후 IDB 기록 완료");
+});
+
+test("decryptAll: 복호 불가 봉투는 failed 로 집계(성공 위장 안 함)", async () => {
+  var env = makeEnv();
+  var win = env.fresh();
+  await win.Storage.encEnable("1234");
+  // 활성 키로 정상 1건 + 가짜(복호 불가) 봉투 1건을 직접 주입
+  await win.Photos.set(1, { list: "L", thumb: "T", full: "F" }); // 정상 암호화 저장
+  await new Promise(function (res) {
+    var rq = global.indexedDB.open("dongguDial-photos");
+    rq.onsuccess = function () {
+      var os = rq.result.transaction("photos", "readwrite").objectStore("photos");
+      var p = os.put({ lE: { _enc: 1, iv: "AAAAAAAAAAAAAAAA", ct: "BBBB" } }, "2"); // 손상 봉투
+      p.onsuccess = function () { res(); }; p.onerror = function () { res(); };
+    };
+  });
+  var r = await win.Photos.decryptAll();
+  assert.equal(r.done, 1, "정상 1건 복호");
+  assert.equal(r.failed, 1, "손상 1건 failed 집계 → 호출측이 끄기 중단 가능");
 });

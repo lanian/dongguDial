@@ -29,6 +29,24 @@
     }).catch(function () { return []; });
   }
   function _put(os, key, val) { return new Promise(function (r) { var rq = os.put(val, key); rq.onsuccess = function () { r(); }; rq.onerror = function () { r(); }; }); }
+  // 키 정규화: 캐시·IDB 모두 String(id) 로 통일(연락처 id 가 숫자/문자열 혼재해도 일관). get/set 의 타입 불일치 방지.
+  function K(id) { return String(id); }
+  // IDB 레코드 조회 — 정규(String) 키 우선, 없으면 원래(레거시 숫자) 키로 재시도. 반환: Promise<value|undefined>
+  function _getRec(os, id) {
+    return new Promise(function (res) {
+      var sid = String(id), r = os.get(sid);
+      r.onsuccess = function () {
+        if (r.result !== undefined || sid === id) { res(r.result); return; }
+        var r2 = os.get(id); // 레거시 숫자 키 폴백
+        r2.onsuccess = function () { res(r2.result); };
+        r2.onerror = function () { res(undefined); };
+      };
+      r.onerror = function () { res(undefined); };
+    });
+  }
+  // 쓰기 영속화 체인 — pagehide/visibilitychange 에서 flush() 로 대기 가능(사진 유실 방지).
+  var _writeChain = Promise.resolve();
+  function _track(p) { _writeChain = _writeChain.then(function () { return p; }, function () {}); return p; }
   // 가져오기 검증: base64 이미지 dataURL 만, 비정상 대용량 차단(개당 ~12MB)
   var MAX_PHOTO_LEN = 12 * 1024 * 1024;
   function validDataUrl(s) { return typeof s === "string" && s.length <= MAX_PHOTO_LEN && /^data:image\/[a-z0-9.+-]+;base64,/i.test(s); }
@@ -68,7 +86,7 @@
           req.onsuccess = function (e) {
             var c = e.target.result;
             if (c) {
-              var key = c.key, val = c.value;
+              var key = K(c.key), val = c.value; // 캐시 키는 String 정규화(숫자/문자열 혼재 무관)
               if (isEnc(val)) { // 암호문 → 리스트 소형(lE, 없으면 tE)만 복호화하여 캐시. hero/원본은 지연 복호화
                 if (val.fE) fullIds[key] = true;
                 var env = val.lE || val.tE;
@@ -81,67 +99,58 @@
         });
       }).catch(function () { return cache; });
     },
-    /** 썸네일 dataURL(동기) — 리스트·아바타 렌더용 */
-    get: function (id) { return cache[id] != null ? cache[id] : (cache[String(id)] != null ? cache[String(id)] : null); },
+    /** 썸네일 dataURL(동기) — 리스트·아바타 렌더용. 키는 String 정규화. */
+    get: function (id) { var v = cache[K(id)]; return v != null ? v : null; },
     has: function (id) { return Photos.get(id) != null; },
     /** 원본(full) dataURL — 전체화면 뷰어용. 비동기 지연 로드(IDB). 없으면 썸네일 폴백.
      *  반환: Promise<dataURL|null> */
     getFull: function (id) {
       var thumb = Photos.get(id);
-      if (!(fullIds[id] || fullIds[String(id)])) return Promise.resolve(thumb); // full 없음 → 썸네일
-      return store("readonly").then(function (os) {
-        return new Promise(function (res) {
-          var r = os.get(id);
-          r.onsuccess = function () {
-            var v = r.result;
-            if (isEnc(v) && v.fE) { S().decryptJSON(v.fE).then(function (f) { res(f || thumb); }).catch(function () { res(thumb); }); }
-            else res((v && typeof v === "object" && v.full) || thumb);
-          };
-          r.onerror = function () { res(thumb); };
-        });
+      if (!fullIds[K(id)]) return Promise.resolve(thumb); // full 없음 → 썸네일
+      return store("readonly").then(function (os) { return _getRec(os, id); }).then(function (v) {
+        if (isEnc(v) && v.fE) return S().decryptJSON(v.fE).then(function (f) { return f || thumb; }).catch(function () { return thumb; });
+        return (v && typeof v === "object" && v.full) || thumb;
       }).catch(function () { return thumb; });
     },
     /** 상세 hero(256) dataURL — 비동기. 리스트 소형(캐시)을 우선 보여준 뒤 업그레이드용. 없으면 캐시 폴백. */
     getHero: function (id) {
       var c = Photos.get(id);
-      return store("readonly").then(function (os) {
-        return new Promise(function (res) {
-          var r = os.get(id);
-          r.onsuccess = function () {
-            var v = r.result;
-            if (isEnc(v) && v.tE) { S().decryptJSON(v.tE).then(function (t) { res(t || c); }).catch(function () { res(c); }); }
-            else res((v && typeof v === "object" && (v.thumb || v.full)) || c);
-          };
-          r.onerror = function () { res(c); };
-        });
+      return store("readonly").then(function (os) { return _getRec(os, id); }).then(function (v) {
+        if (isEnc(v) && v.tE) return S().decryptJSON(v.tE).then(function (t) { return t || c; }).catch(function () { return c; });
+        return (v && typeof v === "object" && (v.thumb || v.full)) || c;
       }).catch(function () { return c; });
     },
     /** 저장: 캐시엔 리스트 소형만, IDB엔 { list, thumb, full } 전체(활성 시 각각 암호화) */
     set: function (id, val) {
-      cache[id] = cacheOf(val); // 캐시는 항상 평문 리스트 소형(동기 렌더)
+      var k = K(id);
+      cache[k] = cacheOf(val); // 캐시는 항상 평문 리스트 소형(동기 렌더)
       var isObj = val && typeof val === "object";
       var list = isObj ? (val.list || val.thumb) : val; // 소형 우선, 없으면 thumb·문자열
       var thumb = isObj ? val.thumb : null;             // hero 전용(있을 때만)
       var full = isObj ? val.full : null;
-      if (full != null) fullIds[id] = true; else { delete fullIds[id]; delete fullIds[String(id)]; }
+      if (full != null) fullIds[k] = true; else delete fullIds[k];
       function put(stored) {
-        return store("readwrite").then(function (os) { return _put(os, id, stored); }).catch(function () {});
+        return store("readwrite").then(function (os) { return _put(os, k, stored); }).catch(function () {});
       }
       if (encActive()) { // 활성: list/thumb/full 각각 봉투로 암호화 저장
         var stored = {}, jobs = [];
         if (list != null) jobs.push(S().encryptJSON(list).then(function (e) { stored.lE = e; }));
         if (thumb != null) jobs.push(S().encryptJSON(thumb).then(function (e) { stored.tE = e; }));
         if (full != null) jobs.push(S().encryptJSON(full).then(function (e) { stored.fE = e; }));
-        return Promise.all(jobs).then(function () { return put(stored); }).catch(function () {});
+        return _track(Promise.all(jobs).then(function () { return put(stored); }).catch(function () {}));
       }
-      return put(val); // 평문
+      return _track(put(val)); // 평문
     },
     remove: function (id) {
-      delete cache[id]; delete cache[String(id)];
-      delete fullIds[id]; delete fullIds[String(id)];
-      return store("readwrite").then(function (os) {
-        return new Promise(function (res) { var r = os.delete(id); r.onsuccess = function () { res(); }; r.onerror = function () { res(); }; });
-      }).catch(function () {});
+      var k = K(id);
+      delete cache[k]; delete fullIds[k];
+      return _track(store("readwrite").then(function (os) {
+        return Promise.all([
+          new Promise(function (res) { var r = os.delete(k); r.onsuccess = function () { res(); }; r.onerror = function () { res(); }; }),
+          (k === id) ? Promise.resolve() // 레거시 숫자 키도 제거
+            : new Promise(function (res) { var r = os.delete(id); r.onsuccess = function () { res(); }; r.onerror = function () { res(); }; }),
+        ]);
+      }).catch(function () {}));
     },
     /** 전체(thumb+full) 사본 — 백업용. 비동기(IDB 전체 읽기). 반환: Promise<map> */
     all: function () {
@@ -195,19 +204,21 @@
       }).catch(function () { return 0; });
     },
     count: function () { return Object.keys(cache).length; },
+    /** 대기 중인 사진 IDB 쓰기가 끝날 때까지 대기(종료 직전 호출 → 사진 유실 방지). */
+    flush: function () { return _writeChain; },
     clearAll: function () {
       Object.keys(cache).forEach(function (k) { delete cache[k]; });
       Object.keys(fullIds).forEach(function (k) { delete fullIds[k]; });
-      return store("readwrite").then(function (os) {
+      return _track(store("readwrite").then(function (os) {
         return new Promise(function (res) { var r = os.clear(); r.onsuccess = function () { res(); }; r.onerror = function () { res(); }; });
-      }).catch(function () {});
+      }).catch(function () {}));
     },
-    /** 평문 사진을 현재 활성 키로 일괄 암호화(데이터 암호화 켠 직후). 반환: Promise<암호화 건수>.
-     *  per-item 포맷 판별이라 중간 중단돼도 손실 없음(다음 부팅에서 평문/암호문 혼재 정상 처리). */
+    /** 평문 사진을 현재 활성 키로 일괄 암호화(데이터 암호화 켠 직후). 반환: Promise<{done, failed}>.
+     *  per-item 처리·실패 격리 — 한 건 실패해도 나머지 진행. failed>0 이면 호출측이 경고(평문 잔존). */
     encryptAll: function () {
-      if (!encActive()) return Promise.resolve(0);
+      if (!encActive()) return Promise.resolve({ done: 0, failed: 0 });
       return _allItems().then(function (items) {
-        var chain = Promise.resolve(), n = 0;
+        var chain = Promise.resolve(), done = 0, failed = 0;
         items.forEach(function (it) {
           if (isEnc(it.v)) return; // 이미 암호화됨
           var isObj = it.v && typeof it.v === "object";
@@ -217,34 +228,34 @@
             if (list != null) jobs.push(S().encryptJSON(list).then(function (e) { stored.lE = e; }));
             if (thumb != null) jobs.push(S().encryptJSON(thumb).then(function (e) { stored.tE = e; }));
             if (full != null) jobs.push(S().encryptJSON(full).then(function (e) { stored.fE = e; }));
-            return Promise.all(jobs).then(function () {
-              return store("readwrite").then(function (os) { return _put(os, it.k, stored); }).then(function () { n++; });
-            });
+            return Promise.all(jobs)
+              .then(function () { return store("readwrite").then(function (os) { return _put(os, it.k, stored); }); })
+              .then(function () { done++; }, function () { failed++; }); // 실패 격리
           });
         });
-        return chain.then(function () { return n; });
-      }).catch(function () { return 0; });
+        return chain.then(function () { return { done: done, failed: failed }; });
+      }).catch(function () { return { done: 0, failed: -1 }; }); // -1 = 전체 실패(스토어 접근 불가 등)
     },
-    /** 암호화 사진을 활성 키로 복호화하여 평문 {thumb,full} 로 되돌림(암호화 끄기/PIN 변경 직전). 반환: Promise<건수> */
+    /** 암호화 사진을 활성 키로 복호화하여 평문 {list,thumb,full} 로 되돌림(암호화 끄기/PIN 변경 직전).
+     *  반환: Promise<{done, failed}>. failed>0 이면 암호화를 끄면 그 사진들이 영구 손실 → 호출측이 중단해야 함. */
     decryptAll: function () {
-      if (!encActive()) return Promise.resolve(0);
+      if (!encActive()) return Promise.resolve({ done: 0, failed: 0 });
       return _allItems().then(function (items) {
-        var chain = Promise.resolve(), n = 0;
+        var chain = Promise.resolve(), done = 0, failed = 0;
         items.forEach(function (it) {
           if (!isEnc(it.v)) return; // 이미 평문
           chain = chain.then(function () {
             var out = {}, jobs = [];
-            if (it.v.lE) jobs.push(S().decryptJSON(it.v.lE).then(function (t) { out.list = t; }).catch(function () {}));
-            if (it.v.tE) jobs.push(S().decryptJSON(it.v.tE).then(function (t) { out.thumb = t; }).catch(function () {}));
-            if (it.v.fE) jobs.push(S().decryptJSON(it.v.fE).then(function (f) { out.full = f; }).catch(function () {}));
-            return Promise.all(jobs).then(function () {
-              if (!(out.list || out.thumb || out.full)) return;
-              return store("readwrite").then(function (os) { return _put(os, it.k, out); }).then(function () { n++; });
-            });
+            if (it.v.lE) jobs.push(S().decryptJSON(it.v.lE).then(function (t) { out.list = t; }));
+            if (it.v.tE) jobs.push(S().decryptJSON(it.v.tE).then(function (t) { out.thumb = t; }));
+            if (it.v.fE) jobs.push(S().decryptJSON(it.v.fE).then(function (f) { out.full = f; }));
+            return Promise.all(jobs)
+              .then(function () { return store("readwrite").then(function (os) { return _put(os, it.k, out); }); })
+              .then(function () { done++; }, function () { failed++; }); // 복호/기록 실패 격리
           });
         });
-        return chain.then(function () { return n; });
-      }).catch(function () { return 0; });
+        return chain.then(function () { return { done: done, failed: failed }; });
+      }).catch(function () { return { done: 0, failed: -1 }; });
     },
     /** 백업에서 복구(map: id->{thumb,full}|dataURL). 악의적/손상 백업 방어: data:image/ 형식·크기 검증 후 저장. */
     importMap: function (map, replace) {

@@ -1604,7 +1604,20 @@
   }
 
   // 상세 화면 렌더 옵션(조직 이동·사진 보기·사진 바로 등록 공통)
-  function detailOpts() { return { onOrg: goToOrg, onPhoto: openPhotoViewer, onPhotoEdit: changePhotoFor }; }
+  function detailOpts() { return { onOrg: goToOrg, onPhoto: openPhotoViewer, onPhotoEdit: changePhotoFor, onMemoSave: saveMemoInline }; }
+  // 상세에서 메모 인라인 추가/편집 → 저장·rebuild·재렌더(검색 인덱스 포함).
+  function saveMemoInline(contact, text) {
+    if (text === (contact.memo || "")) { // 변경 없음 → 보기 모드로만 복귀
+      var c0 = Data.getById(contact.id); if (c0) UI.renderDetail(detailBody, c0, detailOpts()); return;
+    }
+    var had = !!(contact.memo && contact.memo.trim());
+    Storage.saveContact(contact.id, { memo: text });
+    Data.rebuild();
+    var c = Data.getById(contact.id);
+    if (c) UI.renderDetail(detailBody, c, detailOpts());
+    render(); // 목록·검색 인덱스 갱신
+    showSnack(text ? "메모를 저장했습니다" : (had ? "메모를 지웠습니다" : "메모가 비어 있습니다"));
+  }
   // 상세 아바타에서 편집 화면 없이 바로 사진 등록/변경(쉬운 등록). 파일 선택 → 처리 → 저장 → 즉시 반영.
   function changePhotoFor(contact) {
     var inp = document.createElement("input");

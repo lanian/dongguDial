@@ -1242,23 +1242,55 @@
         container.appendChild(c2);
       }
 
-      // 메모(개인·로컬) — 여러 줄 보존
-      if (contact.memo) {
-        container.appendChild(sectionTitle("메모"));
-        var cm = el("div", "info-card");
-        var mrow = el("div", "info-row");
-        var mico = el("span", "info-ico"); mico.appendChild(icon("edit")); mrow.appendChild(mico);
-        var mtext = el("div", "info-text");
-        var mval = el("div", "info-value");
-        mval.style.whiteSpace = "pre-wrap"; // 줄바꿈 유지
-        mval.textContent = contact.memo;
-        mtext.appendChild(mval);
-        mrow.appendChild(mtext);
-        cm.appendChild(mrow);
-        container.appendChild(cm);
-      }
+      // 메모(개인·로컬): 있으면 표시(탭→편집), 없으면 '메모 추가'. 인라인 추가/편집(opts.onMemoSave).
+      renderMemoSection(container, contact, opts);
     },
   };
+
+  // 상세 메모 섹션 — 보기/편집 인라인 토글. onMemoSave(contact, text) 가 실제 저장·재렌더 담당.
+  function renderMemoSection(container, contact, opts) {
+    if (!contact.memo && !opts.onMemoSave) return; // 저장 경로 없고 메모도 없으면 생략
+    container.appendChild(sectionTitle("메모"));
+    var card = el("div", "info-card");
+    container.appendChild(card);
+
+    function viewMode() {
+      card.textContent = "";
+      if (contact.memo) {
+        var row = el(opts.onMemoSave ? "button" : "div", "info-row" + (opts.onMemoSave ? " info-row--btn" : ""));
+        if (opts.onMemoSave) { row.type = "button"; row.setAttribute("aria-label", "메모 편집"); }
+        var ico = el("span", "info-ico"); ico.appendChild(icon("edit")); row.appendChild(ico);
+        var txt = el("div", "info-text");
+        var val = el("div", "info-value"); val.style.whiteSpace = "pre-wrap"; val.textContent = contact.memo;
+        txt.appendChild(val); row.appendChild(txt);
+        if (opts.onMemoSave) row.addEventListener("click", editMode);
+        card.appendChild(row);
+      } else { // 빈 메모 → '메모 추가' 버튼
+        var add = el("button", "info-row info-row--btn"); add.type = "button"; add.setAttribute("aria-label", "메모 추가");
+        var aico = el("span", "info-ico"); aico.appendChild(icon("plus")); add.appendChild(aico);
+        add.appendChild(el("div", "info-text memo-add-label", "메모 추가"));
+        add.addEventListener("click", editMode);
+        card.appendChild(add);
+      }
+    }
+    function editMode() {
+      card.textContent = "";
+      var ta = el("textarea", "memo-edit");
+      ta.rows = 3; ta.maxLength = 2000;
+      ta.placeholder = "개인 메모 (이 기기에만 저장 · 검색됨 · 공유/CSV 제외)";
+      ta.value = contact.memo || "";
+      card.appendChild(ta);
+      var btns = el("div", "app-dialog-btns memo-edit-btns");
+      var cancel = el("button", "app-dialog-btn"); cancel.type = "button"; cancel.textContent = "취소";
+      var save = el("button", "app-dialog-btn app-dialog-ok"); save.type = "button"; save.textContent = "저장";
+      cancel.addEventListener("click", viewMode);
+      save.addEventListener("click", function () { opts.onMemoSave(contact, ta.value.trim()); });
+      btns.appendChild(cancel); btns.appendChild(save);
+      card.appendChild(btns);
+      ta.focus();
+    }
+    viewMode();
+  }
 
   function sectionTitle(text) { return el("div", "info-section-title", text); }
 

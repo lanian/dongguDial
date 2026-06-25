@@ -809,19 +809,20 @@ mark {
 .info-row:last-child { border-bottom: none; }
 .info-row--btn { width: 100%; border: none; background: none; font: inherit; text-align: left; cursor: pointer; }
 .info-row--btn:active { background: var(--divider); }
-/* 상세 메모 인라인 추가/편집 */
+/* 상세 메모 인라인 추가/편집 — 카드 자체가 에디터(무테 textarea + 구분선 + 하단 버튼) */
 .memo-add-label { color: var(--brand); font-weight: var(--fw-med); }
+.memo-card-edit:focus-within { box-shadow: 0 0 0 2px var(--brand) inset, var(--elev-1); }
 .memo-edit {
-  display: block; box-sizing: border-box; width: auto;
-  margin: var(--sp-3) var(--sp-3) var(--sp-2);
-  padding: var(--sp-2);
-  border: 1px solid var(--divider); border-radius: var(--r-md, 12px);
-  background: var(--bg); color: var(--on-surface);
-  font: inherit; font-size: var(--fs-md); line-height: 1.4;
-  resize: vertical; min-height: 72px;
+  display: block; box-sizing: border-box; width: 100%;
+  border: none; background: none; resize: vertical;
+  padding: var(--sp-3); min-height: 84px;
+  color: var(--on-surface); font: inherit; font-size: var(--fs-md); line-height: 1.4;
 }
-.memo-edit:focus { outline: 2px solid var(--brand); outline-offset: 0; border-color: transparent; }
-.memo-edit-btns { padding: 0 var(--sp-3) var(--sp-3); }
+.memo-edit:focus { outline: none; }
+.memo-edit-btns {
+  display: flex; justify-content: flex-end; gap: var(--sp-2);
+  padding: var(--sp-2); border-top: 1px solid var(--divider);
+}
 .info-ico {
   display: grid;
   place-items: center;

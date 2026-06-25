@@ -1255,6 +1255,7 @@
     container.appendChild(card);
 
     function viewMode() {
+      card.className = "info-card";
       card.textContent = "";
       if (contact.memo) {
         var row = el(opts.onMemoSave ? "button" : "div", "info-row" + (opts.onMemoSave ? " info-row--btn" : ""));
@@ -1274,6 +1275,7 @@
       }
     }
     function editMode() {
+      card.className = "info-card memo-card-edit"; // 카드 자체가 에디터(무테 textarea + 하단 버튼)
       card.textContent = "";
       var ta = el("textarea", "memo-edit");
       ta.rows = 3; ta.maxLength = 2000;

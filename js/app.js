@@ -1564,7 +1564,8 @@
     }
     return decodeImage(file).then(function (src) {
       if (!src.width || !src.height) throw new Error("이미지를 읽지 못했습니다");
-      var out = { thumb: drawSquare(src, 256, 0.82), full: drawScaled(src, 1280, 0.85) };
+      // 3단: list(96, 리스트 아바타·동기 캐시) / thumb(256, 상세 hero) / full(1280, 뷰어)
+      var out = { list: drawSquare(src, 96, 0.8), thumb: drawSquare(src, 256, 0.82), full: drawScaled(src, 1280, 0.85) };
       if (src.close) src.close(); // ImageBitmap 메모리 해제
       return out;
     });

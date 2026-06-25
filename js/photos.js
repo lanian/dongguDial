@@ -12,9 +12,11 @@
   var fullIds = {};    // id -> true : full 원본이 IDB 에 별도로 존재(뷰어 열 때 지연 로드)
   var dbp = null;
   function thumbOf(v) { return v == null ? null : (typeof v === "string" ? v : (v.thumb || v.full || null)); }
+  // 메모리 캐시·리스트 아바타용(소형). list(96) 우선, 없으면 thumb(256)·full 폴백(레거시 사진).
+  function cacheOf(v) { return v == null ? null : (typeof v === "string" ? v : (v.list || v.thumb || v.full || null)); }
   function hasFullVal(v) { return !!(v && typeof v === "object" && v.full); }
-  // at-rest 암호화: 활성 시 사진을 { tE:<썸네일봉투>, fE:<원본봉투> } 로 저장. 암복호는 Storage 키에 위임.
-  function isEnc(v) { return !!(v && typeof v === "object" && v.tE); }
+  // at-rest 암호화: 활성 시 { lE:<리스트봉투>, tE:<hero썸네일봉투>, fE:<원본봉투> } 로 저장. 암복호는 Storage 키에 위임.
+  function isEnc(v) { return !!(v && typeof v === "object" && (v.lE || v.tE)); }
   function S() { return global.Storage; }
   function encActive() { return !!(S() && S().encActive && S().encActive()); }
   function _allItems() {
@@ -34,9 +36,10 @@
     if (validDataUrl(v)) return v; // legacy 문자열
     if (v && typeof v === "object") {
       var out = {};
+      if (validDataUrl(v.list)) out.list = v.list;
       if (validDataUrl(v.thumb)) out.thumb = v.thumb;
       if (validDataUrl(v.full)) out.full = v.full;
-      if (out.thumb || out.full) return out;
+      if (out.list || out.thumb || out.full) return out;
     }
     return null;
   }
@@ -66,10 +69,11 @@
             var c = e.target.result;
             if (c) {
               var key = c.key, val = c.value;
-              if (isEnc(val)) { // 암호문 → 썸네일만 복호화하여 캐시(원본은 뷰어에서 지연 복호화)
+              if (isEnc(val)) { // 암호문 → 리스트 소형(lE, 없으면 tE)만 복호화하여 캐시. hero/원본은 지연 복호화
                 if (val.fE) fullIds[key] = true;
-                chain = chain.then(function () { return S().decryptJSON(val.tE).then(function (t) { cache[key] = t; }); }).catch(function () {});
-              } else { cache[key] = thumbOf(val); if (hasFullVal(val)) fullIds[key] = true; }
+                var env = val.lE || val.tE;
+                chain = chain.then(function () { return S().decryptJSON(env).then(function (t) { cache[key] = t; }); }).catch(function () {});
+              } else { cache[key] = cacheOf(val); if (hasFullVal(val)) fullIds[key] = true; }
               c.continue();
             } else { chain.then(done, done); }
           };
@@ -97,16 +101,35 @@
         });
       }).catch(function () { return thumb; });
     },
-    /** 저장: 캐시엔 썸네일만, IDB엔 { thumb, full } 전체 */
+    /** 상세 hero(256) dataURL — 비동기. 리스트 소형(캐시)을 우선 보여준 뒤 업그레이드용. 없으면 캐시 폴백. */
+    getHero: function (id) {
+      var c = Photos.get(id);
+      return store("readonly").then(function (os) {
+        return new Promise(function (res) {
+          var r = os.get(id);
+          r.onsuccess = function () {
+            var v = r.result;
+            if (isEnc(v) && v.tE) { S().decryptJSON(v.tE).then(function (t) { res(t || c); }).catch(function () { res(c); }); }
+            else res((v && typeof v === "object" && (v.thumb || v.full)) || c);
+          };
+          r.onerror = function () { res(c); };
+        });
+      }).catch(function () { return c; });
+    },
+    /** 저장: 캐시엔 리스트 소형만, IDB엔 { list, thumb, full } 전체(활성 시 각각 암호화) */
     set: function (id, val) {
-      cache[id] = thumbOf(val); // 캐시는 항상 평문 썸네일(동기 렌더)
-      var thumb = thumbOf(val), full = hasFullVal(val) ? val.full : null;
+      cache[id] = cacheOf(val); // 캐시는 항상 평문 리스트 소형(동기 렌더)
+      var isObj = val && typeof val === "object";
+      var list = isObj ? (val.list || val.thumb) : val; // 소형 우선, 없으면 thumb·문자열
+      var thumb = isObj ? val.thumb : null;             // hero 전용(있을 때만)
+      var full = isObj ? val.full : null;
       if (full != null) fullIds[id] = true; else { delete fullIds[id]; delete fullIds[String(id)]; }
       function put(stored) {
         return store("readwrite").then(function (os) { return _put(os, id, stored); }).catch(function () {});
       }
-      if (encActive()) { // 활성: thumb/full 각각 봉투로 암호화 저장
+      if (encActive()) { // 활성: list/thumb/full 각각 봉투로 암호화 저장
         var stored = {}, jobs = [];
+        if (list != null) jobs.push(S().encryptJSON(list).then(function (e) { stored.lE = e; }));
         if (thumb != null) jobs.push(S().encryptJSON(thumb).then(function (e) { stored.tE = e; }));
         if (full != null) jobs.push(S().encryptJSON(full).then(function (e) { stored.fE = e; }));
         return Promise.all(jobs).then(function () { return put(stored); }).catch(function () {});
@@ -131,9 +154,11 @@
               var key = c.key, val = c.value;
               if (isEnc(val)) { // 백업엔 평문 dataURL 로(봉투 백업은 복원 불가). 백업 파일 자체 보호는 ‘암호화 백업’.
                 chain = chain.then(function () {
-                  var o = {}, jobs = [S().decryptJSON(val.tE).then(function (t) { o.thumb = t; }).catch(function () {})];
+                  var o = {}, jobs = [];
+                  if (val.lE) jobs.push(S().decryptJSON(val.lE).then(function (t) { o.list = t; }).catch(function () {}));
+                  if (val.tE) jobs.push(S().decryptJSON(val.tE).then(function (t) { o.thumb = t; }).catch(function () {}));
                   if (val.fE) jobs.push(S().decryptJSON(val.fE).then(function (f) { o.full = f; }).catch(function () {}));
-                  return Promise.all(jobs).then(function () { if (o.thumb || o.full) out[key] = o; });
+                  return Promise.all(jobs).then(function () { if (o.list || o.thumb || o.full) out[key] = o; });
                 });
               } else { out[key] = val; }
               c.continue();
@@ -155,7 +180,9 @@
               var key = c.key, val = c.value;
               if (isEnc(val)) { // 한 건씩 복호화하여 평문으로 흘려보냄(전체 맵 메모리 적재 회피 유지)
                 chain = chain.then(function () {
-                  var o = {}, jobs = [S().decryptJSON(val.tE).then(function (t) { o.thumb = t; }).catch(function () {})];
+                  var o = {}, jobs = [];
+                  if (val.lE) jobs.push(S().decryptJSON(val.lE).then(function (t) { o.list = t; }).catch(function () {}));
+                  if (val.tE) jobs.push(S().decryptJSON(val.tE).then(function (t) { o.thumb = t; }).catch(function () {}));
                   if (val.fE) jobs.push(S().decryptJSON(val.fE).then(function (f) { o.full = f; }).catch(function () {}));
                   return Promise.all(jobs).then(function () { n++; try { onItem(key, o); } catch (_) {} });
                 });
@@ -183,9 +210,11 @@
         var chain = Promise.resolve(), n = 0;
         items.forEach(function (it) {
           if (isEnc(it.v)) return; // 이미 암호화됨
-          var thumb = thumbOf(it.v), full = hasFullVal(it.v) ? it.v.full : null;
+          var isObj = it.v && typeof it.v === "object";
+          var list = isObj ? (it.v.list || it.v.thumb) : it.v, thumb = isObj ? it.v.thumb : null, full = isObj ? it.v.full : null;
           chain = chain.then(function () {
             var stored = {}, jobs = [];
+            if (list != null) jobs.push(S().encryptJSON(list).then(function (e) { stored.lE = e; }));
             if (thumb != null) jobs.push(S().encryptJSON(thumb).then(function (e) { stored.tE = e; }));
             if (full != null) jobs.push(S().encryptJSON(full).then(function (e) { stored.fE = e; }));
             return Promise.all(jobs).then(function () {
@@ -204,10 +233,12 @@
         items.forEach(function (it) {
           if (!isEnc(it.v)) return; // 이미 평문
           chain = chain.then(function () {
-            var out = {}, jobs = [S().decryptJSON(it.v.tE).then(function (t) { out.thumb = t; }).catch(function () {})];
+            var out = {}, jobs = [];
+            if (it.v.lE) jobs.push(S().decryptJSON(it.v.lE).then(function (t) { out.list = t; }).catch(function () {}));
+            if (it.v.tE) jobs.push(S().decryptJSON(it.v.tE).then(function (t) { out.thumb = t; }).catch(function () {}));
             if (it.v.fE) jobs.push(S().decryptJSON(it.v.fE).then(function (f) { out.full = f; }).catch(function () {}));
             return Promise.all(jobs).then(function () {
-              if (!(out.thumb || out.full)) return;
+              if (!(out.list || out.thumb || out.full)) return;
               return store("readwrite").then(function (os) { return _put(os, it.k, out); }).then(function () { n++; });
             });
           });

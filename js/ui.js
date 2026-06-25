@@ -1119,7 +1119,14 @@
       container.textContent = "";
 
       var hero = el("div", "detail-hero");
-      var av = makeAvatar(contact, ""); // 아바타는 썸네일(동기)
+      var av = makeAvatar(contact, ""); // 리스트용 소형(동기) 먼저 표시
+      // hero(92px)는 소형으로는 흐리므로 hero 해상도(256)로 비동기 업그레이드(블러업)
+      if (window.Photos && Photos.getHero && Photos.get && Photos.get(contact.id) != null) {
+        Photos.getHero(contact.id).then(function (url) {
+          var im = av.querySelector("img");
+          if (im && url && im.getAttribute("src") !== url) im.src = url;
+        }).catch(function () {});
+      }
       var hasPhoto = !!(window.Photos && (Photos.has ? Photos.has(contact.id) : (Photos.get && Photos.get(contact.id))));
       if (hasPhoto && opts.onPhoto) {
         av.setAttribute("role", "button");

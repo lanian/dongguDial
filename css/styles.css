@@ -1404,6 +1404,7 @@ select.ef-input { appearance: none; }
   opacity: 0;
   transition: opacity 0.2s, transform 0.2s;
   max-width: 90vw;
+  pointer-events: none; /* 항상 DOM 상주(aria-live 안정) — 투명 시 탭 가로채지 않게 */
 }
 .snackbar.is-on { opacity: 1; transform: translate(-50%, 0); }
 

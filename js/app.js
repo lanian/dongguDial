@@ -119,7 +119,7 @@
   var swPendingReload = false, swRefreshing = false;
   function maybeReloadForUpdate() {
     if (!swPendingReload || swRefreshing) return;
-    if (anyOverlayOpen()) return; // 편집 등 작업 중 — 닫힐 때 다시 시도
+    if (anyOverlayOpen() || current.selectMode) return; // 편집/다중선택 중 — 끝날 때 다시 시도(선택 유실 방지)
     swRefreshing = true;
     window.location.reload();
   }
@@ -846,13 +846,13 @@
   // 스낵바 (가벼운 피드백)
   var snackTimer;
   function showSnack(msg) {
+    // 스낵바는 항상 DOM 상주(hidden 토글 금지) — aria-live 가 안정적으로 읽도록. 표시는 .is-on(opacity).
     snackbar.textContent = msg;
-    snackbar.hidden = false;
     snackbar.classList.add("is-on");
     clearTimeout(snackTimer);
     snackTimer = setTimeout(function () {
       snackbar.classList.remove("is-on");
-      setTimeout(function () { snackbar.hidden = true; }, 200);
+      setTimeout(function () { snackbar.textContent = ""; }, 200); // 페이드 후 비움(스테일 텍스트 제거)
     }, 1600);
   }
   window.showSnack = showSnack;
@@ -1959,6 +1959,7 @@
     applySelectionToRows(); updateFab();
     if (!fromPop && selectPushed) { selectPushed = false; backFromOverlay(); } // 직접 종료 시 push한 항목 되감기
     else selectPushed = false;
+    maybeReloadForUpdate(); // 선택 중 미뤄둔 SW 업데이트가 있으면 이제 적용
   }
   if (selectModeBtn) selectModeBtn.addEventListener("click", function () {
     if (current.selectMode) exitSelectMode(); else enterSelectMode();

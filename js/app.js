@@ -345,6 +345,59 @@
   function finishRender() {
     if (current.selectMode) applySelectionToRows(); // 재렌더 후 선택 표시 복원
     updateFab();
+    observeLazyAvatars(); // 지연 로딩 아바타를 뷰포트 관찰자에 등록(첫 페인트 + 완전 부착 양쪽에서 호출)
+  }
+
+  // 목록 아바타 지연 로딩: 화면 밖 사진은 src 미설정으로 두고(디코드·메모리 0),
+  // 뷰포트 근처로 들어오면 Photos 캐시에서 dataURL 을 주입한다. 행 높이는 그대로라
+  // offsetTop(가나다 점프) 에 전혀 영향이 없다. (content-visibility 회피 정책과 양립)
+  var _avObserver = null;
+  function onAvIntersect(entries, observer) {
+    for (var i = 0; i < entries.length; i++) {
+      var e = entries[i];
+      if (!e.isIntersecting) continue;
+      var im = e.target, av = im.parentNode;
+      observer.unobserve(im);
+      var src = (window.Photos && Photos.get) ? Photos.get(im.dataset.lazyId) : null;
+      if (src) {
+        im.addEventListener("load", function () { if (av) av.classList.remove("avatar--loading"); }, { once: true });
+        im.src = src;
+      } else if (av) av.classList.remove("avatar--loading");
+      im.classList.remove("lazy-av");
+    }
+  }
+  function observeLazyAvatars() {
+    var imgs = listEl.querySelectorAll("img.lazy-av");
+    if (!imgs.length) return;
+    if (!("IntersectionObserver" in window)) { // 미지원: 즉시 전부 로드(폴백)
+      for (var i = 0; i < imgs.length; i++) {
+        var s = (window.Photos && Photos.get) ? Photos.get(imgs[i].dataset.lazyId) : null;
+        if (s) imgs[i].src = s;
+        imgs[i].classList.remove("lazy-av");
+      }
+      return;
+    }
+    // 재렌더 시 이전 관찰 대상(분리된 img)이 남지 않게 끊고 현재 것만 다시 관찰.
+    if (_avObserver) _avObserver.disconnect();
+    else _avObserver = new IntersectionObserver(onAvIntersect, { root: scrollRegion, rootMargin: "400px 0px" });
+    for (var j = 0; j < imgs.length; j++) _avObserver.observe(imgs[j]);
+  }
+
+  // 부팅 시 사진 적재 완료 후: 전체 render() 대신 사진 생긴 행의 '아바타만' 교체.
+  // (긴 명부에서 N개 행을 통째로 다시 만드는 비용 제거)
+  function fillAvatars() {
+    var rows = listEl.querySelectorAll(".row[data-id]");
+    for (var i = 0; i < rows.length; i++) {
+      var r = rows[i], id = r.getAttribute("data-id");
+      if (!(window.Photos && Photos.get && Photos.get(id) != null)) continue;
+      var old = r.querySelector(".avatar");
+      if (!old || old.classList.contains("avatar--photo")) continue; // 이미 사진이면 건너뜀
+      var c = Data.getById(id);
+      if (!c) continue;
+      var fresh = UI.makeAvatar(c, null, true); // 지연 로딩 사진 아바타
+      old.parentNode.replaceChild(fresh, old);
+    }
+    observeLazyAvatars();
   }
 
   // 점진 렌더: 긴 명부(수백~수천 행)의 '호출 지연' 체감 개선.
@@ -2463,8 +2516,8 @@
       rebuildSearchSuggest();
       focusSearchIfIdle(); // 부팅 직후 리스트면 검색창 선포커스(한글 첫 글자 유실 방지)
       photosReady.then(function () {
-        if (!(window.Photos && Photos.count && Photos.count() > 0)) return; // 사진 없으면 재렌더 불필요
-        render();
+        if (!(window.Photos && Photos.count && Photos.count() > 0)) return; // 사진 없으면 갱신 불필요
+        fillAvatars(); // 전체 render() 대신 아바타만 부분 교체(긴 명부 비용↓)
         if (!detailEl.hidden && current.detailId != null) { // 콜드 딥링크로 상세가 열려 있으면 사진 반영
           var c = Data.getById(current.detailId);
           if (c) UI.renderDetail(detailBody, c, detailOpts());

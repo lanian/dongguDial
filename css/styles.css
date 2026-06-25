@@ -1396,6 +1396,8 @@ select.ef-input { appearance: none; }
 /* ---------- 사원 사진 ---------- */
 .avatar--photo { background: none !important; overflow: hidden; }
 .avatar--photo img { width: 100%; height: 100%; object-fit: cover; display: block; }
+/* 지연 로딩 대기 중(아직 src 미주입) 중립 배경 — .avatar--photo 의 none 을 덮어야 하므로 뒤에 둠 */
+.avatar--loading { background: color-mix(in srgb, var(--on-surface) 8%, var(--surface)) !important; }
 /* 기본 아이콘 = 앱 아이콘(로고). 색상 원·이니셜 대신 중립 placeholder */
 .avatar--default { background: #fff; overflow: hidden; }
 .avatar--default img { width: 100%; height: 100%; object-fit: cover; display: block; }

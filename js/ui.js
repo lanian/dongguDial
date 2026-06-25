@@ -149,15 +149,24 @@
     return im;
   }
 
-  function makeAvatar(contact, sizeClass) {
+  function makeAvatar(contact, sizeClass, lazy) {
     var a = el("div", "avatar" + (sizeClass ? " " + sizeClass : ""));
     var photo = (window.Photos && Photos.get) ? Photos.get(contact.id) : null;
     if (photo) {
       a.classList.add("avatar--photo");
       var im = el("img");
-      im.loading = "lazy"; im.decoding = "async"; // 화면 밖 사진 디코드 지연 → 긴 목록 가속
-      im.src = photo;
+      im.decoding = "async";
       im.alt = (contact.name || "") + " 사진";
+      if (lazy && contact.id != null) {
+        // 지연 로딩: 화면 밖이면 src 미설정 → 디코드·메모리 0. app 이 뷰포트 근처에서 주입.
+        // (loading="lazy" 는 dataURL 엔 무효 — fetch 가 없어 즉시 '로드됨' 취급. 그래서 IntersectionObserver 로 직접 지연.
+        //  dataURL 을 DOM 속성에 넣지 않아 Photos 캐시의 단일 사본만 유지 → 긴 목록 메모리·디코드↓)
+        im.className = "lazy-av";
+        im.dataset.lazyId = contact.id;
+        a.classList.add("avatar--loading"); // 로드 전 빈 원 깜빡임 방지(중립 배경) — 로드 시 제거
+      } else {
+        im.src = photo; // 상세/미리보기 등 즉시 표시 경로
+      }
       a.appendChild(im);
     } else if (contact.defaultIcon || showDefaultIcon) {
       a.classList.add("avatar--default");
@@ -249,7 +258,7 @@
     var ariaParts = [contact.dept, contact.position, contact.grade, contact.work].filter(Boolean);
     row.setAttribute("aria-label", (contact.name || "") + ", " + ariaParts.join(" ") + ", 상세 보기");
 
-    row.appendChild(makeAvatar(contact));
+    row.appendChild(makeAvatar(contact, null, true)); // 목록 행은 지연 로딩(뷰포트 근처에서 사진 주입)
 
     var main = el("div", "row-main");
     var name = el("div", "row-name");
@@ -470,6 +479,7 @@
 
   var UI = {
     rowExpandPanel: rowExpandPanel,
+    makeAvatar: makeAvatar, // 부팅 후 아바타만 부분 교체(전체 재렌더 회피)용
     avatarColor: avatarColor,
     FAV_COLORS: FAV_COLORS,
     favColorKey: favColorKey,

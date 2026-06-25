@@ -522,6 +522,11 @@
      *  평문 모드는 write 가 동기(localStorage)라 이미 안전 → 즉시 resolve. */
     flush: function () { return _enc.active ? _flushChain : Promise.resolve(); },
 
+    /** 외부 저장소(사진 IDB 등)가 동일 PIN 유도 키로 값을 암복호하도록 위임. 활성 시에만.
+     *  encryptJSON(obj)→Promise<{_enc,iv,ct}>, decryptJSON(env)→Promise<obj>. */
+    encryptJSON: function (v) { return (_enc.active && _enc.key) ? _encVal(_enc.key, v) : Promise.reject(new Error("enc-inactive")); },
+    decryptJSON: function (env) { return (_enc.active && _enc.key) ? _decVal(_enc.key, env) : Promise.reject(new Error("enc-inactive")); },
+
     /** 콜드스타트: PIN으로 키 유도→검증→모든 민감 키 복호화하여 메모리 캐시 적재 */
     encUnlock: function (pin) {
       var cfg = _rawParse(ENC_KEY);

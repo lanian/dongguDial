@@ -1199,6 +1199,8 @@
         registerPinSuccess();
         try { Data.rebuild(); render(); } catch (e) {}
         doUnlock();
+        // 잠금해제 후에야 사진 썸네일을 복호화해 적재 → 아바타 부분 채움
+        if (window.Photos && Photos.loadAll) Photos.loadAll().then(function () { try { fillAvatars(); } catch (e) {} });
       }).catch(onFail);
       return;
     }
@@ -1289,14 +1291,16 @@
   function encEnableFlow() {
     if (!lockConfigured()) { showSnack("먼저 PIN 잠금을 켜세요"); updateLockUI(); return; }
     if (!(Storage.encSupported && Storage.encSupported())) { showSnack("이 브라우저는 암호화를 지원하지 않습니다"); updateLockUI(); return; }
-    appDialog({ title: "데이터 암호화", message: "기기에 저장되는 연락처·부서·즐겨찾기·최근을 PIN으로 암호화합니다.\n\n⚠ PIN을 잊으면 이 기기의 데이터를 복구할 수 없습니다. 중요한 데이터는 ‘암호화 백업’으로 따로 보관하세요.", okLabel: "계속" }).then(function (go) {
+    appDialog({ title: "데이터 암호화", message: "기기에 저장되는 연락처·부서·즐겨찾기·최근·사진을 PIN으로 암호화합니다.\n\n⚠ PIN을 잊으면 이 기기의 데이터를 복구할 수 없습니다. 중요한 데이터는 ‘암호화 백업’으로 따로 보관하세요.", okLabel: "계속" }).then(function (go) {
       if (!go) { updateLockUI(); return; }
       appDialog({ title: "PIN 확인", message: "현재 PIN을 입력하세요", value: "", placeholder: "PIN", okLabel: "암호화 켜기", inputType: "password", inputMode: "numeric", autocomplete: "off", maxLength: 8 }).then(function (pin) {
         if (!pin) { updateLockUI(); return; }
         verifyPin(pin).then(function (ok) {
           if (!ok) { showSnack("PIN이 올바르지 않습니다"); updateLockUI(); return; }
           showSnack("암호화하는 중…");
-          Storage.encEnable(pin).then(function () { updateLockUI(); showSnack("데이터 암호화가 켜졌습니다"); })
+          Storage.encEnable(pin)
+            .then(function () { return (window.Photos && Photos.encryptAll) ? Photos.encryptAll() : 0; }) // 사진도 일괄 암호화
+            .then(function () { updateLockUI(); showSnack("데이터 암호화가 켜졌습니다"); })
             .catch(function (e) { showSnack("암호화 실패: " + ((e && e.message) || "")); updateLockUI(); });
         });
       });
@@ -1307,7 +1311,12 @@
     if (!(Storage.encActive && Storage.encActive())) { showSnack("앱을 다시 열어 PIN으로 해제한 뒤 시도하세요"); updateLockUI(); return; }
     requireAuth("암호화 끄기 — PIN 확인").then(function (ok) {
       if (!ok) { updateLockUI(); return; }
-      Storage.encDisable().then(function () { updateLockUI(); showSnack("데이터 암호화가 꺼졌습니다"); });
+      showSnack("복호화하는 중…");
+      // 사진은 활성 키가 살아있는 지금 평문으로 되돌린 뒤(decryptAll) 암호화를 끈다(순서 중요).
+      (window.Photos && Photos.decryptAll ? Photos.decryptAll() : Promise.resolve())
+        .then(function () { return Storage.encDisable(); })
+        .then(function () { updateLockUI(); showSnack("데이터 암호화가 꺼졌습니다"); })
+        .catch(function () { updateLockUI(); showSnack("암호화 끄기에 실패했습니다"); });
     });
   }
   (function wireLockSettings() {
@@ -1331,9 +1340,12 @@
         if (!ok) return;
         promptNewPin().then(function (newPin) {
           if (!newPin) return;
-          // 암호화 중이면 새 PIN으로 재암호화(키 교체)
+          // 암호화 중이면 새 PIN으로 재암호화(키 교체). 사진은 구키로 평문화→키 교체→신키로 재암호화
+          // (두 키를 동시에 다루지 않도록 decryptAll→encReencrypt→encryptAll 순서).
           if (Storage.encActive && Storage.encActive()) {
-            Storage.encReencrypt(newPin)
+            (window.Photos && Photos.decryptAll ? Photos.decryptAll() : Promise.resolve())
+              .then(function () { return Storage.encReencrypt(newPin); })
+              .then(function () { return (window.Photos && Photos.encryptAll) ? Photos.encryptAll() : 0; })
               .then(function () { showSnack("PIN이 변경되었습니다"); })
               .catch(function () { showSnack("PIN은 바뀌었지만 재암호화에 실패했습니다"); });
           } else showSnack("PIN이 변경되었습니다");
@@ -2513,7 +2525,9 @@
   UI.renderSkeleton(listEl, 8);
   // 사진 적재는 백그라운드로 — 데이터만 준비되면 목록을 즉시 표시하고(아바타는 이니셜로),
   // 사진이 로드되면 아바타만 재렌더해 채운다. (사진 적재가 초기 표시를 막지 않게 함)
-  var photosReady = (window.Photos && Photos.loadAll) ? Photos.loadAll() : Promise.resolve();
+  // 암호화 잠김 상태면 사진 썸네일을 복호화할 키가 없으므로 적재를 잠금해제 후로 미룬다.
+  var encLockedBoot = !!(Storage.encLocked && Storage.encLocked());
+  var photosReady = (window.Photos && Photos.loadAll && !encLockedBoot) ? Photos.loadAll() : Promise.resolve();
   Data.load()
     .then(function () {
       render();

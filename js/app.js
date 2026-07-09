@@ -1552,13 +1552,16 @@
   }
   function imgDecode(file) {
     return new Promise(function (res, rej) {
-      var img = new Image(), url = URL.createObjectURL(file), done = false;
-      function fin(ok, v) { if (done) return; done = true; clearTimeout(t); URL.revokeObjectURL(url); ok ? res(v) : rej(v); }
+      var img = new Image(), reader = new FileReader(), done = false;
+      function fin(ok, v) { if (done) return; done = true; clearTimeout(t); ok ? res(v) : rej(v); }
       // 일부 환경에서 onload/onerror 가 둘 다 안 오는 경우 대비 — 무한 대기(특히 일괄 처리) 방지
       var t = setTimeout(function () { fin(false, new Error("이미지 디코딩 시간 초과")); }, 15000);
       img.onload = function () { fin(true, img); };
       img.onerror = function () { fin(false, new Error("이미지를 읽지 못했습니다 (HEIC 등 미지원 형식일 수 있어요)")); };
-      img.src = url;
+      // data: URL 사용(CSP img-src 'self' data: 허용). blob: 는 CSP 에 막혀 폴백이 동작 안 함.
+      reader.onload = function () { img.src = reader.result; };
+      reader.onerror = function () { fin(false, new Error("파일을 읽지 못했습니다")); };
+      reader.readAsDataURL(file);
     });
   }
   function drawSquare(src, S, q) {
@@ -1681,28 +1684,40 @@
         byPhone[d] = (byPhone[d] === undefined || byPhone[d] === c) ? c : null; // 같은 번호 다수면 모호
       });
     });
-    // 파일명에서 '이름+부서' 단서 추출: '이름(부서)' / '이름_부서' / '이름-부서' / '이름 부서'
+    // 파일명에서 '이름+부서' 후보 추출(순서 무관): '이름(부서)' / '이름_부서' / '부서_이름' 등.
+    // 토큰 구분('_','-',공백)만 있으면 이름/부서 순서를 알 수 없어 양방향 후보를 낸다.
     function parseNameDept(base) {
-      var m = base.match(/^(.+?)\s*[（(]\s*(.+?)\s*[)）]\s*$/);
-      if (m) return { name: m[1].trim(), dept: m[2].trim() };
+      var m = base.match(/^(.+?)\s*[（(]\s*(.+?)\s*[)）]\s*$/); // '이름(부서)' — 괄호는 앞이 이름
+      if (m) return [{ name: m[1].trim(), dept: m[2].trim() }];
       m = base.match(/^([^_\-\s]+)[\s_\-]+(.+)$/);
-      if (m) return { name: m[1].trim(), dept: m[2].trim() };
-      return null;
+      if (m) {
+        var a = m[1].trim(), b = m[2].trim();
+        return [{ name: a, dept: b }, { name: b, dept: a }]; // 이름-부서 / 부서-이름 양쪽
+      }
+      return [];
     }
     // 파일 1개 → 연락처. 반환: 연락처(매칭) / null(모호) / undefined(미매칭)
     function matchFile(base) {
       var c = byName[base];
       if (c) return c;                       // 1) 유일 이름
-      var nd = parseNameDept(base);          // 2) 이름+부서(동명이인 구분)
-      if (nd) {
-        var c2 = byNameDept[nd.name + "|" + nd.dept];
-        if (c2) return c2;
+      // 2) 이름+부서(동명이인 구분) — 순서 무관. 서로 다른 사람이 잡히면 모호(null).
+      var found, ambiguous = false, sawDup = false;
+      function consider(hit) {               // hit: 연락처 / null(중복=모호) / undefined(없음)
+        if (hit === null) { sawDup = true; return; }
+        if (!hit) return;
+        if (found && found !== hit) ambiguous = true; else found = hit;
       }
+      parseNameDept(base).forEach(function (nd) {
+        consider(byName[nd.name]);                     // 부서-이름 순서: 이름이 유일명일 때
+        consider(byNameDept[nd.name + "|" + nd.dept]); // 이름+부서 색인
+      });
+      if (found && !ambiguous) return found;
+      if (ambiguous) return null;
       var d = dig(base);                     // 3) 전화번호
       if (d.length >= 7 && byPhone[d]) return byPhone[d];
-      if (byName[base] === null) return null;                                  // 이름은 있으나 다수
-      if (nd && byNameDept[nd.name + "|" + nd.dept] === null) return null;      // 이름+부서도 다수
-      if (d.length >= 7 && byPhone[d] === null) return null;                   // 번호도 다수
+      if (byName[base] === null) return null;                 // 이름은 있으나 다수
+      if (sawDup) return null;                                // 후보 이름/부서가 다수(모호)
+      if (d.length >= 7 && byPhone[d] === null) return null;  // 번호도 다수
       return undefined;
     }
     // 1) 처리 전에 분류부터(매칭/모호/미매칭)
@@ -1740,8 +1755,9 @@
         msg += "\n· 매칭 실패 " + unmatchedNames.length + "개: " +
           unmatchedNames.slice(0, 6).join(", ") + (unmatchedNames.length > 6 ? " …" : "");
       }
-      msg += "\n\n파일명을 ‘이름’(예: 홍길동.jpg)으로 두면 매칭됩니다. 동명이인은 ‘이름_부서’" +
-        "(예: 홍길동_총무과.jpg) 또는 휴대폰 번호(예: 01012345678.jpg)로 구분하세요.";
+      msg += "\n\n파일명을 ‘이름’(예: 홍길동.jpg)으로 두면 매칭됩니다. 동명이인은 이름·부서를 " +
+        "‘_’·‘-’·공백·괄호로 함께(순서 무관: 홍길동_총무과 / 총무과_홍길동 / 총무과 홍길동.jpg) 또는 " +
+        "휴대폰 번호(예: 01012345678.jpg)로 구분하세요.";
       appDialog({ title: "사진 일괄 가져오기", message: msg, okLabel: "확인", cancelLabel: "" });
     });
   }

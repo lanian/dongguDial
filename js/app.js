@@ -1684,36 +1684,30 @@
         byPhone[d] = (byPhone[d] === undefined || byPhone[d] === c) ? c : null; // 같은 번호 다수면 모호
       });
     });
-    // 파일명에서 '이름+부서' 후보 추출(순서 무관): '이름(부서)' / '이름_부서' / '부서_이름' 등.
-    // 토큰 구분('_','-',공백)만 있으면 이름/부서 순서를 알 수 없어 양방향 후보를 낸다.
-    function parseNameDept(base) {
-      var m = base.match(/^(.+?)\s*[（(]\s*(.+?)\s*[)）]\s*$/); // '이름(부서)' — 괄호는 앞이 이름
-      if (m) return [{ name: m[1].trim(), dept: m[2].trim() }];
-      m = base.match(/^([^_\-\s]+)[\s_\-]+(.+)$/);
-      if (m) {
-        var a = m[1].trim(), b = m[2].trim();
-        return [{ name: a, dept: b }, { name: b, dept: a }]; // 이름-부서 / 부서-이름 양쪽
-      }
-      return [];
+    // 파일명 토큰화: 괄호→공백, '_'·'-'·공백으로 분해. '상위부서 과_이름'처럼 여러 부분도 처리.
+    function tokenize(base) {
+      return base.replace(/[（()）]/g, " ").split(/[\s_\-]+/).map(function (s) { return s.trim(); }).filter(Boolean);
     }
     // 파일 1개 → 연락처. 반환: 연락처(매칭) / null(모호) / undefined(미매칭)
+    // 각 토큰을 '이름' 후보로, 나머지 토큰을 '부서 단서'로 시도(순서·개수 무관). 서로 다른 사람이 잡히면 모호.
     function matchFile(base) {
       var c = byName[base];
-      if (c) return c;                       // 1) 유일 이름
-      // 2) 이름+부서(동명이인 구분) — 순서 무관. 서로 다른 사람이 잡히면 모호(null).
-      var found, ambiguous = false, sawDup = false;
+      if (c) return c;                       // 1) 파일명 전체가 유일 이름(공백 포함 이름 대비)
+      var toks = tokenize(base), found, ambiguous = false, sawDup = false;
       function consider(hit) {               // hit: 연락처 / null(중복=모호) / undefined(없음)
         if (hit === null) { sawDup = true; return; }
         if (!hit) return;
         if (found && found !== hit) ambiguous = true; else found = hit;
       }
-      parseNameDept(base).forEach(function (nd) {
-        consider(byName[nd.name]);                     // 부서-이름 순서: 이름이 유일명일 때
-        consider(byNameDept[nd.name + "|" + nd.dept]); // 이름+부서 색인
+      toks.forEach(function (nameTok, i) {
+        consider(byName[nameTok]);                     // 토큰이 유일 이름
+        toks.forEach(function (deptTok, j) {           // 나머지 토큰을 부서(경로 단계) 단서로
+          if (i !== j) consider(byNameDept[nameTok + "|" + deptTok]);
+        });
       });
       if (found && !ambiguous) return found;
       if (ambiguous) return null;
-      var d = dig(base);                     // 3) 전화번호
+      var d = dig(base);                     // 3) 전화번호(파일명 전체 숫자)
       if (d.length >= 7 && byPhone[d]) return byPhone[d];
       if (byName[base] === null) return null;                 // 이름은 있으나 다수
       if (sawDup) return null;                                // 후보 이름/부서가 다수(모호)
@@ -1756,8 +1750,8 @@
           unmatchedNames.slice(0, 6).join(", ") + (unmatchedNames.length > 6 ? " …" : "");
       }
       msg += "\n\n파일명을 ‘이름’(예: 홍길동.jpg)으로 두면 매칭됩니다. 동명이인은 이름·부서를 " +
-        "‘_’·‘-’·공백·괄호로 함께(순서 무관: 홍길동_총무과 / 총무과_홍길동 / 총무과 홍길동.jpg) 또는 " +
-        "휴대폰 번호(예: 01012345678.jpg)로 구분하세요.";
+        "‘_’·‘-’·공백·괄호로 함께 적으세요(순서·개수 무관: 홍길동_총무과 / 총무과_홍길동 / " +
+        "행정국 총무과 홍길동.jpg / 총무과 홍길동.jpg). 또는 휴대폰 번호(예: 01012345678.jpg)로 구분하세요.";
       appDialog({ title: "사진 일괄 가져오기", message: msg, okLabel: "확인", cancelLabel: "" });
     });
   }

@@ -1883,10 +1883,14 @@
   // 라이브 목록이 이미 결과를 보여주므로 제출은 없고, 디바운스 대기 중이면 즉시 반영한다.
   searchInput.addEventListener("keydown", function (e) {
     if (e.key !== "Enter") return;
+    if (e.isComposing || e.keyCode === 229) return; // 한글 조합 확정 중 — IME 에 맡김(조합 중 열림 방지)
     e.preventDefault();      // 폼 제출·줄바꿈 등 기본 동작 방지
     clearTimeout(searchTimer);
     render();                // 대기 중인 디바운스를 즉시 반영
     searchInput.blur();      // 소프트 키보드 내림
+    var q = current.query.trim();
+    var results = q ? Data.search(q) : [];
+    if (results.length === 1) openDetail(results[0]); // 결과가 정확히 1명이면 바로 상세 열기(여러/0건은 목록 유지)
   });
   searchClear.addEventListener("click", function () {
     resetSearchUI();

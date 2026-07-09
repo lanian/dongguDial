@@ -356,15 +356,11 @@
     for (var i = 0; i < entries.length; i++) {
       var e = entries[i];
       if (!e.isIntersecting) continue;
-      var im = e.target, av = im.parentNode;
+      var im = e.target;
       observer.unobserve(im);
       var src = (window.Photos && Photos.get) ? Photos.get(im.dataset.lazyId) : null;
-      if (src) {
-        (function (avatar) { // av 를 이터레이션별로 캡처(한 콜백에 여러 entry 올 때 마지막 av 로 새지 않게)
-          im.addEventListener("load", function () { if (avatar) avatar.classList.remove("avatar--loading"); }, { once: true });
-        })(av);
-        im.src = src;
-      } else if (av) av.classList.remove("avatar--loading");
+      if (src) im.src = src; // 표시/로딩배경 해제는 makeAvatar 의 load 리스너가 처리(로드 후에만 노출)
+      else { var av = im.parentNode; if (av) av.classList.remove("avatar--loading"); }
       im.classList.remove("lazy-av");
     }
   }

@@ -171,6 +171,8 @@
       var im = el("img");
       im.decoding = "async";
       im.alt = (contact.name || "") + " 사진";
+      // 로드 완료 후에만 표시(그 전엔 CSS opacity:0) → 깨진/빈 이미지 플래시 방지. 로딩 배경도 이때 해제.
+      im.addEventListener("load", function () { im.classList.add("is-loaded"); a.classList.remove("avatar--loading"); });
       im.addEventListener("error", function () { paintFallback(a, contact); }); // 손상 사진 → 이니셜 폴백
       if (lazy && contact.id != null) {
         // 지연 로딩: 화면 밖이면 src 미설정 → 디코드·메모리 0. app 이 뷰포트 근처에서 주입.

@@ -12,10 +12,11 @@ permissions:
   pages: write
   id-token: write
 
-# 동시에 한 번만 배포 (진행 중 배포는 취소하지 않고 큐잉)
+# 동시에 한 번만 배포. 연속 push 시 앞선(대기/진행) 배포를 취소하고 최신만 배포한다
+# (false 는 rapid push 마다 순차 큐잉되어 반영이 밀렸음 → true 로 큐 적체 방지).
 concurrency:
   group: pages
-  cancel-in-progress: false
+  cancel-in-progress: true
 
 jobs:
   # 배포 전 게이트: 구문 검사 + 단위 테스트(무의존성, Node 내장 러너)

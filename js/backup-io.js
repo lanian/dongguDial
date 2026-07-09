@@ -109,6 +109,13 @@
           try { parsed = JSON.parse(String(reader.result)); }
           catch (e) { showSnack("가져오기 실패: " + e.message); return; }
           function continueImport(data) {
+            if (data && data.expiresAt) { // 복구 시한 완전 차단
+              var exp = Date.parse(data.expiresAt);
+              if (exp && Date.now() > exp) {
+                appDialog({ title: "복구 불가", message: "이 백업은 복구 시한(" + String(data.expiresAt).slice(0, 10) + ")이 지나 복구할 수 없습니다.\n최신 백업을 사용하세요.", okLabel: "확인" });
+                return;
+              }
+            }
             function proceed() {
               var result;
               try {
@@ -118,7 +125,12 @@
                 setThemeUI(Storage.getTheme());
                 refreshCounts();
                 render();
-              } catch (e) { showSnack("가져오기 실패: " + e.message); return; }
+              } catch (e) {
+                var m = (e && e.message) || "";
+                if (m.indexOf("EXPIRED:") === 0) showSnack("복구 시한(" + m.slice(8) + ")이 지난 백업입니다");
+                else showSnack("가져오기 실패: " + m);
+                return;
+              }
               var base = (backupImportMode === "replace" ? "대체 복구 완료: " : "복구 완료: ") +
                 "즐겨찾기 " + result.favorites + ", 최근 " + result.recent +
                 ", 편집 " + result.edits + ", 추가 " + result.custom;
@@ -152,6 +164,23 @@
         };
         reader.onerror = function () { showSnack("파일을 읽지 못했습니다."); };
         reader.readAsText(file);
+      });
+
+      // 백업 복구 시한 세그(무제한/30/90/365일) — 이후 내보내는 백업에 적용
+      var ttlBtns = Array.prototype.slice.call(document.querySelectorAll("#backup-ttl-seg .seg-btn[data-ttl]"));
+      function setTtlUI(days) {
+        ttlBtns.forEach(function (b) {
+          var on = b.dataset.ttl === String(days);
+          b.classList.toggle("is-active", on);
+          b.setAttribute("aria-pressed", on ? "true" : "false");
+        });
+      }
+      setTtlUI(Storage.getBackupTtl ? Storage.getBackupTtl() : 0);
+      ttlBtns.forEach(function (b) {
+        b.addEventListener("click", function () {
+          if (Storage.setBackupTtl) Storage.setBackupTtl(b.dataset.ttl);
+          setTtlUI(Storage.getBackupTtl ? Storage.getBackupTtl() : 0);
+        });
       });
     },
   };

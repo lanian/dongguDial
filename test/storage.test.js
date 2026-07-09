@@ -67,3 +67,25 @@ test("초기화 분리: resetAllEdits=편집만(즐겨찾기 유지), resetFavor
   assert.equal(S.getRecentEntries().length, 0, "최근 초기화");
   assert.equal(S.getFavGroups().length, 0, "즐겨찾기 그룹 초기화");
 });
+
+test("백업 복구 시한: TTL 설정 → expiresAt 부여, 만료 백업은 복구 차단", () => {
+  const S = loadApp().win.Storage;
+  assert.equal(S.getBackupTtl(), 0); // 기본 무제한
+  S.setBackupTtl(90);
+  assert.equal(S.getBackupTtl(), 90);
+  const bk = S.exportData();
+  assert.ok(bk.expiresAt, "expiresAt 부여됨");
+  assert.ok(Date.parse(bk.expiresAt) > Date.now(), "미래 시점");
+
+  const expired = Object.assign({}, bk, { expiresAt: "2000-01-01T00:00:00.000Z" });
+  assert.throws(() => S.importData(expired, "replace"), /EXPIRED/, "만료 백업 복구 차단");
+
+  const noTtl = Object.assign({}, bk); delete noTtl.expiresAt;
+  assert.doesNotThrow(() => S.importData(noTtl, "replace"), "시한 없는 백업 정상");
+  assert.doesNotThrow(() => S.importData(bk, "replace"), "미래 시한 백업 정상");
+
+  S.setBackupTtl(0);
+  assert.ok(!S.exportData().expiresAt, "무제한이면 expiresAt 없음");
+  S.setBackupTtl(9999); // 허용 외 값
+  assert.equal(S.getBackupTtl(), 0, "잘못된 값은 무제한 폴백");
+});

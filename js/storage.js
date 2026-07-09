@@ -16,6 +16,7 @@
   var DEPT_EDITS_KEY = "dongguDial.deptEdits.v1";   // { [id]: {name,parentId,sortOrder,level,__deleted?} }
   var DEPT_CUSTOM_KEY = "dongguDial.deptCustom.v1"; // [ {id,name,parentId,level,sortOrder} ]
   var BASE_HIDDEN_KEY = "dongguDial.baseHidden.v1"; // true면 번들 샘플(기본) 데이터 숨김
+  var BACKUP_TTL_KEY = "dongguDial.backupTtl.v1";   // 백업 복구 시한(일). 0=무제한. 내보내는 백업에 expiresAt 부여
   var FAV_GROUPS_KEY = "dongguDial.favGroups.v1";    // [ {id,name,sortOrder} ]  (즐겨찾기 그룹 정의)
   var FAV_GROUP_MAP_KEY = "dongguDial.favGroupMap.v1"; // { [contactId]: [groupId,...] }  (연락처별 소속 그룹, 다중)
   var MEMBER_ORDER_KEY = "dongguDial.memberOrder.v1"; // { [contactId]: N }  (부서 내 사원 표시 순서)
@@ -417,12 +418,15 @@
       };
     },
 
+    getBackupTtl: function () { var n = parseInt(read(BACKUP_TTL_KEY, 0), 10); return (n > 0 && [30, 90, 365].indexOf(n) >= 0) ? n : 0; },
+    setBackupTtl: function (days) { write(BACKUP_TTL_KEY, [30, 90, 365].indexOf(parseInt(days, 10)) >= 0 ? parseInt(days, 10) : 0); },
     exportData: function () {
-      return {
+      var now = Date.now(), ttl = this.getBackupTtl();
+      var out = {
         app: "dongguDial",
         type: "backup",
         version: CURRENT_BACKUP_VERSION,
-        exportedAt: new Date().toISOString(),
+        exportedAt: new Date(now).toISOString(),
         favorites: read(FAV_KEY, []),
         recent: normRecent(read(RECENT_KEY, [])),
         theme: read(THEME_KEY, "system"),
@@ -436,11 +440,17 @@
         favGroupMap: read(FAV_GROUP_MAP_KEY, {}),
         memberOrder: read(MEMBER_ORDER_KEY, {}),
       };
+      if (ttl > 0) out.expiresAt = new Date(now + ttl * 86400000).toISOString(); // 복구 시한(이후 복구 불가)
+      return out;
     },
 
     importData: function (data, mode) {
       if (!data || data.app !== "dongguDial" || data.type !== "backup") {
         throw new Error("행정전화번호 백업 파일이 아닙니다.");
+      }
+      if (data.expiresAt) { // 복구 시한 완전 차단(만료 백업은 복구 불가)
+        var exp = Date.parse(data.expiresAt);
+        if (exp && Date.now() > exp) throw new Error("EXPIRED:" + String(data.expiresAt).slice(0, 10));
       }
       data = migrateBackup(data); // 구버전 백업을 현재 스키마로 정규화
       var inFav = Array.isArray(data.favorites) ? data.favorites : [];

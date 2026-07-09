@@ -439,6 +439,16 @@
           </div>
         </button>
         <div id="backup-advanced" class="settings-advanced" hidden>
+          <div class="settings-field">
+            <div class="settings-field-label">백업 복구 시한</div>
+            <div class="theme-seg" id="backup-ttl-seg" role="group" aria-label="백업 복구 시한">
+              <button class="seg-btn is-active" data-ttl="0" aria-pressed="true">무제한</button>
+              <button class="seg-btn" data-ttl="30" aria-pressed="false">30일</button>
+              <button class="seg-btn" data-ttl="90" aria-pressed="false">90일</button>
+              <button class="seg-btn" data-ttl="365" aria-pressed="false">1년</button>
+            </div>
+            <div class="info-label">이후 <b>내보내는</b> 백업은 이 기간이 지나면 복구가 완전히 차단됩니다(암호화 백업은 봉인 내부에 기록).</div>
+          </div>
           <button class="settings-action" id="export-enc-btn">
             <span class="info-ico"><svg class="ic" aria-hidden="true"><use href="#ic-status"/></svg></span>
             <div class="info-text">

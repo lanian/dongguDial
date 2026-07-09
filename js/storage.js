@@ -396,6 +396,13 @@
       write(MEMBER_ORDER_KEY, {});
       write(BASE_HIDDEN_KEY, false);
     },
+    /** 즐겨찾기(그룹 포함)·최근 초기화 (편집 초기화와 별개 — CSV 가져오기 경로엔 영향 없음) */
+    resetFavoritesRecent: function () {
+      write(FAV_KEY, []);          // write(FAV_KEY) 가 _favSet 캐시도 무효화
+      write(RECENT_KEY, []);
+      write(FAV_GROUPS_KEY, []);
+      write(FAV_GROUP_MAP_KEY, {});
+    },
 
     // ---------- 백업 / 복구 ----------
     counts: function () {

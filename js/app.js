@@ -2291,9 +2291,10 @@
   document.getElementById("editor-save").addEventListener("click", saveEditor);
   document.getElementById("editor-delete").addEventListener("click", deleteEditor);
   document.getElementById("reset-edits-btn").addEventListener("click", function () {
-    appDialog({ title: "초기화", message: "수정·추가한 연락처와 부서를 모두 초기화할까요?", okLabel: "초기화", danger: true }).then(function (ok) {
+    appDialog({ title: "초기화", message: "다음을 모두 초기화합니다:\n· 수정·추가한 연락처·부서\n· 즐겨찾기(그룹 포함)·최근\n· 사진\n\n되돌릴 수 없습니다.", okLabel: "초기화", danger: true }).then(function (ok) {
       if (!ok) return;
       Storage.resetAllEdits();
+      Storage.resetFavoritesRecent(); // 즐겨찾기·최근도 초기화
       if (window.Photos) Photos.clearAll();
       Data.rebuild();
       refreshCounts();

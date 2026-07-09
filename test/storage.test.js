@@ -46,3 +46,24 @@ test("PIN 실패 카운터 저장/초기화", () => {
   S.setLockFails({ count: 3, lockedUntil: 123 });
   assert.equal(S.getLockFails().count, 3);
 });
+
+test("초기화 분리: resetAllEdits=편집만(즐겨찾기 유지), resetFavoritesRecent=즐겨찾기·최근·그룹", () => {
+  const S = loadApp().win.Storage;
+  S.toggleFavorite("c1");
+  S.pushRecent("c2");
+  S.addFavGroup("VIP");
+  const id = S.addContact({ name: "커스텀" });
+  assert.ok(S.getFavorites().indexOf("c1") >= 0);
+  assert.ok(S.getRecentEntries().some((e) => e.id === "c2"));
+
+  S.resetAllEdits(); // 편집·추가만 초기화 — 즐겨찾기·최근은 유지
+  assert.equal(S.getCustom().length, 0, "custom 초기화");
+  assert.ok(S.getFavorites().indexOf("c1") >= 0, "즐겨찾기 유지");
+  assert.ok(S.getRecentEntries().some((e) => e.id === "c2"), "최근 유지");
+  assert.equal(S.getFavGroups().length, 1, "즐겨찾기 그룹 유지");
+
+  S.resetFavoritesRecent(); // 즐겨찾기·최근·그룹 초기화
+  assert.equal(S.getFavorites().length, 0, "즐겨찾기 초기화");
+  assert.equal(S.getRecentEntries().length, 0, "최근 초기화");
+  assert.equal(S.getFavGroups().length, 0, "즐겨찾기 그룹 초기화");
+});

@@ -1244,10 +1244,48 @@
         container.appendChild(c2);
       }
 
+      // 같은 부서(팀) 동료 — 가로 스크롤 아바타 스트립(탭 → 그 사람 상세).
+      renderPeers(container, contact, opts);
+
       // 메모(개인·로컬): 있으면 표시(탭→편집), 없으면 '메모 추가'. 인라인 추가/편집(opts.onMemoSave).
       renderMemoSection(container, contact, opts);
     },
   };
+
+  // 같은 부서(팀) 동료 — 상세에서 가로 스크롤 아바타 스트립. 본인 제외, 탭 → opts.onOpen(그 사람).
+  function renderPeers(container, contact, opts) {
+    if (!opts.onOpen || contact.deptId == null || contact.deptId === 0) return;
+    if (!(window.Data && Data.membersOfDept)) return;
+    var members = Data.membersOfDept(contact.deptId).filter(function (m) { return m.id !== contact.id; });
+    if (!members.length) return;
+    var CAP = 30; // 아바타 디코드 상한 — 초과분은 '전체 보기'로
+    container.appendChild(sectionTitle((contact.dept || "같은 부서") + " · " + members.length + "명"));
+    var strip = el("div", "peers");
+    strip.setAttribute("role", "list");
+    strip.setAttribute("aria-label", (contact.dept || "부서") + " 동료 목록(가로 스크롤)");
+    members.slice(0, CAP).forEach(function (m) {
+      var peer = el("button", "peer");
+      peer.type = "button";
+      peer.setAttribute("role", "listitem");
+      peer.setAttribute("aria-label", (m.name || "") + (m.position ? ", " + m.position : "") + ", 상세 보기");
+      peer.appendChild(makeAvatar(m, "avatar--peer")); // 비지연(상세 오버레이라 즉시 로드)
+      peer.appendChild(el("div", "peer-name", m.name || ""));
+      var role = m.position || m.grade || "";
+      if (role) peer.appendChild(el("div", "peer-role", role));
+      peer.addEventListener("click", function () { opts.onOpen(m); });
+      strip.appendChild(peer);
+    });
+    if (members.length > CAP && opts.onOrg) {
+      var more = el("button", "peer peer--more");
+      more.type = "button";
+      more.setAttribute("aria-label", "조직도에서 부서 전체 보기");
+      more.appendChild(el("div", "peer-more-badge", "+" + (members.length - CAP)));
+      more.appendChild(el("div", "peer-name", "전체 보기"));
+      more.addEventListener("click", function () { opts.onOrg(contact.deptId); });
+      strip.appendChild(more);
+    }
+    container.appendChild(strip);
+  }
 
   // 상세 메모 섹션 — 보기/편집 인라인 토글. onMemoSave(contact, text) 가 실제 저장·재렌더 담당.
   function renderMemoSection(container, contact, opts) {

@@ -823,6 +823,37 @@ mark {
   display: flex; justify-content: flex-end; gap: var(--sp-2);
   padding: var(--sp-2); border-top: 1px solid var(--divider);
 }
+
+/* 같은 부서 동료 — 가로 스크롤 아바타 스트립(세로 공간 절약) */
+.peers {
+  display: flex; gap: var(--sp-4); overflow-x: auto;
+  padding: var(--sp-2) var(--sp-3) var(--sp-3);
+  scroll-snap-type: x proximity; -webkit-overflow-scrolling: touch;
+  scrollbar-width: none;
+}
+.peers::-webkit-scrollbar { display: none; }
+.peer {
+  flex: 0 0 auto; width: 60px;
+  display: flex; flex-direction: column; align-items: center; gap: 4px;
+  padding: 0; border: none; background: none; cursor: pointer;
+  font: inherit; color: inherit; scroll-snap-align: start;
+  -webkit-tap-highlight-color: transparent;
+}
+.peer .avatar { width: 52px; height: 52px; font-size: var(--fs-md); }
+.peer-name, .peer-role {
+  max-width: 60px; text-align: center; line-height: 1.2;
+  white-space: nowrap; overflow: hidden; text-overflow: ellipsis;
+}
+.peer-name { font-size: var(--fs-sm); font-weight: var(--fw-med); }
+.peer-role { font-size: var(--fs-cap); color: var(--on-surface-muted); }
+.peer:active { opacity: 0.6; }
+.peer:focus-visible { outline: 2px solid var(--brand); outline-offset: 2px; border-radius: var(--r-md, 10px); }
+.peer--more .peer-more-badge {
+  width: 52px; height: 52px; border-radius: 50%;
+  display: grid; place-items: center;
+  background: var(--divider); color: var(--on-surface-muted);
+  font-weight: var(--fw-bold); font-size: var(--fs-md);
+}
 .info-ico {
   display: grid;
   place-items: center;

@@ -1623,7 +1623,7 @@
   }
 
   // 상세 화면 렌더 옵션(조직 이동·사진 보기·사진 바로 등록 공통)
-  function detailOpts() { return { onOrg: goToOrg, onPhoto: openPhotoViewer, onPhotoEdit: changePhotoFor, onMemoSave: saveMemoInline }; }
+  function detailOpts() { return { onOrg: goToOrg, onPhoto: openPhotoViewer, onPhotoEdit: changePhotoFor, onMemoSave: saveMemoInline, onOpen: openDetail }; }
   // 상세에서 메모 인라인 추가/편집 → 저장·rebuild·재렌더(검색 인덱스 포함).
   function saveMemoInline(contact, text) {
     if (text === (contact.memo || "")) { // 변경 없음 → 보기 모드로만 복귀

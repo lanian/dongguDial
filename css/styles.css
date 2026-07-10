@@ -833,23 +833,25 @@ mark {
 }
 .peers::-webkit-scrollbar { display: none; }
 .peer {
-  flex: 0 0 auto; width: 60px;
+  flex: 0 0 auto; width: 72px;
   display: flex; flex-direction: column; align-items: center; gap: 4px;
   padding: 0; border: none; background: none; cursor: pointer;
   font: inherit; color: inherit; scroll-snap-align: start;
   -webkit-tap-highlight-color: transparent;
 }
-.peer .avatar { width: 52px; height: 52px; font-size: var(--fs-md); }
+.peer .avatar { width: 56px; height: 56px; font-size: var(--fs-md); }
+/* 이름·직책은 최대 2줄까지 감싸 표시(긴 한글 직책 잘림 완화) */
 .peer-name, .peer-role {
-  max-width: 60px; text-align: center; line-height: 1.2;
-  white-space: nowrap; overflow: hidden; text-overflow: ellipsis;
+  max-width: 72px; text-align: center; line-height: 1.25;
+  display: -webkit-box; -webkit-box-orient: vertical; overflow: hidden;
+  overflow-wrap: anywhere; word-break: break-word;
 }
-.peer-name { font-size: var(--fs-sm); font-weight: var(--fw-med); }
-.peer-role { font-size: var(--fs-cap); color: var(--on-surface-muted); }
+.peer-name { font-size: var(--fs-sm); font-weight: var(--fw-med); -webkit-line-clamp: 2; }
+.peer-role { font-size: var(--fs-cap); color: var(--on-surface-muted); -webkit-line-clamp: 2; }
 .peer:active { opacity: 0.6; }
 .peer:focus-visible { outline: 2px solid var(--brand); outline-offset: 2px; border-radius: var(--r-md, 10px); }
 .peer--more .peer-more-badge {
-  width: 52px; height: 52px; border-radius: 50%;
+  width: 56px; height: 56px; border-radius: 50%;
   display: grid; place-items: center;
   background: var(--divider); color: var(--on-surface-muted);
   font-weight: var(--fw-bold); font-size: var(--fs-md);

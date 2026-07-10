@@ -1243,7 +1243,7 @@
       // 소속 섹션
       var c2 = el("div", "info-card");
       addOrgRow(c2, contact, opts.onOrg);
-      if (contact.workDept) addInfo(c2, "building", "실제 근무 부서", contact.workDept); // 파견: 소속과 다른 근무지
+      if (contact.workDept) deptPathRow(c2, contact.workDeptId, "실제 근무 부서", contact.workDept, opts.onOrg); // 파견: 조직 경로처럼 + 이동 링크
       addInfo(c2, "badge", "직급", contact.grade, true);
       addInfo(c2, "work", "담당업무", contact.work, true);
       addInfo(c2, "status", "재직상태", contact.status && contact.status !== "미설정" ? contact.status : null);
@@ -1394,20 +1394,21 @@
   }
 
   /** 조직 경로(국 › 과 › 팀) 행 — onOrg 있으면 탭 시 조직도 이동 */
-  function addOrgRow(card, contact, onOrg) {
-    var path = (window.Data && Data.deptPath) ? Data.deptPath(contact.deptId) : [];
-    if (!path.length) { addInfo(card, "building", "부서", contact.dept); return; }
+  // 부서를 '조직 경로(상위 › … › 부서)'로 표시 + 조직도 이동 링크(onOrg). 소속·실제근무 공용.
+  function deptPathRow(card, deptId, label, fallbackName, onOrg) {
+    var path = (window.Data && Data.deptPath) ? Data.deptPath(deptId) : [];
+    if (!path.length) { if (fallbackName) addInfo(card, "building", label, fallbackName); return; }
     var row = onOrg ? el("button", "info-row info-row--btn") : el("div", "info-row");
     if (onOrg) {
       row.type = "button";
       row.setAttribute("aria-label", "조직도에서 " + path[path.length - 1].name + " 보기");
-      row.addEventListener("click", function () { onOrg(contact.deptId); });
+      row.addEventListener("click", function () { onOrg(deptId); });
     }
     var ico = el("span", "info-ico");
     ico.appendChild(icon("building"));
     row.appendChild(ico);
     var text = el("div", "info-text");
-    text.appendChild(el("div", "info-label", "조직"));
+    text.appendChild(el("div", "info-label", label));
     var v = el("div", "info-value");
     path.forEach(function (p, i) {
       if (i) v.appendChild(el("span", "org-sep", " › "));
@@ -1417,6 +1418,9 @@
     row.appendChild(text);
     if (onOrg) { var ch = el("span", "info-chevron"); ch.appendChild(icon("chevron")); row.appendChild(ch); }
     card.appendChild(row);
+  }
+  function addOrgRow(card, contact, onOrg) {
+    deptPathRow(card, contact.deptId, "조직", contact.dept, onOrg);
   }
 
   /** 전화 정보 행: 값(전화 링크) + [복사] */

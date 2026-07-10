@@ -1873,6 +1873,10 @@
   tabs.forEach(function (tab) {
     tab.addEventListener("click", function () { switchTab(tab); });
   });
+  // 좌상단 로고 = 처음 화면으로: '전체' 탭 + 검색 해제 + 맨 위로.
+  // (오버레이는 전체화면이라 로고를 덮으므로 열려 있는 상태에서 눌릴 일은 없음)
+  var homeBtn = document.getElementById("home-btn");
+  if (homeBtn) homeBtn.addEventListener("click", function () { switchTab(document.getElementById("tab-all")); });
   tabsNav.addEventListener("keydown", function (e) {
     if (e.key !== "ArrowLeft" && e.key !== "ArrowRight") return;
     var i = tabs.indexOf(document.activeElement);

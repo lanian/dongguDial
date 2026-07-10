@@ -159,6 +159,9 @@ body {
 .app-title { margin: 0; font-size: 20px; font-weight: var(--fw-bold); flex: 1 1 auto; min-width: 0; overflow: hidden; text-overflow: ellipsis; white-space: nowrap; }
 /* 제목을 앱 아이콘(배지)으로 대체 — 파란 앱바 위에서 라이트 타일이 또렷하게 보인다 */
 .app-logo { display: block; width: 32px; height: 32px; }
+/* 로고 = '처음 화면으로' 버튼 (전체 탭·검색 해제·맨 위로). 버튼 기본 꾸밈 제거 */
+.home-btn { display: block; padding: 0; margin: 0; border: 0; background: none; cursor: pointer; -webkit-tap-highlight-color: transparent; border-radius: var(--corner-small, 8px); }
+.home-btn:active { opacity: .7; }
 
 /* 앱바용 정렬 세그먼트. 트랙을 '단색 진한 파랑'으로 깔아 테마와 무관하게 흰 글자가 또렷.
    ※ 특이도 주의: 베이스 `.sort-seg { background: var(--surface) }`가 파일 뒤쪽에 있어

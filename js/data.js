@@ -19,6 +19,37 @@
   // 근무 배치(파견) 표시용 얕은 사본 — 근무지 섹션에 '소속: X'로 등장. 원본과 같은 id.
   function asWork(c) { var p = Object.assign({}, c); p._asWork = true; return p; }
 
+  // 부서 내 자동 정렬(직급순): 직책(리더) 우선 → 직급 순위 → 가나다. 수동 사원순서가 있으면 그게 우선.
+  // 리더 판정은 ui.js isLead 와 동일 규칙(…장/…관/…위원, 단 직급명은 제외).
+  function isLeadPos(position) {
+    var p = (position || "").trim();
+    if (!p) return false;
+    if (/^(주무관|사무관|서기관|주사|주사보|서기|서기보|실무관|사무원)$/.test(p)) return false;
+    return /[장관]$/.test(p) || /위원$/.test(p);
+  }
+  // 직급 순위(낮을수록 상위). 급수 표기('6급')도 지원. 조직마다 다르면 이 표만 조정.
+  var GRADE_ORDER = ["관리관", "이사관", "부이사관", "서기관", "사무관", "주무관", "주사", "주사보", "서기", "서기보", "실무관", "사무원"];
+  function gradeRank(grade) {
+    var g = (grade || "").trim();
+    if (!g) return 900;
+    var m = g.match(/(\d+)\s*급/);
+    if (m) return 100 + parseInt(m[1], 10); // 급수: 6급 < 7급 (낮을수록 상위)
+    for (var i = 0; i < GRADE_ORDER.length; i++) { if (g.indexOf(GRADE_ORDER[i]) !== -1) return i; }
+    return 800; // 미지 직급(직급 없음 900 보다는 앞)
+  }
+  function autoCompare(a, b) {
+    var la = isLeadPos(a.position) ? 0 : 1, lb = isLeadPos(b.position) ? 0 : 1;
+    if (la !== lb) return la - lb;               // 직책(리더) 먼저
+    var ga = gradeRank(a.grade), gb = gradeRank(b.grade);
+    if (ga !== gb) return ga - gb;               // 직급 순위
+    return (a.name || "").localeCompare(b.name || "", "ko"); // 가나다
+  }
+  // 수동 사원순서(memberSortOrder) 우선, 없거나 동률이면 직급순 자동정렬.
+  function memberCompare(a, b) {
+    var mo = (a.memberSortOrder || 0) - (b.memberSortOrder || 0);
+    return mo !== 0 ? mo : autoCompare(a, b);
+  }
+
   // 한글 초성 추출 (검색 보조용)
   var CHO = [
     "ㄱ", "ㄲ", "ㄴ", "ㄷ", "ㄸ", "ㄹ", "ㅁ", "ㅂ", "ㅃ", "ㅅ",
@@ -347,9 +378,7 @@
 
     /** 부서 직속 인원(멤버순 정렬) */
     membersOfDept: function (id) {
-      return (state.membersByDept[id] || []).slice().sort(function (a, b) {
-        return (a.memberSortOrder || 0) - (b.memberSortOrder || 0);
-      });
+      return (state.membersByDept[id] || []).slice().sort(memberCompare);
     },
 
     /** 부서별 직속 인원 수 맵 */
@@ -389,11 +418,7 @@
         (byDept[c.deptId] = byDept[c.deptId] || []).push(c);
         if (c._dispatched && c.workDeptId != null) (byWork[c.workDeptId] = byWork[c.workDeptId] || []).push(c); // 근무지 섹션에도
       });
-      function sortMembers(arr) {
-        return arr.slice().sort(function (a, b) {
-          return (a.memberSortOrder || 0) - (b.memberSortOrder || 0);
-        });
-      }
+      function sortMembers(arr) { return arr.slice().sort(memberCompare); }
       var groups = [];
       (state.departmentsTree || state.departments).forEach(function (d) {
         var members = sortMembers(byDept[d.id] || []);

@@ -107,3 +107,19 @@ test("근무 배치(파견): 소속≠근무지면 두 섹션에 등장", async 
   assert.equal(work.dept, "총무팀", "파견 사본의 dept 는 소속명");
   assert.equal(home.id, work.id, "같은 id(동일 인물)");
 });
+
+test("부서 내 자동정렬(B): 직책→직급→가나다, 수동 사원순서 우선", async () => {
+  const BASE = { departments: [{ id: 1, name: "총무과" }], contacts: [
+    { id: "c1", name: "하급자", deptId: 1, grade: "주무관" },
+    { id: "c2", name: "가급자", deptId: 1, grade: "주무관" },
+    { id: "c3", name: "사무관님", deptId: 1, grade: "사무관" },
+    { id: "c4", name: "팀장님", deptId: 1, position: "팀장", grade: "사무관" },
+  ] };
+  const a = loadApp(BASE); await a.win.Data.load();
+  assert.deepEqual(a.win.Data.membersOfDept(1).map((m) => m.name),
+    ["팀장님", "사무관님", "가급자", "하급자"], "직책(리더)→직급→가나다");
+  ["c1", "c4", "c3", "c2"].forEach((id, i) => a.win.Storage.setMemberOrder(id, i + 1)); // 전체 수동 지정
+  a.win.Data.rebuild();
+  assert.deepEqual(a.win.Data.membersOfDept(1).map((m) => m.name),
+    ["하급자", "팀장님", "사무관님", "가급자"], "수동 사원순서 우선");
+});

@@ -70,6 +70,16 @@
   document.addEventListener("pointerdown", function () { _pointerModality = true; }, true);
   document.addEventListener("keydown", function (e) { if (e.key !== "Escape") _pointerModality = false; }, true);
 
+  // 확대/축소(줌) 비활성화 — 레이아웃 고정. 모바일 핀치·더블탭은 viewport 메타(user-scalable=no)로,
+  // 데스크톱/트랙패드(Ctrl+휠, Ctrl±0)와 Safari 핀치 제스처는 아래에서 차단.
+  document.addEventListener("wheel", function (e) { if (e.ctrlKey) e.preventDefault(); }, { passive: false });
+  document.addEventListener("keydown", function (e) {
+    if ((e.ctrlKey || e.metaKey) && (e.key === "+" || e.key === "-" || e.key === "=" || e.key === "0")) e.preventDefault();
+  }, { passive: false });
+  ["gesturestart", "gesturechange", "gestureend"].forEach(function (t) {
+    document.addEventListener(t, function (e) { e.preventDefault(); });
+  });
+
   function pushFocus() { focusStack.push(document.activeElement); }
   function focusList() {
     if (listEl && listEl.focus) { try { listEl.focus({ preventScroll: true }); } catch (e) { listEl.focus(); } }

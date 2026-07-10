@@ -1080,7 +1080,8 @@
         document.removeEventListener("keydown", onKey, true);
         if (vv) { vv.removeEventListener("resize", fitViewport); vv.removeEventListener("scroll", fitViewport); }
         if (backdrop.parentNode) backdrop.parentNode.removeChild(backdrop);
-        if (prevFocus && prevFocus.focus) { try { prevFocus.focus(); } catch (e) {} }
+        // 키보드 모달리티일 때만 트리거로 복원(포인터로 연 경우 :focus-visible 링이 남지 않도록).
+        if (!_pointerModality && prevFocus && prevFocus.focus) { try { prevFocus.focus(); } catch (e) {} }
         resolve(result);
       }
       function confirm() {

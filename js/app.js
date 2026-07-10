@@ -63,15 +63,23 @@
   var bgEls = [appBar, tabsNav, listEl];
   var focusStack = [];
 
+  // 입력 모달리티 추적: 포인터(마우스·터치)로 마지막 조작했는지 여부.
+  // ESC 로 오버레이를 닫을 때, 포인터로 연 경우엔 트리거 요소로 포커스를 되돌리지 않는다
+  // (되돌리면 ESC=키보드라 :focus-visible 링이 남아 거슬림). ESC 자체는 모달리티를 바꾸지 않음.
+  var _pointerModality = false;
+  document.addEventListener("pointerdown", function () { _pointerModality = true; }, true);
+  document.addEventListener("keydown", function (e) { if (e.key !== "Escape") _pointerModality = false; }, true);
+
   function pushFocus() { focusStack.push(document.activeElement); }
   function popFocus() {
     var el = focusStack.pop();
-    if (el && el !== listEl && document.contains(el) && el.focus) { el.focus(); return; }
-    // 복원 대상이 없으면: 키보드 기기·리스트 화면이면 검색창을 선포커스해 한글도 첫 글자부터 입력되게,
+    // 키보드 모달리티일 때만 트리거 요소로 복원(포인터면 포커스 링이 남지 않도록 중립 폴백).
+    if (!_pointerModality && el && el !== listEl && document.contains(el) && el.focus) { el.focus(); return; }
+    // 복원 대상이 없거나 포인터 모달리티면: 키보드 기기·리스트 화면이면 검색창을 선포커스해 한글도 첫 글자부터 입력되게,
     // 그 외에는 리스트 컨테이너로 폴백.
     if (kbDevice && isTypeToSearchContext()) {
       try { searchInput.focus({ preventScroll: true }); } catch (e) { searchInput.focus(); }
-    } else if (listEl && listEl.focus) { listEl.focus(); }
+    } else if (listEl && listEl.focus) { try { listEl.focus({ preventScroll: true }); } catch (e) { listEl.focus(); } }
   }
   // 오버레이(중첩 가능) — topmost 우선 순서. close 함수는 hoisting됨.
   function overlayList() {

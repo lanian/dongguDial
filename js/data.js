@@ -291,8 +291,12 @@
         (state.membersByDept[c.deptId] = state.membersByDept[c.deptId] || []).push(c);
         // 실제 근무 부서(파견): 소속과 다르면 근무지 색인에도 등록 + 표시용 이름/플래그
         var wd = (c.workDeptId != null && c.workDeptId !== "" && c.workDeptId !== c.deptId) ? state.deptById[c.workDeptId] : null;
-        if (wd) { c.workDept = wd.name; c._dispatched = true; (state.workByDept[c.workDeptId] = state.workByDept[c.workDeptId] || []).push(c); }
-        else { c.workDept = ""; c._dispatched = false; }
+        if (wd) {
+          c.workDept = wd.name; c._dispatched = true;
+          var wp = deptPathNames(c.workDeptId); // 근무지 '상위 › 말단'(부서·팀)
+          c._workDeptShort = wp.length >= 2 ? (wp[1] + " › " + wp[0]) : (wp[0] || wd.name);
+          (state.workByDept[c.workDeptId] = state.workByDept[c.workDeptId] || []).push(c);
+        } else { c.workDept = ""; c._workDeptShort = ""; c._dispatched = false; }
         buildSearchIndex(c);
       });
     },

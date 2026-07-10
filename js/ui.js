@@ -267,8 +267,10 @@
     if (contact.id != null) row.dataset.id = contact.id; // 다중선택 식별용
     // 부서는 '상위1단계 › 말단'(_deptShort)으로 표시 — 그룹 헤더 없는 가나다순·검색 맥락 보강
     var subAll = [contact._deptShort || contact.dept, contact.position, contact.grade, contact.work].filter(Boolean);
-    // 근무 배치(파견) 라벨: 근무지 섹션이면 '소속 X', 소속 섹션(파견자)이면 '근무 Y'
-    var placeNote = contact._asWork ? ("소속 " + (contact.dept || "")) : (contact.workDept ? ("근무 " + contact.workDept) : "");
+    // 근무 배치(파견) 라벨: 근무지 섹션이면 '소속 부서›팀', 소속 섹션(파견자)이면 '근무 부서›팀'
+    var placeNote = contact._asWork
+      ? ("소속 " + (contact._deptShort || contact.dept || ""))
+      : (contact.workDept ? ("근무 " + (contact._workDeptShort || contact.workDept)) : "");
     // aria-label 은 자연어로(시각용 '›' 구분기호 대신 공백) — 스크린리더가 '보다 큼'으로 읽지 않게
     var ariaParts = [contact.dept, contact.position, contact.grade, contact.work, placeNote].filter(Boolean);
     row.setAttribute("aria-label", (contact.name || "") + ", " + ariaParts.join(" ") + ", 상세 보기");

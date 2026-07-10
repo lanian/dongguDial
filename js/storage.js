@@ -428,7 +428,7 @@
         version: CURRENT_BACKUP_VERSION,
         exportedAt: new Date(now).toISOString(),
         favorites: read(FAV_KEY, []),
-        recent: normRecent(read(RECENT_KEY, [])),
+        // 최근(recent)은 백업에 포함하지 않는다 — 기기별 임시 열람 기록이라 복구 대상이 아님.
         theme: read(THEME_KEY, "system"),
         showDefaultIcon: read(SHOW_DEFAULT_ICON_KEY, false) === true,
         edits: read(EDITS_KEY, {}),
@@ -454,7 +454,8 @@
       }
       data = migrateBackup(data); // 구버전 백업을 현재 스키마로 정규화
       var inFav = Array.isArray(data.favorites) ? data.favorites : [];
-      var inRecent = Array.isArray(data.recent) ? data.recent : [];
+      var hasRecent = Array.isArray(data.recent); // 최근은 신규 백업엔 없음 → 없으면 현재 최근 보존
+      var inRecent = hasRecent ? data.recent : [];
       var inEdits = stripProto(data.edits);
       var inCustom = Array.isArray(data.custom) ? data.custom.map(stripProto) : []; // 항목 키도 정제(__proto__ 등)
       var inDeptEdits = stripProto(data.deptEdits);
@@ -510,7 +511,7 @@
         memberOrder = Object.assign({}, read(MEMBER_ORDER_KEY, {}), inMemberOrder);
       }
       write(FAV_KEY, favs);
-      write(RECENT_KEY, recent);
+      if (hasRecent) write(RECENT_KEY, recent); // 백업에 최근이 있을 때만 반영(없으면 현재 최근 유지)
       write(EDITS_KEY, edits);
       write(CUSTOM_KEY, custom);
       write(DEPT_EDITS_KEY, deptEdits);
@@ -522,7 +523,7 @@
       else if (data.baseHidden === true) write(BASE_HIDDEN_KEY, true);
       if (["light", "dark", "system"].indexOf(data.theme) >= 0) write(THEME_KEY, data.theme); // 화이트리스트만
       if (typeof data.showDefaultIcon === "boolean") write(SHOW_DEFAULT_ICON_KEY, data.showDefaultIcon);
-      return { favorites: favs.length, recent: recent.length,
+      return { favorites: favs.length, recent: (hasRecent ? recent : normRecent(read(RECENT_KEY, []))).length,
         edits: Object.keys(edits).length, custom: custom.length,
         deptCustom: deptCustom.length };
     },

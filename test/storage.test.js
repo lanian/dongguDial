@@ -89,3 +89,22 @@ test("백업 복구 시한: TTL 설정 → expiresAt 부여, 만료 백업은 �
   S.setBackupTtl(9999); // 허용 외 값
   assert.equal(S.getBackupTtl(), 0, "잘못된 값은 무제한 폴백");
 });
+
+test("백업: 최근(recent) 제외 — export 미포함, 복구 시 현재 최근 보존, 구백업 recent 는 복구", () => {
+  const S = loadApp().win.Storage;
+  S.pushRecent("r1"); S.toggleFavorite("f1");
+  const bk = S.exportData();
+  assert.ok(!("recent" in bk), "export 에 recent 없음");
+  assert.ok(Array.isArray(bk.favorites), "favorites 는 포함");
+
+  const S2 = loadApp().win.Storage;
+  S2.pushRecent("keep1");
+  S2.importData(bk, "replace"); // recent 없는 백업 → 현재 최근 보존(대체 모드에서도)
+  assert.ok(S2.getRecentEntries().some((e) => e.id === "keep1"), "recent 없는 백업 복구는 현재 최근 보존");
+  assert.ok(S2.getFavorites().indexOf("f1") >= 0, "즐겨찾기는 복구");
+
+  const legacy = Object.assign({}, bk, { recent: [{ id: "old1", ts: 1 }] }); // 구버전 백업
+  const S3 = loadApp().win.Storage;
+  S3.importData(legacy, "replace");
+  assert.ok(S3.getRecentEntries().some((e) => e.id === "old1"), "구백업의 recent 는 복구");
+});

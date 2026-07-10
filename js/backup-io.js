@@ -132,7 +132,7 @@
                 return;
               }
               var base = (backupImportMode === "replace" ? "대체 복구 완료: " : "복구 완료: ") +
-                "즐겨찾기 " + result.favorites + ", 최근 " + result.recent +
+                "즐겨찾기 " + result.favorites +
                 ", 편집 " + result.edits + ", 추가 " + result.custom;
               // 사진 복원은 비동기 → 완료(또는 실패)된 뒤에 재렌더·스낵바를 띄운다.
               if (!(window.Photos && (backupImportMode === "replace" || data.photos))) { showSnack(base); return; }

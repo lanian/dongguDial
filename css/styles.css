@@ -601,6 +601,15 @@ mark {
 .badge--dispatched { background: rgba(var(--brand-rgb), var(--badge-alpha)); color: var(--brand); }
 .badge--training { background: rgba(26, 127, 55, var(--badge-alpha)); color: var(--ok); }
 
+/* 근무 배치(파견) 라벨 — 근무지 섹션의 '소속 X' / 소속 섹션 파견자의 '근무 Y' */
+.row-tag {
+  display: inline-block; margin-left: 6px; padding: 1px 7px;
+  border-radius: var(--r-pill); font-size: var(--fs-cap); font-weight: var(--fw-med);
+  line-height: 1.5; white-space: nowrap; vertical-align: middle;
+}
+.row-tag--work { background: rgba(var(--brand-rgb), var(--badge-alpha)); color: var(--brand); }
+.row-tag--home { background: var(--divider); color: var(--on-surface-muted); }
+
 .row-actions { display: flex; gap: var(--sp-1); }
 .mini-btn {
   width: var(--touch-min); height: var(--touch-min);

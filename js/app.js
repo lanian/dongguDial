@@ -2223,6 +2223,17 @@
         },
       });
     });
+    var wdBtn = document.getElementById("ef-workdept-btn");
+    if (wdBtn) wdBtn.addEventListener("click", function () {
+      openDeptPicker({
+        title: "실제 근무 부서 선택", allowNone: true, noneLabel: "(소속과 동일)",
+        currentId: val("ef-workdept") || "0",
+        onPick: function (id) {
+          document.getElementById("ef-workdept").value = id ? String(id) : "0";
+          setPickerBtn("ef-workdept-btn", id ? deptPathLabel(id) : "(소속과 동일)");
+        },
+      });
+    });
     document.getElementById("editor-delete").style.display = contact ? "" : "none";
     pushFocus();
     editorEl.hidden = false;
@@ -2248,10 +2259,12 @@
     var deptId = realDeptId(val("ef-dept"));
     var d0 = Data.getDeptById(deptId);
     var dept = d0 ? d0.name : "";
+    var workDeptId = realDeptId(val("ef-workdept"));
+    if (!workDeptId || workDeptId === deptId) workDeptId = ""; // 소속과 같거나 미지정이면 근무배치 없음
     var prevC = editId != null ? Data.getById(editId) : null;
     var useDefaultIcon = pendingDefaultIcon !== undefined ? pendingDefaultIcon : !!(prevC && prevC.defaultIcon);
     var fields = {
-      name: name, deptId: deptId, dept: dept,
+      name: name, deptId: deptId, dept: dept, workDeptId: workDeptId,
       position: val("ef-position"), grade: val("ef-grade"), work: val("ef-work"),
       phone: val("ef-phone"), tel: val("ef-tel"), birth: val("ef-birth"),
       status: val("ef-status") || "미설정",

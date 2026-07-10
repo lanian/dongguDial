@@ -92,3 +92,18 @@ test("조직도 평탄화 = 직제순(가나다와 다름)", async () => {
   // 직제순이면 자치행정과(김영희)가 안전총괄과(이순신)보다 먼저
   assert.ok(order.indexOf("김영희") < order.indexOf("이순신"));
 });
+
+test("근무 배치(파견): 소속≠근무지면 두 섹션에 등장", async () => {
+  const W = await loaded();                 // BASE: 101 홍길동 deptId 3(총무팀)
+  W.Storage.saveContact(101, { workDeptId: 4 }); // 근무 배치: 안전총괄과(4)
+  W.Data.rebuild();
+  const groups = W.Data.groupedByDept();
+  const dept = (id) => (groups.find((g) => g.dept.id === id) || { members: [] }).members;
+  const home = dept(3).find((m) => m.id === 101);   // 소속 섹션
+  const work = dept(4).find((m) => m.id === 101);   // 근무지 섹션
+  assert.ok(home && !home._asWork, "소속(3) 섹션에 원본");
+  assert.equal(home.workDept, "안전총괄과", "근무지 이름 해결");
+  assert.ok(work && work._asWork, "근무지(4) 섹션에 파견 사본(_asWork)");
+  assert.equal(work.dept, "총무팀", "파견 사본의 dept 는 소속명");
+  assert.equal(home.id, work.id, "같은 id(동일 인물)");
+});

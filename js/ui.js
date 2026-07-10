@@ -267,8 +267,10 @@
     if (contact.id != null) row.dataset.id = contact.id; // 다중선택 식별용
     // 부서는 '상위1단계 › 말단'(_deptShort)으로 표시 — 그룹 헤더 없는 가나다순·검색 맥락 보강
     var subAll = [contact._deptShort || contact.dept, contact.position, contact.grade, contact.work].filter(Boolean);
+    // 근무 배치(파견) 라벨: 근무지 섹션이면 '소속 X', 소속 섹션(파견자)이면 '근무 Y'
+    var placeNote = contact._asWork ? ("소속 " + (contact.dept || "")) : (contact.workDept ? ("근무 " + contact.workDept) : "");
     // aria-label 은 자연어로(시각용 '›' 구분기호 대신 공백) — 스크린리더가 '보다 큼'으로 읽지 않게
-    var ariaParts = [contact.dept, contact.position, contact.grade, contact.work].filter(Boolean);
+    var ariaParts = [contact.dept, contact.position, contact.grade, contact.work, placeNote].filter(Boolean);
     row.setAttribute("aria-label", (contact.name || "") + ", " + ariaParts.join(" ") + ", 상세 보기");
 
     row.appendChild(makeAvatar(contact, null, true)); // 목록 행은 지연 로딩(뷰포트 근처에서 사진 주입)
@@ -280,12 +282,13 @@
     name.appendChild(nameText);
     var badge = statusBadge(contact.status);
     if (badge) name.appendChild(badge);
+    if (placeNote) name.appendChild(el("span", "row-tag " + (contact._asWork ? "row-tag--home" : "row-tag--work"), placeNote));
     main.appendChild(name);
     var sub = el("div", "row-sub");
     var subText = el("span", "row-sub-text"); // 마퀴(흐름) 대상 — 평소엔 inline 으로 말줄임 유지
     // 부서순(섹션 헤더가 부서를 이미 표시)에서는 행 보조줄의 부서를 생략해 중복 제거.
     // 단, 행의 부서가 섹션 헤더 부서와 실제로 같을 때만(미지정·불일치 행은 부서 텍스트 유지).
-    var omitDept = opts.hideDeptName && contact.dept === opts.hideDeptName;
+    var omitDept = (opts.hideDeptName && contact.dept === opts.hideDeptName) || contact._asWork; // 파견 사본은 소속을 칩으로 표시 → sub 에서 부서 생략
     var subParts = omitDept ? [contact.position, contact.grade, contact.work].filter(Boolean) : subAll;
     highlightInto(subText, subParts.join(" · "), opts.query);
     sub.appendChild(subText);
@@ -929,6 +932,10 @@
       form.appendChild(pickerField("부서", "ef-dept-btn", "ef-dept",
         (contact.deptId != null ? String(contact.deptId) : "0"),
         deptLabel(contact.deptId, "(미지정)")));
+      // 실제 근무 부서(파견) — 소속과 다르면 근무지 섹션에도 표시. 비우면 소속과 동일.
+      form.appendChild(pickerField("실제 근무 부서", "ef-workdept-btn", "ef-workdept",
+        (contact.workDeptId != null && contact.workDeptId !== "" ? String(contact.workDeptId) : "0"),
+        deptLabel(contact.workDeptId, "(소속과 동일)")));
 
       form.appendChild(field("직책", textInput("ef-position", contact.position, "팀장")));
       form.appendChild(field("담당업무", textInput("ef-work", contact.work, "채용")));
@@ -1236,6 +1243,7 @@
       // 소속 섹션
       var c2 = el("div", "info-card");
       addOrgRow(c2, contact, opts.onOrg);
+      if (contact.workDept) addInfo(c2, "building", "실제 근무 부서", contact.workDept); // 파견: 소속과 다른 근무지
       addInfo(c2, "badge", "직급", contact.grade, true);
       addInfo(c2, "work", "담당업무", contact.work, true);
       addInfo(c2, "status", "재직상태", contact.status && contact.status !== "미설정" ? contact.status : null);

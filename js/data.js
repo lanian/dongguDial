@@ -16,6 +16,8 @@
   function normalizeDigits(s) {
     return (s || "").replace(/\D/g, "");
   }
+  // 근무 배치(파견) 표시용 얕은 사본 — 근무지 섹션에 '소속: X'로 등장. 원본과 같은 id.
+  function asWork(c) { var p = Object.assign({}, c); p._asWork = true; return p; }
 
   // 한글 초성 추출 (검색 보조용)
   var CHO = [
@@ -252,9 +254,14 @@
       state.contacts = eff;
       state.byId = {};
       state.membersByDept = {};
+      state.workByDept = {}; // 근무 배치(파견): workDeptId(≠소속) -> [contacts]
       eff.forEach(function (c) {
         state.byId[c.id] = c;
         (state.membersByDept[c.deptId] = state.membersByDept[c.deptId] || []).push(c);
+        // 실제 근무 부서(파견): 소속과 다르면 근무지 색인에도 등록 + 표시용 이름/플래그
+        var wd = (c.workDeptId != null && c.workDeptId !== "" && c.workDeptId !== c.deptId) ? state.deptById[c.workDeptId] : null;
+        if (wd) { c.workDept = wd.name; c._dispatched = true; (state.workByDept[c.workDeptId] = state.workByDept[c.workDeptId] || []).push(c); }
+        else { c.workDept = ""; c._dispatched = false; }
         buildSearchIndex(c);
       });
     },
@@ -366,7 +373,9 @@
       var groups = [];
       (state.departmentsTree || state.departments).forEach(function (d) {
         var members = Data.membersOfDept(d.id);
-        if (members.length) groups.push({ dept: d, members: members });
+        var workIn = (state.workByDept[d.id] || []).map(asWork); // 파견 근무자(다른 소속) — 근무지 섹션에도 표시
+        var all = members.concat(workIn);
+        if (all.length) groups.push({ dept: d, members: all });
       });
       var orphans = state.contacts.filter(function (c) { return !state.deptById[c.deptId]; });
       if (orphans.length) groups.push({ dept: { id: 0, name: "기타" }, members: orphans });
@@ -375,9 +384,10 @@
 
     /** 임의 연락처 목록(예: 검색 결과)을 부서 트리 순서로 그룹화 */
     groupContactsByDept: function (contacts) {
-      var byDept = {};
+      var byDept = {}, byWork = {};
       contacts.forEach(function (c) {
         (byDept[c.deptId] = byDept[c.deptId] || []).push(c);
+        if (c._dispatched && c.workDeptId != null) (byWork[c.workDeptId] = byWork[c.workDeptId] || []).push(c); // 근무지 섹션에도
       });
       function sortMembers(arr) {
         return arr.slice().sort(function (a, b) {
@@ -386,8 +396,10 @@
       }
       var groups = [];
       (state.departmentsTree || state.departments).forEach(function (d) {
-        var members = byDept[d.id];
-        if (members && members.length) groups.push({ dept: d, members: sortMembers(members) });
+        var members = sortMembers(byDept[d.id] || []);
+        var workIn = (byWork[d.id] || []).map(asWork);
+        var all = members.concat(workIn);
+        if (all.length) groups.push({ dept: d, members: all });
       });
       var orphans = contacts.filter(function (c) { return !state.deptById[c.deptId]; });
       if (orphans.length) groups.push({ dept: { id: 0, name: "기타" }, members: sortMembers(orphans) });

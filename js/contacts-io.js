@@ -20,6 +20,7 @@
     tel: ["행정번호", "사내번호", "내선", "내선번호", "사무실", "직통", "전화", "tel"],
     birth: ["생년월일", "생일", "출생", "birth"],
     status: ["재직상태", "상태", "재직", "status"],
+    workDept: ["근무부서", "실근무부서", "실제근무부서", "근무지", "파견부서", "workdept"], // 소속과 다른 실제 근무 부서
   };
   // 조직 위계 열(상위 → 하위). 존재하는 열만 경로로 사용, 사람은 가장 말단(팀)에 배치
   var HIER_ALIASES = [
@@ -102,9 +103,10 @@
       // buildContactMatchIndex/matchExisting/classifyImport)는 모듈 스코프로 추출됨(ContactsIO._test).
       function applyContactImport(rows) {
         var A = analyzeRows(rows), fmap = A.fmap, hierHeaders = A.hierHeaders, v = A.v, leafOf = A.leafOf;
-        var pathCache = {}, sortCounter = 0, newDepts = 0;
+        var pathCache = {}, sortCounter = 0, newDepts = 0, deptByName = {};
         Data.getDepartments().forEach(function (d) {
           pathCache[(d.parentId || 0) + " " + d.name] = { id: d.id, level: d.level || 0 };
+          if (deptByName[d.name] == null) deptByName[d.name] = d.id; // 근무부서 이름 → id(첫 매칭)
           if ((d.sortOrder || 0) > sortCounter) sortCounter = d.sortOrder || 0;
         });
         // 이름 경로(top→leaf)를 부서 체인으로 생성하고 말단 부서 반환
@@ -129,7 +131,9 @@
         }
         function fieldsFromRow(r) {
           var leaf = resolveDeptPath(hierHeaders.map(function (h) { return h ? (r[h] || "").trim() : ""; }));
-          return { name: v(r, "name"), deptId: leaf.id, dept: leaf.name, team: "",
+          var wdName = v(r, "workDept"); // 실제 근무 부서(기존 부서명 매칭, 소속과 다를 때만)
+          var wdId = (wdName && deptByName[wdName] != null && deptByName[wdName] !== leaf.id) ? deptByName[wdName] : "";
+          return { name: v(r, "name"), deptId: leaf.id, dept: leaf.name, team: "", workDeptId: wdId,
             position: v(r, "position"), grade: v(r, "grade"), work: v(r, "work"),
             phone: v(r, "phone"), tel: v(r, "tel"), birth: v(r, "birth"), status: normStatus(v(r, "status")) };
         }
@@ -243,7 +247,7 @@
       function exportContactsCSV() {
         var ordered = orgOrderedContacts();
         if (!ordered.length) { showSnack("내보낼 연락처가 없습니다."); return; }
-        var headers = ["이름", "상위부서", "부서", "팀", "직책", "직급", "담당업무", "휴대전화", "행정번호", "생년월일", "재직상태"];
+        var headers = ["이름", "상위부서", "부서", "팀", "직책", "직급", "담당업무", "휴대전화", "행정번호", "생년월일", "재직상태", "근무부서"];
         var lines = [headers.join(",")];
         ordered.forEach(function (c) {
           var path = (Data.deptPath ? Data.deptPath(c.deptId) : []).map(function (p) { return p.name; });
@@ -251,7 +255,7 @@
           lines.push([
             c.name || "", h3[0], h3[1], h3[2],
             c.position || "", c.grade || "", c.work || "",
-            c.phone || "", c.tel || "", c.birth || "", status,
+            c.phone || "", c.tel || "", c.birth || "", status, c.workDept || "",
           ].map(csvCell).join(","));
         });
         var csv = "﻿" + lines.join("\r\n") + "\r\n"; // BOM(엑셀 한글) + CRLF

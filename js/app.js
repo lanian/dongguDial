@@ -71,15 +71,21 @@
   document.addEventListener("keydown", function (e) { if (e.key !== "Escape") _pointerModality = false; }, true);
 
   function pushFocus() { focusStack.push(document.activeElement); }
+  function focusList() {
+    if (listEl && listEl.focus) { try { listEl.focus({ preventScroll: true }); } catch (e) { listEl.focus(); } }
+  }
   function popFocus() {
     var el = focusStack.pop();
-    // 키보드 모달리티일 때만 트리거 요소로 복원(포인터면 포커스 링이 남지 않도록 중립 폴백).
-    if (!_pointerModality && el && el !== listEl && document.contains(el) && el.focus) { el.focus(); return; }
-    // 복원 대상이 없거나 포인터 모달리티면: 키보드 기기·리스트 화면이면 검색창을 선포커스해 한글도 첫 글자부터 입력되게,
-    // 그 외에는 리스트 컨테이너로 폴백.
+    // 포인터(마우스·터치)로 연 경우: 어디에도 포커스 링이 남지 않도록 리스트 컨테이너로만 이동.
+    // (트리거 복원도, 검색창 선포커스도 :focus-visible 링을 만들기 때문 — 검색창은 텍스트 입력이라 항상 링이 뜸)
+    // 타이핑 시엔 전역 type-to-search 핸들러가 검색창으로 넘겨주므로 기능 손실 없음.
+    if (_pointerModality) { focusList(); return; }
+    // 키보드 모달리티: 트리거 요소로 복원.
+    if (el && el !== listEl && document.contains(el) && el.focus) { el.focus(); return; }
+    // 복원 대상이 없으면: 키보드 기기·리스트 화면이면 검색창을 선포커스해 한글도 첫 글자부터 입력되게, 그 외엔 리스트로.
     if (kbDevice && isTypeToSearchContext()) {
       try { searchInput.focus({ preventScroll: true }); } catch (e) { searchInput.focus(); }
-    } else if (listEl && listEl.focus) { try { listEl.focus({ preventScroll: true }); } catch (e) { listEl.focus(); } }
+    } else { focusList(); }
   }
   // 오버레이(중첩 가능) — topmost 우선 순서. close 함수는 hoisting됨.
   function overlayList() {

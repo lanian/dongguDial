@@ -527,7 +527,8 @@ mark {
 .rx-act--call { background: var(--brand); color: #fff; border-color: var(--brand); }
 .rx-act--call:active { background: var(--brand-dark); }
 .rx-empty { color: var(--on-surface-muted); font-size: var(--fs-sm); }
-.rx-actions { border-top: 1px solid var(--divider); margin-top: 2px; }
+/* 구분선 아래 여백을 패널 하단 여백(--sp-3)과 맞춰 '상세 보기'를 구분선~하단 중앙에 배치 */
+.rx-actions { border-top: 1px solid var(--divider); margin-top: 2px; padding-top: var(--sp-3); }
 /* 상세 보기 — 풀폭 44px 터치 타깃, 라벨+chevron 은 가운데로 묶어 하나의 버튼처럼 */
 .rx-detail {
   display: flex; align-items: center; justify-content: center; gap: 4px;

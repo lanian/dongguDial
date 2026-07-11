@@ -516,7 +516,7 @@ mark {
 .rx-line-acts { display: flex; gap: var(--sp-2); margin-left: auto; flex: 0 0 auto; }
 .rx-act {
   display: inline-flex; align-items: center; justify-content: center; gap: 5px;
-  min-height: 38px; padding: 0 16px;
+  min-height: 38px; min-width: 78px; padding: 0 14px;
   font: inherit; font-size: var(--fs-sm); font-weight: var(--fw-med);
   border-radius: var(--r-pill);
   border: 1px solid var(--brand); color: var(--brand); background: none;

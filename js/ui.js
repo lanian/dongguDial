@@ -464,19 +464,20 @@
       main.appendChild(el("span", "rx-num", formatPhone(num)));
       line.appendChild(main);
       var acts = el("div", "rx-line-acts");
+      // 문자(보조)는 왼쪽, 전화(주 동작·모든 줄 공통)는 항상 오른쪽 끝 → 두 줄의 전화 버튼이 한 열로 정렬
+      if (withSms) { // 행정번호(유선)는 문자 불필요 → 휴대폰만 문자 버튼
+        var sms = el("a", "rx-act rx-act--sms");
+        sms.href = "sms:" + clean(num);
+        sms.setAttribute("aria-label", (c.name || "") + " " + label + " 문자");
+        sms.appendChild(icon("message")); sms.appendChild(document.createTextNode("문자"));
+        acts.appendChild(sms);
+      }
       var call = el("a", "rx-act rx-act--call");
       call.href = "tel:" + clean(num);
       call.setAttribute("aria-label", (c.name || "") + " " + label + " 전화");
       call.appendChild(icon("phone")); call.appendChild(document.createTextNode("전화"));
       call.addEventListener("click", function () { if (opts.onCall) opts.onCall(c); }); // 기본 tel: 동작 유지 + 최근 기록
       acts.appendChild(call);
-      if (withSms) { // 행정번호(유선)는 문자 불필요 → 휴대폰만 문자 버튼
-        var sms = el("a", "rx-act");
-        sms.href = "sms:" + clean(num);
-        sms.setAttribute("aria-label", (c.name || "") + " " + label + " 문자");
-        sms.appendChild(icon("message")); sms.appendChild(document.createTextNode("문자"));
-        acts.appendChild(sms);
-      }
       line.appendChild(acts);
       box.appendChild(line);
     }

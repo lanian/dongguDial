@@ -537,7 +537,7 @@ mark {
   -webkit-tap-highlight-color: transparent;
 }
 .rx-detail:active { background: color-mix(in srgb, var(--brand) 8%, transparent); }
-.rx-detail-chev { width: 1.1em; height: 1.1em; flex: 0 0 auto; transform: translateY(-1.5px); }
+.rx-detail-chev { width: 1.1em; height: 1.1em; flex: 0 0 auto; }
 
 .avatar {
   flex: 0 0 auto;

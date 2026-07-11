@@ -52,7 +52,7 @@
   var favGroupPickerContact = null;
   // 접힘 상태는 콜드스타트(PWA 재시작)에도 유지되도록 localStorage 에서 복원한다.
   var _orgStored = Storage.getOrgCollapsed(); // null=한 번도 초기화 안 됨(=첫 진입)
-  var current = { tab: "all", query: "", detailId: null, sort: "dept",
+  var current = { tab: "all", query: "", detailId: null, sort: Storage.getSortMode(),
     orgCollapsed: _orgStored || {}, favCollapsed: Storage.getFavCollapsed(),
     orgReorder: false, deptMgrCollapsed: {}, selectMode: false, selected: {}, expandedId: null };
   var editId = null;
@@ -766,6 +766,7 @@
     b.addEventListener("click", function () {
       if (current.sort === b.dataset.sort) return; // 이미 선택된 정렬이면 무시
       current.sort = b.dataset.sort;
+      Storage.setSortMode(current.sort); // 선택 유지(재시작 후에도)
       sortBtns.forEach(function (x) {
         var on = x === b;
         x.classList.toggle("is-active", on);
@@ -774,6 +775,12 @@
       render();
       scrollRegion.scrollTo({ top: 0 }); // 정렬 바뀌면 맨 위로
     });
+  });
+  // 저장된 정렬을 세그먼트 UI에 반영(초기 HTML 은 '부서순' 활성 상태이므로 필요 시 갱신)
+  sortBtns.forEach(function (x) {
+    var on = x.dataset.sort === current.sort;
+    x.classList.toggle("is-active", on);
+    x.setAttribute("aria-pressed", on ? "true" : "false");
   });
 
   // ---------- 테마 ----------

@@ -488,7 +488,7 @@ mark {
   background: color-mix(in srgb, var(--brand) 4%, var(--surface));
   border-bottom: 1px solid var(--divider);
   box-shadow: inset 0 1px 0 color-mix(in srgb, var(--brand) 14%, transparent);
-  padding: var(--sp-3) var(--sp-4) var(--sp-3) calc(var(--sp-4) + 3px);
+  padding: var(--sp-3) var(--sp-4) var(--sp-2) calc(var(--sp-4) + 3px);
   display: flex; flex-direction: column; gap: var(--sp-3);
   animation: rxUnfold 0.22s cubic-bezier(.2, .7, .3, 1);
 }
@@ -527,12 +527,12 @@ mark {
 .rx-act--call { background: var(--brand); color: #fff; border-color: var(--brand); }
 .rx-act--call:active { background: var(--brand-dark); }
 .rx-empty { color: var(--on-surface-muted); font-size: var(--fs-sm); }
-/* 구분선 아래 여백을 패널 하단 여백(--sp-3)과 맞춰 '상세 보기'를 구분선~하단 중앙에 배치 */
-.rx-actions { border-top: 1px solid var(--divider); margin-top: 2px; padding-top: var(--sp-3); }
+/* 구분선 아래 여백을 패널 하단 여백(--sp-2)과 맞춰 '상세 보기'를 구분선~하단 중앙에 배치 */
+.rx-actions { border-top: 1px solid var(--divider); margin-top: 2px; padding-top: var(--sp-2); }
 /* 상세 보기 — 풀폭 44px 터치 타깃, 라벨+chevron 은 가운데로 묶어 하나의 버튼처럼 */
 .rx-detail {
   display: flex; align-items: center; justify-content: center; gap: 4px;
-  width: 100%; min-height: 44px; padding: 0 12px;
+  width: 100%; min-height: 40px; padding: 0 12px;
   font: inherit; font-size: var(--fs-sm); font-weight: var(--fw-med); line-height: 1;
   color: var(--brand); background: none; border: none; border-radius: var(--r-sm); cursor: pointer;
   -webkit-tap-highlight-color: transparent;

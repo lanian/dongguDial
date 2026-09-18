@@ -2166,6 +2166,37 @@
     }
   }, false);
 
+  // ---------- 소프트 키보드: 메인 화면 레이아웃을 보이는 영역(visualViewport)에 맞춤 ----------
+  // iOS Safari 는 키보드가 올라와도 레이아웃 뷰포트(100dvh)를 줄이지 않고, 포커스된 입력이 보이도록 화면 전체를
+  // 위로 밀어 올린다(헤더가 잘려 올라가고 키보드를 내리면 다시 튀어 내려옴). 목록 아래쪽도 키보드에 가려 스크롤로
+  // 닿지 않는다. → 검색창에 키보드가 열려 있는 동안 body 높이를 visualViewport 높이로 맞추고 밀린 스크롤을 0 으로
+  // 되돌린다. 안드로이드는 viewport 메타(interactive-widget=resizes-content)로 뷰포트 자체가 줄어 innerHeight ==
+  // vv.height 가 되므로 여기서는 아무것도 하지 않는다. 오버레이(편집·설정 등)의 입력은 대상이 아님(고정 레이어라
+  // 자체 스크롤이 필요하고, 강제로 0 으로 되돌리면 아래쪽 입력이 키보드에 가려짐).
+  (function () {
+    var vv = window.visualViewport;
+    if (!vv) return;
+    var applied = false;
+    function mainInputFocused() {
+      var a = document.activeElement;
+      return !!a && (a === searchInput || listEl.contains(a));
+    }
+    function fit() {
+      var kbOpen = Math.abs(vv.scale - 1) < 0.01 && (window.innerHeight - vv.height) > 120 && mainInputFocused();
+      if (kbOpen) {
+        document.body.style.height = vv.height + "px";
+        applied = true;
+        if (vv.offsetTop || window.scrollY) window.scrollTo(0, 0); // iOS 가 밀어 올린 화면을 제자리로
+      } else if (applied) {
+        document.body.style.height = "";
+        applied = false;
+      }
+    }
+    vv.addEventListener("resize", fit);
+    vv.addEventListener("scroll", fit);
+    searchInput.addEventListener("blur", function () { setTimeout(fit, 50); }); // 키보드 내림 직후 원복(resize 누락 대비)
+  })();
+
   // ---------- 설정 / 백업·복구 (전부 로컬 처리, 네트워크 없음) ----------
   var dataChipsEl = document.getElementById("settings-data-chips");
   var dataSummaryEl = document.getElementById("settings-data-summary");

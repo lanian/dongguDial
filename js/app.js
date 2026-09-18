@@ -1897,13 +1897,24 @@
   // 검색이 시작되면 히스토리 항목을 하나 push 한다 → 뒤로가기 시 앱을 나가지 않고 검색어부터 비운다.
   function beginSearchHistory() {
     if (!searchPushed && !anyOverlayOpen()) {
-      history.pushState({ search: true }, "");
+      try { history.pushState({ search: true }, ""); } catch (e) { return; } // Safari: pushState 횟수 제한 시 SecurityError
       searchPushed = true;
     }
   }
   // push 했던 검색 항목을 되감아 히스토리를 깔끔히 유지(사용자가 직접 검색을 비울 때).
+  // 코드가 부른 back() 의 popstate 메아리는 사용자 뒤로가기와 구분해야 한다(아래 popstate 참고).
+  var searchSelfPops = 0, searchSelfBackAt = 0;
   function unwindSearchHistory() {
-    if (searchPushed) { searchPushed = false; history.back(); }
+    if (searchPushed) { searchPushed = false; searchSelfPops++; searchSelfBackAt = Date.now(); history.back(); }
+  }
+  // 타이핑으로 값이 비었을 때의 되감기는 '잠시 뒤에도 여전히 비어 있을 때'만 실행한다.
+  // iOS 한글 키보드는 글자를 조합할 때(ㄱ→가) 값을 잠깐 비웠다가('ㄱ' 삭제) 새 글자를 넣는 두 input 이벤트를
+  // 보내는데(조합 플래그 없이 오기도 함), 빈 값에 즉시 back() 하면 그 popstate 가 뒤늦게 도착해 방금 완성한
+  // 글자를 지워 버렸다(아이폰: 첫 글자 완성 시 검색창 초기화). 지연 후 재확인하면 이 경합 자체가 사라진다.
+  var searchUnwindTimer;
+  function scheduleSearchUnwind() {
+    clearTimeout(searchUnwindTimer);
+    searchUnwindTimer = setTimeout(function () { if (!searchInput.value) unwindSearchHistory(); }, 300);
   }
   // 입력/쿼리/목록만 초기화(히스토리는 건드리지 않음).
   function resetSearchUI() {
@@ -1913,17 +1924,12 @@
     render();
   }
   var searchTimer;
-  searchInput.addEventListener("input", function (e) {
+  searchInput.addEventListener("input", function () {
     var v = searchInput.value;
     current.query = v;
     searchClear.hidden = !v;
-    if (v) beginSearchHistory();
-    // 사용자가 직접 글자를 모두 지움 → 검색 히스토리 되감기.
-    // 단, IME 조합 중의 '일시적 빈 값'은 제외: Safari(iOS)는 조합 글자를 바꿀 때마다
-    // deleteCompositionText(값 "") → insertCompositionText 두 input 이벤트를 보낸다.
-    // 첫 글자 조합('ㄱ'→'가')에서 빈 값에 back() 하고 곧바로 pushState 하면, 뒤늦게 온
-    // popstate 가 검색 중으로 판단해 검색창을 비워 버렸다(아이폰: 한 글자 완성 시 검색창 초기화).
-    else if (!(e && (e.isComposing || e.inputType === "deleteCompositionText"))) unwindSearchHistory();
+    if (v) { clearTimeout(searchUnwindTimer); beginSearchHistory(); }
+    else scheduleSearchUnwind(); // 사용자가 직접 글자를 모두 지움(IME 의 일시적 빈 값은 지연 재확인으로 걸러짐)
     clearTimeout(searchTimer);
     searchTimer = setTimeout(render, 120);
   });
@@ -1959,8 +1965,7 @@
   searchInput.addEventListener("compositionend", function () {
     // iOS 는 keydown(Enter, composing) 직후 compositionend 를 보낸다 — 확정된 값으로 검색 실행.
     if (searchEnterPending) setTimeout(submitSearch, 0); // input 이벤트가 값 반영을 마친 뒤
-    // 조합 중엔 빈 값 되감기를 미뤘으므로, 조합이 끝났는데 정말 비어 있으면(조합 글자를 지움) 여기서 되감는다.
-    else if (!searchInput.value) unwindSearchHistory();
+    else if (!searchInput.value) scheduleSearchUnwind(); // 조합 글자를 지워 비었으면(잠시 뒤에도 비어 있을 때) 되감기
   });
   searchInput.addEventListener("keyup", function (e) {
     // compositionend 가 오지 않는 IME(조합 아님·keyCode 229 만 보내는 경우) 폴백
@@ -2601,14 +2606,19 @@
     // 코드에서 오버레이를 직접 닫으며 부른 back 의 popstate 는 이미 처리됨 → 1회 무시
     // (중첩 오버레이에서 아래 오버레이까지 닫히는 버그 방지).
     if (selfPops > 0) { selfPops--; return; }
+    if (searchSelfPops > 0) {
+      // 검색 히스토리 되감기(코드의 back())의 메아리 — 사용자 뒤로가기가 아니므로 검색창을 건드리지 않는다.
+      // 그 사이 다시 push 됐다면(되감기 직후 재입력) 도착한 항목 기준으로 플래그만 맞춘다.
+      // 메아리는 곧바로 오므로, 오래된 카운터는 버려 사용자 뒤로가기를 삼키지 않게 한다.
+      var stale = Date.now() - searchSelfBackAt > 1500;
+      searchSelfPops = stale ? 0 : searchSelfPops - 1;
+      if (!stale) { if (searchPushed) searchPushed = !!(e.state && e.state.search); return; }
+    }
     if (current.selectMode) { exitSelectMode(true); return; } // 선택 모드 중 뒤로가기 = 이탈
     if (anyOverlayOpen()) {
       closeTop(true);
     } else if (searchPushed) {
-      // 검색 중 뒤로가기 → 앱을 나가지 않고 검색어부터 비운다.
-      // 도착한 항목이 여전히 검색 항목({search})이면 코드가 back() 직후 다시 push 한 경합(IME 조합 등) —
-      // 사용자의 뒤로가기가 아니므로 검색창을 건드리지 않는다(안전망).
-      if (e.state && e.state.search) return;
+      // 검색 중 뒤로가기 → 앱을 나가지 않고 검색어부터 비운다
       searchPushed = false;
       resetSearchUI();
     } else if (e.state && e.state.detail) {

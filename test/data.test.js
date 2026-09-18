@@ -123,3 +123,16 @@ test("부서 내 자동정렬(B): 직책→직급→가나다, 수동 사원순�
   assert.deepEqual(a.win.Data.membersOfDept(1).map((m) => m.name),
     ["하급자", "팀장님", "사무관님", "가급자"], "수동 사원순서 우선");
 });
+
+test("검색: 한글 자모 분해형(NFD) 데이터·검색어도 완성형(NFC)과 서로 매칭", async () => {
+  // macOS/iOS 에서 만든 CSV·백업의 한글이 NFD 로 들어오는 경우 — 인덱스와 검색어를 NFC 로 맞춰야 한다.
+  const nfd = (s) => s.normalize("NFD");
+  const base = JSON.parse(JSON.stringify(BASE));
+  base.contacts.push({ id: 105, name: nfd("최분해"), deptId: 2, position: nfd("주무관"), work: nfd("민원") });
+  const a = loadApp(base); await a.win.Data.load(); const D = a.win.Data;
+  assert.ok(D.search("최분해").some((c) => c.id === 105), "NFD 이름을 NFC 검색어로");
+  assert.ok(D.search(nfd("홍길동")).some((c) => c.id === 101), "NFC 이름을 NFD 검색어로");
+  assert.ok(D.search("ㅊㅂㅎ").some((c) => c.id === 105), "NFD 이름의 초성 검색");
+  assert.ok(D.search("직책:주무관").some((c) => c.id === 105), "NFD 필드값을 필드 검색으로");
+  assert.ok(D.search(nfd("업무:민원")).some((c) => c.id === 105), "NFD 필드 검색어");
+});

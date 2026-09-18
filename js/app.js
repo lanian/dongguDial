@@ -1923,17 +1923,42 @@
   });
   // 모바일: 엔터(검색 키)를 누르면 키보드가 사라지도록 입력 포커스를 해제한다.
   // 라이브 목록이 이미 결과를 보여주므로 제출은 없고, 디바운스 대기 중이면 즉시 반영한다.
-  searchInput.addEventListener("keydown", function (e) {
-    if (e.key !== "Enter") return;
-    if (e.isComposing || e.keyCode === 229) return; // 한글 조합 확정 중 — IME 에 맡김(조합 중 열림 방지)
-    e.preventDefault();      // 폼 제출·줄바꿈 등 기본 동작 방지
+  function submitSearch() {
+    searchEnterPending = false;
     clearTimeout(searchTimer);
+    current.query = searchInput.value; // 조합 확정 직후 값(마지막 input 이벤트 이후 바뀌었을 수 있음)
+    searchClear.hidden = !searchInput.value;
     render();                // 대기 중인 디바운스를 즉시 반영
     searchInput.blur();      // 소프트 키보드 내림
     var q = current.query.trim();
     var results = q ? Data.search(q) : [];
     if (results.length === 1) openDetail(results[0]); // 결과가 정확히 1명이면 바로 상세 열기(여러/0건은 목록 유지)
+  }
+  // 한글 조합 중 Enter 처리는 기기별로 다르다:
+  //  · 물리 키보드(데스크톱 IME): 첫 Enter = 조합 확정, 다음 Enter = 검색 → 조합 중 Enter 는 IME 에 맡긴다.
+  //  · 터치(iOS/Android 소프트키보드): iOS Safari 는 한글 마지막 글자를 항상 조합(marked text) 상태로 두고
+  //    '검색' 키의 keydown 을 isComposing=true 로 한 번만 보낸다(두 번째 keydown 없음). 그래서 조합 중이라고
+  //    무시하면 검색 키가 먹통(키보드 안 내려감·1명 상세 열기 안 됨)이 된다 → 보류해 두었다가
+  //    compositionend(조합 확정) 또는 keyup 에서 실행한다.
+  var searchEnterPending = false;
+  searchInput.addEventListener("keydown", function (e) {
+    if (e.key !== "Enter") return;
+    if (e.isComposing || e.keyCode === 229) {
+      if (!kbDevice) searchEnterPending = true; // 터치 기기: 조합 확정 뒤 검색 실행
+      return; // IME 조합 확정은 브라우저에 맡김(preventDefault 하면 조합이 깨질 수 있음)
+    }
+    e.preventDefault();      // 폼 제출·줄바꿈 등 기본 동작 방지
+    submitSearch();
   });
+  searchInput.addEventListener("compositionend", function () {
+    // iOS 는 keydown(Enter, composing) 직후 compositionend 를 보낸다 — 확정된 값으로 검색 실행.
+    if (searchEnterPending) setTimeout(submitSearch, 0); // input 이벤트가 값 반영을 마친 뒤
+  });
+  searchInput.addEventListener("keyup", function (e) {
+    // compositionend 가 오지 않는 IME(조합 아님·keyCode 229 만 보내는 경우) 폴백
+    if (e.key === "Enter" && searchEnterPending) submitSearch();
+  });
+  searchInput.addEventListener("blur", function () { searchEnterPending = false; }); // 다른 곳 탭 → 보류 취소
   searchClear.addEventListener("click", function () {
     resetSearchUI();
     unwindSearchHistory();

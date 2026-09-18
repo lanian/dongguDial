@@ -16,6 +16,12 @@
   function normalizeDigits(s) {
     return (s || "").replace(/\D/g, "");
   }
+  // 한글 유니코드 정규화(NFC). macOS/iOS 에서 만든 파일(CSV·xlsx·백업)의 한글이 자모 분해형(NFD)이면
+  // 완성형(NFC)으로 입력하는 검색어와 문자열이 달라 매칭·초성 추출 모두 실패한다 → 인덱스와 검색어를 같은 형태로.
+  function nfc(s) {
+    s = (s || "").toString();
+    return s.normalize ? s.normalize("NFC") : s;
+  }
   // 근무 배치(파견) 표시용 얕은 사본 — 근무지 섹션에 '소속: X'로 등장. 원본과 같은 id.
   function asWork(c) { var p = Object.assign({}, c); p._asWork = true; return p; }
 
@@ -116,20 +122,21 @@
     // 행 표시용: 상위 1단계 + 말단(예: '총무과 › 인사팀'). 그룹 헤더 없는 가나다순·검색에서 맥락 제공.
     c._deptShort = pathNames.length >= 2 ? (pathNames[1] + " › " + pathNames[0]) : (pathNames[0] || c.dept || "");
     var parts = [c.name, deptAll, c.team, c.position, c.grade, c.work, st, c.memo].filter(Boolean);
-    c._haystack = parts.join(" ").toLowerCase();
-    c._choName = chosung(c.name || "");
+    c._haystack = nfc(parts.join(" ")).toLowerCase();
+    c._choName = chosung(nfc(c.name));
     c._phoneDigits = normalizeDigits(c.phone) + " " + normalizeDigits(c.tel);
-    // 필드 필터(부서:·직책: 등)용 필드별 소문자 인덱스
+    // 필드 필터(부서:·직책: 등)용 필드별 소문자 인덱스(NFC 정규화 — 검색어와 같은 형태)
+    function idx(v) { return nfc(v).toLowerCase(); }
     c._fields = {
-      name: (c.name || "").toLowerCase(),
-      dept: deptAll.toLowerCase(),
-      team: (c.team || "").toLowerCase(),
-      position: (c.position || "").toLowerCase(),
-      grade: (c.grade || "").toLowerCase(),
-      work: (c.work || "").toLowerCase(),
-      status: (c.status || "").toLowerCase(),
-      birth: (c.birth || "").toLowerCase(),
-      memo: (c.memo || "").toLowerCase(),
+      name: idx(c.name),
+      dept: idx(deptAll),
+      team: idx(c.team),
+      position: idx(c.position),
+      grade: idx(c.grade),
+      work: idx(c.work),
+      status: idx(c.status),
+      birth: idx(c.birth),
+      memo: idx(c.memo),
       phone: c._phoneDigits,
     };
   }
@@ -180,14 +187,14 @@
       var f = FIELD_ALIASES[tok.slice(0, colon).toLowerCase()];
       if (f) { field = f; value = tok.slice(colon + 1); }
     }
-    value = value.toLowerCase().trim();
+    value = nfc(value).toLowerCase().trim(); // 인덱스(NFC)와 같은 형태로 — 자모 분해형 입력·붙여넣기 대비
     if (!value) return null;
     return { neg: neg, field: field, value: value };
   }
 
   // 쿼리 → [[clause…AND] …OR] 또는 null(빈 쿼리)
   function parseQuery(query) {
-    var q = (query || "").trim();
+    var q = nfc(query).trim();
     if (!q) return null;
     var groups = [[]];
     tokenizeQuery(q).forEach(function (t) {

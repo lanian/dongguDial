@@ -1913,11 +1913,17 @@
     render();
   }
   var searchTimer;
-  searchInput.addEventListener("input", function () {
-    current.query = searchInput.value;
-    searchClear.hidden = !searchInput.value;
-    if (searchInput.value) beginSearchHistory();
-    else unwindSearchHistory(); // 사용자가 직접 글자를 모두 지움
+  searchInput.addEventListener("input", function (e) {
+    var v = searchInput.value;
+    current.query = v;
+    searchClear.hidden = !v;
+    if (v) beginSearchHistory();
+    // 사용자가 직접 글자를 모두 지움 → 검색 히스토리 되감기.
+    // 단, IME 조합 중의 '일시적 빈 값'은 제외: Safari(iOS)는 조합 글자를 바꿀 때마다
+    // deleteCompositionText(값 "") → insertCompositionText 두 input 이벤트를 보낸다.
+    // 첫 글자 조합('ㄱ'→'가')에서 빈 값에 back() 하고 곧바로 pushState 하면, 뒤늦게 온
+    // popstate 가 검색 중으로 판단해 검색창을 비워 버렸다(아이폰: 한 글자 완성 시 검색창 초기화).
+    else if (!(e && (e.isComposing || e.inputType === "deleteCompositionText"))) unwindSearchHistory();
     clearTimeout(searchTimer);
     searchTimer = setTimeout(render, 120);
   });
@@ -1953,6 +1959,8 @@
   searchInput.addEventListener("compositionend", function () {
     // iOS 는 keydown(Enter, composing) 직후 compositionend 를 보낸다 — 확정된 값으로 검색 실행.
     if (searchEnterPending) setTimeout(submitSearch, 0); // input 이벤트가 값 반영을 마친 뒤
+    // 조합 중엔 빈 값 되감기를 미뤘으므로, 조합이 끝났는데 정말 비어 있으면(조합 글자를 지움) 여기서 되감는다.
+    else if (!searchInput.value) unwindSearchHistory();
   });
   searchInput.addEventListener("keyup", function (e) {
     // compositionend 가 오지 않는 IME(조합 아님·keyCode 229 만 보내는 경우) 폴백
@@ -2597,7 +2605,10 @@
     if (anyOverlayOpen()) {
       closeTop(true);
     } else if (searchPushed) {
-      // 검색 중 뒤로가기 → 앱을 나가지 않고 검색어부터 비운다
+      // 검색 중 뒤로가기 → 앱을 나가지 않고 검색어부터 비운다.
+      // 도착한 항목이 여전히 검색 항목({search})이면 코드가 back() 직후 다시 push 한 경합(IME 조합 등) —
+      // 사용자의 뒤로가기가 아니므로 검색창을 건드리지 않는다(안전망).
+      if (e.state && e.state.search) return;
       searchPushed = false;
       resetSearchUI();
     } else if (e.state && e.state.detail) {
